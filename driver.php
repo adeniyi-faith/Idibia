@@ -1,5 +1,6 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
 
 if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
     idibia_clean_json_buffer();
@@ -103,6 +104,8 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
     wp_send_json_error( [ 'message' => 'Unknown auth action.' ] );
 }
 
+=======
+>>>>>>> main
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?><!DOCTYPE html>
 <html lang="en">
@@ -1176,6 +1179,7 @@ svg { display: block; }
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">First Name</label>
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
             <input class="form-input" type="text" id="driverFirstName" placeholder="First" autocomplete="given-name">
           </div>
           <div class="form-group">
@@ -1202,6 +1206,16 @@ svg { display: block; }
           <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
         </div>
         <div class="form-group">
+=======
+            <input class="form-input" type="text" placeholder="First">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Middle Name</label>
+            <input class="form-input" type="text" placeholder="Middle">
+          </div>
+        </div>
+        <div class="form-group">
+>>>>>>> main
           <label class="form-label">Date of Birth</label>
           <input class="form-input" type="date">
         </div>
@@ -1981,6 +1995,7 @@ svg { display: block; }
 <script>
 // ===== ONBOARDING =====
 let driverStep = 1;
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
 let driverAuthenticated = false;
 const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
 
@@ -2069,6 +2084,10 @@ async function submitDriverSignup() {
   return false;
 }
 
+=======
+const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
+
+>>>>>>> main
 function updateDriver() {
   for (let i = 1; i <= 5; i++) {
     document.getElementById('dstep-' + i).classList.toggle('active', i === driverStep);
@@ -2099,12 +2118,16 @@ function updateDriver() {
   }
 }
 
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
 async function driverNext() {
   if (driverStep === 1 && !driverAuthenticated) {
     const created = await submitDriverSignup();
     if (!created) return;
   }
 
+=======
+function driverNext() {
+>>>>>>> main
   if (driverStep < 5) {
     driverStep++;
     updateDriver();
