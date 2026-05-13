@@ -1,8 +1,8 @@
-<?php
+<?php ob_start();
 /** Idibia — Admin API Router */
 
-define( 'WP_USE_THEMES', false );
-require_once __DIR__ . '/../wp/wp-load.php';
+require_once __DIR__ . '/../wp-auth-config.php';
+idibia_clean_json_buffer();
 
 if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
     http_response_code( 401 );

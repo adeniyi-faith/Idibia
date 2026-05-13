@@ -1,8 +1,116 @@
-<?php
-define( 'WP_USE_THEMES', false );
-require_once __DIR__ . '/wp/wp-load.php';
+<?php ob_start();
+require_once __DIR__ . '/wp-auth-config.php';
+
+if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
+    idibia_clean_json_buffer();
+
+    $action = sanitize_key( wp_unslash( $_POST['action'] ) );
+
+    if ( $action === 'login' ) {
+        $identifier = sanitize_text_field( wp_unslash( $_POST['phone'] ?? $_POST['email'] ?? '' ) );
+        $password   = (string) ( $_POST['password'] ?? '' );
+
+        if ( ! $identifier || ! $password ) {
+            wp_send_json_error( [ 'message' => 'Enter your phone/email and password.' ] );
+        }
+
+        $user = wp_signon( [
+            'user_login'    => idibia_find_user_login_by_identifier( $identifier ),
+            'user_password' => $password,
+            'remember'      => true,
+        ], is_ssl() );
+
+        if ( is_wp_error( $user ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid login details.' ] );
+        }
+
+        if ( get_user_meta( $user->ID, 'idibia_account_type', true ) !== 'customer' ) {
+            wp_logout();
+            wp_send_json_error( [ 'message' => 'Use a customer account to sign in here.' ] );
+        }
+
+        if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' ) {
+            wp_logout();
+            wp_send_json_error( [ 'message' => 'Your account is not active. Contact support.' ] );
+        }
+
+        idibia_finish_wordpress_login( $user );
+        idibia_find_or_create_profile_row( $user->ID, 'customer' );
+
+        wp_send_json_success( [
+            'redirect'   => '/index.php',
+            'first_name' => idibia_first_name_from_user( $user ),
+        ] );
+    }
+
+    if ( $action === 'signup' ) {
+        $full_name = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );
+        $phone     = preg_replace( '/[\s\-()]/', '', sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ) );
+        $email     = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
+        $password  = (string) ( $_POST['password'] ?? '' );
+        $terms     = ! empty( $_POST['terms'] );
+        $errors    = [];
+
+        if ( strlen( $full_name ) < 2 ) $errors[] = 'Please enter your full name.';
+        if ( ! is_email( $email ) ) $errors[] = 'Enter a valid email address.';
+        if ( ! preg_match( '/^(\+?234|0)[789][01]\d{8}$/', $phone ) ) $errors[] = 'Enter a valid Nigerian phone number (e.g. 08012345678).';
+        if ( strlen( $password ) < 6 ) $errors[] = 'Password must be at least 6 characters.';
+        if ( ! $terms ) $errors[] = 'You must agree to the Terms of Service to continue.';
+
+        if ( $errors ) {
+            wp_send_json_error( [ 'message' => implode( ' ', $errors ) ] );
+        }
+
+        if ( username_exists( $phone ) ) {
+            wp_send_json_error( [ 'message' => 'Phone already registered. Try logging in.' ] );
+        }
+
+        if ( email_exists( $email ) ) {
+            wp_send_json_error( [ 'message' => 'Email already in use. Try logging in.' ] );
+        }
+
+        [ $first_name, $last_name ] = idibia_split_full_name( $full_name );
+        $user_id = wp_insert_user( [
+            'user_login'   => $phone,
+            'user_pass'    => $password,
+            'user_email'   => $email,
+            'first_name'   => $first_name,
+            'last_name'    => $last_name,
+            'display_name' => $full_name,
+            'role'         => 'subscriber',
+        ] );
+
+        if ( is_wp_error( $user_id ) ) {
+            wp_send_json_error( [ 'message' => $user_id->get_error_message() ?: 'Something went wrong. Please try again.' ] );
+        }
+
+        update_user_meta( $user_id, 'idibia_account_type', 'customer' );
+        update_user_meta( $user_id, 'idibia_account_status', 'active' );
+        update_user_meta( $user_id, 'idibia_credit_score', 50 );
+        update_user_meta( $user_id, 'idibia_phone', $phone );
+
+        idibia_find_or_create_profile_row( $user_id, 'customer', [
+            'full_name' => $full_name,
+            'email'     => $email,
+            'phone'     => $phone,
+        ] );
+
+        $user = get_user_by( 'id', $user_id );
+        idibia_finish_wordpress_login( $user );
+
+        wp_send_json_success( [
+            'redirect'   => '/index.php',
+            'first_name' => $first_name,
+            'message'    => 'Account created successfully.',
+        ] );
+    }
+
+    wp_send_json_error( [ 'message' => 'Unknown auth action.' ] );
+}
+
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
+if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1495,25 +1603,39 @@ let onbSlide = 0;
 let selectedCategory = 'Package';
 let currentRating = 5;
 let etaInterval = null;
-const IDIBIA_API_BASE = 'https://projects.faithadeniyi.online';
+const IDIBIA_API_BASE = window.location.origin;
 const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
+
+async function parseJsonResponse(response, label) {
+  const rawText = await response.text();
+  try {
+    return JSON.parse(rawText);
+  } catch (err) {
+    console.error('Raw response from ' + label + ':', rawText);
+    throw new Error('Invalid server response');
+  }
+}
 
 async function idibiaPost(endpoint, body = null) {
   const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
     method: 'POST',
     body,
-    credentials: 'include',
+    credentials: 'same-origin',
     headers: { 'Accept': 'application/json' }
   });
 
-  const contentType = res.headers.get('content-type') || '';
-  const json = contentType.includes('application/json') ? await res.json() : null;
+  return parseJsonResponse(res, endpoint);
+}
 
-  if (!json) {
-    throw new Error(`Unexpected ${res.status} response from ${endpoint}`);
-  }
+async function idibiaAuthPost(body) {
+  const res = await fetch(window.location.href, {
+    method: 'POST',
+    body,
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json' }
+  });
 
-  return json;
+  return parseJsonResponse(res, window.location.href);
 }
 
 // ═══════════ INIT ═══════════
@@ -1653,12 +1775,12 @@ async function doLogin() {
 
   try {
     const body = new FormData();
-    body.append('email', identifier);
+    body.append('action', 'login');
+    body.append('phone', identifier);
     body.append('password', password);
 
-    const json = await idibiaPost('login-handler.php', body);
+    const json = await idibiaAuthPost(body);
     if (json.success) {
-      if (json.data?.token) sessionStorage.setItem('idibia_token', json.data.token);
       enterCustomerApp(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
     } else {
       errorText.textContent = json.data?.message || 'Login failed. Please try again.';
@@ -1886,6 +2008,7 @@ async function doRegister() {
 
   try {
     const body = new FormData();
+    body.append( 'action',    'signup' );
     body.append( '_nonce',    nonce );
     body.append( 'full_name', full_name );
     body.append( 'phone',     phone );
@@ -1893,13 +2016,10 @@ async function doRegister() {
     body.append( 'password',  password );
     body.append( 'terms',     terms ? '1' : '' );
 
-    const json = await idibiaPost( 'register-handler.php', body );
+    const json = await idibiaAuthPost( body );
 
     if ( json.success ) {
-      const display = document.getElementById('otpEmailDisplay');
-      if ( display ) display.textContent = json.data.masked_email;
-      showToast( 'Code sent! Check your inbox.' );
-      goTo( 'screen-otp' );
+      enterCustomerApp( json.data?.first_name ? `Welcome, ${json.data.first_name}! 🎉` : 'Account created successfully.' );
     } else {
       errorText.textContent = json.data?.message || 'Registration failed. Please try again.';
       errorBox.classList.add('show');
@@ -1959,10 +2079,6 @@ async function doVerify() {
     const json = await idibiaPost( 'verify-handler.php', body );
 
     if ( json.success ) {
-      // Store session token for future authenticated requests
-      if ( json.data?.token ) {
-        sessionStorage.setItem( 'idibia_token', json.data.token );
-      }
       const name = json.data?.first_name || '';
       inputs.forEach( i => i.value = '' );
       enterCustomerApp( name ? `Welcome, ${name}! 🎉` : 'Email verified! Welcome.' );
