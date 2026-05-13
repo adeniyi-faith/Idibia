@@ -2,6 +2,7 @@
 define( 'WP_USE_THEMES', false );
 require_once __DIR__ . '/wp/wp-load.php';
 $register_nonce = wp_create_nonce( 'idibia_register' );
+$verify_nonce   = wp_create_nonce( 'idibia_verify' );
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1493,6 +1494,26 @@ let onbSlide = 0;
 let selectedCategory = 'Package';
 let currentRating = 5;
 let etaInterval = null;
+const IDIBIA_API_BASE = 'https://projects.faithadeniyi.online';
+const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
+
+async function idibiaPost(endpoint, body = null) {
+  const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
+    method: 'POST',
+    body,
+    credentials: 'include',
+    headers: { 'Accept': 'application/json' }
+  });
+
+  const contentType = res.headers.get('content-type') || '';
+  const json = contentType.includes('application/json') ? await res.json() : null;
+
+  if (!json) {
+    throw new Error(`Unexpected ${res.status} response from ${endpoint}`);
+  }
+
+  return json;
+}
 
 // ═══════════ INIT ═══════════
 document.addEventListener('DOMContentLoaded', () => {
@@ -1513,11 +1534,11 @@ function initOnboardingSwipe() {
   if (!slidesWrap) return;
   let touchStartX = 0;
   let touchEndX = 0;
-  
+
   slidesWrap.addEventListener('touchstart', e => {
     touchStartX = e.changedTouches[0].screenX;
   }, {passive: true});
-  
+
   slidesWrap.addEventListener('touchend', e => {
     touchEndX = e.changedTouches[0].screenX;
     if (touchStartX - touchEndX > 50) {
@@ -1838,8 +1859,7 @@ async function doRegister() {
     body.append( 'password',  password );
     body.append( 'terms',     terms ? '1' : '' );
 
-    const res  = await fetch( 'https://projects.faithadeniyi.online/register-handler.php', { method: 'POST', body } );
-    const json = await res.json();
+    const json = await idibiaPost( 'register-handler.php', body );
 
     if ( json.success ) {
       const display = document.getElementById('otpEmailDisplay');
@@ -1851,7 +1871,7 @@ async function doRegister() {
       errorBox.classList.add('show');
     }
   } catch ( err ) {
-    errorText.textContent = 'Connection error. Check your internet and try again.';
+    errorText.textContent = 'Could not reach Idibia right now. Please check your connection and try again.';
     errorBox.classList.add('show');
   } finally {
     btn.disabled  = false;
@@ -1863,15 +1883,17 @@ async function doRegister() {
 async function resendCode() {
   showToast( 'Sending a new code\u2026' );
   try {
-    const res  = await fetch( 'https://projects.faithadeniyi.online/resend-code.php', { method: 'POST' } );
-    const json = await res.json();
+    const body = new FormData();
+    body.append( '_nonce', IDIBIA_VERIFY_NONCE );
+
+    const json = await idibiaPost( 'resend-code.php', body );
     if ( json.success ) {
       showToast( 'New code sent! Check your inbox.' );
     } else {
       showToast( json.data?.message || 'Could not resend. Try again.' );
     }
   } catch {
-    showToast( 'Connection error. Try again.' );
+    showToast( 'Could not reach Idibia right now. Try again.' );
   }
 }
 
@@ -1897,10 +1919,10 @@ async function doVerify() {
 
   try {
     const body = new FormData();
+    body.append( '_nonce', IDIBIA_VERIFY_NONCE );
     body.append( 'code', code );
 
-    const res  = await fetch( 'https://projects.faithadeniyi.online/verify-handler.php', { method: 'POST', body } );
-    const json = await res.json();
+    const json = await idibiaPost( 'verify-handler.php', body );
 
     if ( json.success ) {
       // Store session token for future authenticated requests
@@ -1916,7 +1938,7 @@ async function doVerify() {
       errorBox.classList.add('show');
     }
   } catch ( err ) {
-    errorText.textContent = 'Connection error. Check your internet and try again.';
+    errorText.textContent = 'Could not reach Idibia right now. Please check your connection and try again.';
     errorBox.classList.add('show');
   } finally {
     btn.disabled  = false;
