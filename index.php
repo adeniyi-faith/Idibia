@@ -11,6 +11,7 @@ $verify_nonce   = wp_create_nonce( 'idibia_verify' );
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=0">
 <meta name="theme-color" content="#0B1628">
 <title>Idibia — Customer App</title>
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
 <style>
@@ -1630,10 +1631,43 @@ function switchAuth(login) {
   document.getElementById('registerView').style.display = login ? 'none' : '';
 }
 
-function doLogin() {
+function enterCustomerApp(message = 'Welcome back 👋') {
   closeAllModals();
   goTo('screen-main');
-  showToast('Welcome back 👋');
+  showToast(message);
+}
+
+async function doLogin() {
+  const errorBox  = document.getElementById('authError');
+  const errorText = document.getElementById('authErrorText');
+  const identifier = document.getElementById('loginEmail').value.trim();
+  const password   = document.getElementById('loginPass').value;
+
+  errorBox.classList.remove('show');
+
+  if (!identifier || !password) {
+    errorText.textContent = 'Enter your email/phone and password.';
+    errorBox.classList.add('show');
+    return;
+  }
+
+  try {
+    const body = new FormData();
+    body.append('email', identifier);
+    body.append('password', password);
+
+    const json = await idibiaPost('login-handler.php', body);
+    if (json.success) {
+      if (json.data?.token) sessionStorage.setItem('idibia_token', json.data.token);
+      enterCustomerApp(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
+    } else {
+      errorText.textContent = json.data?.message || 'Login failed. Please try again.';
+      errorBox.classList.add('show');
+    }
+  } catch (err) {
+    errorText.textContent = 'Could not reach Idibia right now. Please check your connection and try again.';
+    errorBox.classList.add('show');
+  }
 }
 
 // ═══════════ TAB SWITCHING ═══════════
@@ -1930,9 +1964,8 @@ async function doVerify() {
         sessionStorage.setItem( 'idibia_token', json.data.token );
       }
       const name = json.data?.first_name || '';
-      showToast( name ? `Welcome, ${name}! \ud83c\udf89` : 'Email verified! Welcome.' );
       inputs.forEach( i => i.value = '' );
-      doLogin();
+      enterCustomerApp( name ? `Welcome, ${name}! 🎉` : 'Email verified! Welcome.' );
     } else {
       errorText.textContent = json.data?.message || 'Verification failed. Please try again.';
       errorBox.classList.add('show');
