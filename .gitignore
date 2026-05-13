@@ -1,0 +1,34 @@
+# Backups
+wp/wp-content/backuply/
+
+# Zip files and data exports
+wp/*.zip
+wp/*.json
+
+# Server config
+wp/.htaccess
+wp/web.config# WordPress 
+core - ignore everything
+wp/wp-admin/
+wp/wp-includes/
+wp/wp-content/themes/
+wp/wp-content/plugins/
+wp/wp-content/uploads/
+wp/*.php
+wp/*.txt
+wp/*.html
+wp/*.xml
+
+# Keep ONLY your mu-plugins
+!wp/wp-content/mu-plugins/
+
+# Sensitive config - never upload these
+config.php
+wp/wp-config.php
+.env
+
+# System junk
+.DS_Store
+Thumbs.db
+*.log
+error_log
