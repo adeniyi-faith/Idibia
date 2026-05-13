@@ -1,0 +1,8 @@
+---
+deployment:
+  tasks:
+    - export 
+DEPLOYPATH=/home2/rainofbl/public_html/projects.faithadeniyi.online
+    - /bin/cp -R 
+%{current_working_directory}/* $DEPLOYPATH
+
