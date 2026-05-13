@@ -1,8 +1,8 @@
-<?php
-define( 'WP_USE_THEMES', false );
-require_once __DIR__ . '/wp/wp-load.php';
+<?php ob_start();
+require_once __DIR__ . '/wp-auth-config.php';
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
+if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1495,25 +1495,24 @@ let onbSlide = 0;
 let selectedCategory = 'Package';
 let currentRating = 5;
 let etaInterval = null;
-const IDIBIA_API_BASE = 'https://projects.faithadeniyi.online';
+const IDIBIA_API_BASE = window.location.origin;
 const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
 
 async function idibiaPost(endpoint, body = null) {
   const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
     method: 'POST',
     body,
-    credentials: 'include',
+    credentials: 'same-origin',
     headers: { 'Accept': 'application/json' }
   });
 
-  const contentType = res.headers.get('content-type') || '';
-  const json = contentType.includes('application/json') ? await res.json() : null;
-
-  if (!json) {
-    throw new Error(`Unexpected ${res.status} response from ${endpoint}`);
+  const rawText = await res.text();
+  try {
+    return JSON.parse(rawText);
+  } catch (err) {
+    console.error('Raw response from ' + endpoint + ':', rawText);
+    throw new Error('Invalid server response');
   }
-
-  return json;
 }
 
 // ═══════════ INIT ═══════════
@@ -1658,7 +1657,6 @@ async function doLogin() {
 
     const json = await idibiaPost('login-handler.php', body);
     if (json.success) {
-      if (json.data?.token) sessionStorage.setItem('idibia_token', json.data.token);
       enterCustomerApp(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
     } else {
       errorText.textContent = json.data?.message || 'Login failed. Please try again.';
@@ -1896,10 +1894,7 @@ async function doRegister() {
     const json = await idibiaPost( 'register-handler.php', body );
 
     if ( json.success ) {
-      const display = document.getElementById('otpEmailDisplay');
-      if ( display ) display.textContent = json.data.masked_email;
-      showToast( 'Code sent! Check your inbox.' );
-      goTo( 'screen-otp' );
+      enterCustomerApp( json.data?.first_name ? `Welcome, ${json.data.first_name}! 🎉` : 'Account created successfully.' );
     } else {
       errorText.textContent = json.data?.message || 'Registration failed. Please try again.';
       errorBox.classList.add('show');
@@ -1959,10 +1954,6 @@ async function doVerify() {
     const json = await idibiaPost( 'verify-handler.php', body );
 
     if ( json.success ) {
-      // Store session token for future authenticated requests
-      if ( json.data?.token ) {
-        sessionStorage.setItem( 'idibia_token', json.data.token );
-      }
       const name = json.data?.first_name || '';
       inputs.forEach( i => i.value = '' );
       enterCustomerApp( name ? `Welcome, ${name}! 🎉` : 'Email verified! Welcome.' );

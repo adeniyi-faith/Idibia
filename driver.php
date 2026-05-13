@@ -1,4 +1,7 @@
-<!DOCTYPE html>
+<?php ob_start();
+require_once __DIR__ . '/wp-auth-config.php';
+if ( ob_get_level() > 0 ) ob_end_flush();
+?><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1355,7 +1358,7 @@ svg { display: block; }
 
           <!-- HOME TAB -->
           <div class="dash-panel active" id="panel-home">
-            
+
             <!-- Clean, minimal Top Bar restricted to Home Tab -->
             <div class="home-top-bar">
               <div class="dash-top-left">
@@ -1866,7 +1869,7 @@ function updateDriver() {
   document.getElementById('driverStepNum').textContent = driverStep;
   document.getElementById('driverStepTitle').textContent = driverTitles[driverStep - 1];
   document.getElementById('driverProgress').style.width = (driverStep / 5 * 100) + '%';
-  
+
   // Elements to hide/show for Step 5
   const backBtn = document.getElementById('driverBack');
   const nextBtn = document.getElementById('driverNext');
@@ -1890,17 +1893,17 @@ function updateDriver() {
 }
 
 function driverNext() {
-  if (driverStep < 5) { 
-    driverStep++; 
-    updateDriver(); 
-    document.getElementById('driverContent').scrollTop = 0; 
+  if (driverStep < 5) {
+    driverStep++;
+    updateDriver();
+    document.getElementById('driverContent').scrollTop = 0;
   }
 }
 function driverPrev() {
-  if (driverStep > 1) { 
-    driverStep--; 
-    updateDriver(); 
-    document.getElementById('driverContent').scrollTop = 0; 
+  if (driverStep > 1) {
+    driverStep--;
+    updateDriver();
+    document.getElementById('driverContent').scrollTop = 0;
   }
 }
 
@@ -1929,11 +1932,11 @@ let currentTab = 'home';
 function toggleOnline() {
   isOnline = !isOnline;
   const toggle = document.getElementById('onlineToggle');
-  
+
   toggle.classList.toggle('online', isOnline);
   toggle.classList.toggle('offline', !isOnline);
   document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
-  
+
   showToast(isOnline ? '✓ You are now online' : 'You are now offline');
 }
 
@@ -1953,7 +1956,7 @@ function switchTab(tab) {
   const tabOrder = ['home','earnings','trips','help','profile'];
   const idx = tabOrder.indexOf(tab);
   if (sidebarItems[idx]) sidebarItems[idx].classList.add('active');
-  
+
   document.getElementById('dashBody').scrollTop = 0;
 }
 

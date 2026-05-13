@@ -1,3 +1,99 @@
+<?php ob_start();
+require_once __DIR__ . '/wp-auth-config.php';
+
+if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
+    idibia_clean_json_buffer();
+    $action = sanitize_key( wp_unslash( $_POST['action'] ) );
+
+    if ( $action === 'admin_login' ) {
+        $identifier = sanitize_text_field( wp_unslash( $_POST['login'] ?? '' ) );
+        $password   = (string) ( $_POST['password'] ?? '' );
+
+        if ( ! $identifier || ! $password ) {
+            wp_send_json_error( [ 'message' => 'Enter your admin login and password.' ] );
+        }
+
+        $user = wp_signon( [
+            'user_login'    => idibia_find_user_login_by_identifier( $identifier ),
+            'user_password' => $password,
+            'remember'      => true,
+        ], is_ssl() );
+
+        if ( is_wp_error( $user ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid admin login details.' ] );
+        }
+
+        idibia_finish_wordpress_login( $user );
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_logout();
+            wp_send_json_error( [ 'message' => 'This account does not have admin access.' ] );
+        }
+
+        wp_send_json_success( [ 'redirect' => '/admin.php' ] );
+    }
+
+    if ( $action === 'admin_logout' ) {
+        wp_logout();
+        wp_send_json_success( [ 'redirect' => '/admin.php' ] );
+    }
+
+    wp_send_json_error( [ 'message' => 'Unknown action.' ] );
+}
+
+if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+    if ( ob_get_level() > 0 ) ob_end_flush();
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Idibia — Admin Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;display:grid;place-items:center;background:#0B1628;color:#fff;font-family:'DM Sans',sans-serif;padding:20px}.card{width:min(100%,420px);background:#fff;color:#0B1628;border-radius:24px;padding:28px;box-shadow:0 24px 80px rgba(0,0,0,.28)}h1{font-family:'Syne',sans-serif;font-size:28px;margin-bottom:8px}.sub{color:#5A6B85;margin-bottom:24px;line-height:1.5}.field{margin-bottom:14px}.field label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5A6B85;margin-bottom:7px}.field input{width:100%;height:48px;border:1.5px solid #E8ECF3;border-radius:12px;padding:0 14px;font:inherit;outline:none}.field input:focus{border-color:#F5C842}.btn{width:100%;height:50px;border:0;border-radius:14px;background:#F5C842;color:#0B1628;font-weight:800;font-size:15px;cursor:pointer}.err{display:none;margin:0 0 14px;padding:10px 12px;border-radius:10px;background:rgba(232,72,74,.1);color:#E8484A;font-size:13px}.err.show{display:block}.brand{width:44px;height:44px;border-radius:14px;background:#F5C842;display:grid;place-items:center;color:#0B1628;font-weight:900;margin-bottom:18px}</style>
+</head>
+<body>
+  <form class="card" id="adminLoginForm">
+    <div class="brand">ID</div>
+    <h1>Admin Login</h1>
+    <p class="sub">Sign in with a WordPress administrator account to manage Idibia operations.</p>
+    <div class="err" id="adminLoginError"></div>
+    <div class="field"><label for="adminLogin">Email, username, or phone</label><input id="adminLogin" name="login" autocomplete="username" required></div>
+    <div class="field"><label for="adminPassword">Password</label><input id="adminPassword" name="password" type="password" autocomplete="current-password" required></div>
+    <button class="btn" id="adminLoginBtn">Sign In</button>
+  </form>
+<script>
+document.getElementById('adminLoginForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const btn = document.getElementById('adminLoginBtn');
+  const err = document.getElementById('adminLoginError');
+  err.classList.remove('show');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  try {
+    const body = new FormData(event.currentTarget);
+    body.append('action', 'admin_login');
+    const response = await fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' });
+    const rawText = await response.text();
+    let data;
+    try { data = JSON.parse(rawText); } catch (e) { console.error('Raw response:', rawText); throw new Error('Invalid server response'); }
+    if (data.success) window.location.href = data.data.redirect || '/admin.php';
+    else { err.textContent = data.data?.message || 'Login failed.'; err.classList.add('show'); }
+  } catch (e) { err.textContent = 'Could not reach Idibia right now. Please try again.'; err.classList.add('show'); }
+  finally { btn.disabled = false; btn.textContent = 'Sign In'; }
+});
+</script>
+</body>
+</html>
+    <?php
+    exit;
+}
+
+if ( ob_get_level() > 0 ) ob_end_flush();
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -37,7 +133,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 /* SIDEBAR */
 .sidebar {
   position: fixed; top: 0; left: -280px; bottom: 0; width: 260px;
-  background: var(--navy); display: flex; flex-direction: column; 
+  background: var(--navy); display: flex; flex-direction: column;
   padding: 20px 14px; overflow-y: auto; overflow-x: hidden;
   z-index: 1000; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   gap: 2px;
@@ -92,7 +188,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 @media(min-width:600px){.topbar{padding:12px 20px;}}
 .topbar-left{display:flex;align-items:center;gap:12px;}
 .mobile-menu-btn {
-  display: flex; align-items: center; justify-content: center; background: none; 
+  display: flex; align-items: center; justify-content: center; background: none;
   border: none; color: var(--text-primary); padding: 4px; margin-left: -4px;
 }
 @media(min-width:900px){.mobile-menu-btn{display:none;}}
@@ -814,7 +910,7 @@ function nav(name,btn){
   document.getElementById('topbar-title').textContent=panels[name]||name;
   document.getElementById('topbar-sub').textContent=subs[name]||'';
   document.getElementById('notifPanel').classList.remove('open');
-  
+
   // Close sidebar on mobile after navigation
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
