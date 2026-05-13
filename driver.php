@@ -1,5 +1,111 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
+
+if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
+    idibia_clean_json_buffer();
+
+    $action = sanitize_key( wp_unslash( $_POST['action'] ) );
+
+    if ( $action === 'login' ) {
+        $identifier = sanitize_text_field( wp_unslash( $_POST['phone'] ?? $_POST['email'] ?? '' ) );
+        $password   = (string) ( $_POST['password'] ?? '' );
+
+        if ( ! $identifier || ! $password ) {
+            wp_send_json_error( [ 'message' => 'Enter your phone/email and password.' ] );
+        }
+
+        $user = wp_signon( [
+            'user_login'    => idibia_find_user_login_by_identifier( $identifier ),
+            'user_password' => $password,
+            'remember'      => true,
+        ], is_ssl() );
+
+        if ( is_wp_error( $user ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid login details.' ] );
+        }
+
+        if ( get_user_meta( $user->ID, 'idibia_account_type', true ) !== 'driver' ) {
+            wp_logout();
+            wp_send_json_error( [ 'message' => 'Use a driver account to sign in here.' ] );
+        }
+
+        if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' ) {
+            wp_logout();
+            wp_send_json_error( [ 'message' => 'Your driver account is suspended. Contact support.' ] );
+        }
+
+        idibia_finish_wordpress_login( $user );
+        $driver_id = idibia_find_or_create_profile_row( $user->ID, 'driver' );
+
+        wp_send_json_success( [
+            'redirect'   => '/driver.php',
+            'first_name' => idibia_first_name_from_user( $user ),
+            'driver_id'  => $driver_id,
+            'kyc_status' => get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending',
+        ] );
+    }
+
+    if ( $action === 'signup' ) {
+        $first_name = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
+        $last_name  = sanitize_text_field( wp_unslash( $_POST['last_name'] ?? '' ) );
+        $full_name  = trim( $first_name . ' ' . $last_name );
+        $phone      = preg_replace( '/[\s\-()]/', '', sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ) );
+        $email      = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
+        $password   = (string) ( $_POST['password'] ?? '' );
+        $errors     = [];
+
+        if ( strlen( $first_name ) < 2 || strlen( $last_name ) < 2 ) $errors[] = 'Please enter your first and last name.';
+        if ( ! is_email( $email ) ) $errors[] = 'Enter a valid email address.';
+        if ( ! preg_match( '/^(\+?234|0)[789][01]\d{8}$/', $phone ) ) $errors[] = 'Enter a valid Nigerian phone number.';
+        if ( strlen( $password ) < 6 ) $errors[] = 'Password must be at least 6 characters.';
+        if ( $errors ) wp_send_json_error( [ 'message' => implode( ' ', $errors ) ] );
+
+        if ( username_exists( $phone ) ) wp_send_json_error( [ 'message' => 'Phone already registered. Try logging in.' ] );
+        if ( email_exists( $email ) ) wp_send_json_error( [ 'message' => 'Email already in use. Try logging in.' ] );
+
+        $user_id = wp_insert_user( [
+            'user_login'   => $phone,
+            'user_pass'    => $password,
+            'user_email'   => $email,
+            'first_name'   => $first_name,
+            'last_name'    => $last_name,
+            'display_name' => $full_name,
+            'role'         => 'subscriber',
+        ] );
+
+        if ( is_wp_error( $user_id ) ) {
+            wp_send_json_error( [ 'message' => $user_id->get_error_message() ?: 'Something went wrong. Please try again.' ] );
+        }
+
+        update_user_meta( $user_id, 'idibia_account_type', 'driver' );
+        update_user_meta( $user_id, 'idibia_account_status', 'pending' );
+        update_user_meta( $user_id, 'idibia_kyc_status', 'pending' );
+        update_user_meta( $user_id, 'idibia_phone', $phone );
+
+        $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [
+            'full_name' => $full_name,
+            'email'     => $email,
+            'phone'     => $phone,
+        ] );
+
+        $user = get_user_by( 'id', $user_id );
+        idibia_finish_wordpress_login( $user );
+
+        wp_send_json_success( [
+            'redirect'   => '/driver.php',
+            'first_name' => $first_name,
+            'driver_id'  => $driver_id,
+            'kyc_status' => 'pending',
+            'message'    => 'Driver account created. Continue your KYC application.',
+        ] );
+    }
+
+    wp_send_json_error( [ 'message' => 'Unknown auth action.' ] );
+}
+
+=======
+>>>>>>> main
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?><!DOCTYPE html>
 <html lang="en">
@@ -1073,6 +1179,34 @@ svg { display: block; }
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">First Name</label>
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
+            <input class="form-input" type="text" id="driverFirstName" placeholder="First" autocomplete="given-name">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input class="form-input" type="text" id="driverLastName" placeholder="Last" autocomplete="family-name">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input class="form-input" type="email" id="driverEmail" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input class="form-input" type="tel" id="driverPhone" placeholder="08012345678" autocomplete="tel">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" type="password" id="driverPassword" placeholder="Min. 6 characters" autocomplete="new-password">
+        </div>
+        <div class="info-note gold" style="margin-bottom:18px">
+          Already registered? Enter your phone/email and password below, then sign in.
+          <div class="form-group" style="margin-top:12px"><input class="form-input" type="text" id="driverLoginPhone" placeholder="Phone or email" autocomplete="username"></div>
+          <div class="form-group"><input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password"></div>
+          <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
+        </div>
+        <div class="form-group">
+=======
             <input class="form-input" type="text" placeholder="First">
           </div>
           <div class="form-group">
@@ -1081,6 +1215,7 @@ svg { display: block; }
           </div>
         </div>
         <div class="form-group">
+>>>>>>> main
           <label class="form-label">Date of Birth</label>
           <input class="form-input" type="date">
         </div>
@@ -1860,8 +1995,99 @@ svg { display: block; }
 <script>
 // ===== ONBOARDING =====
 let driverStep = 1;
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
+let driverAuthenticated = false;
 const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
 
+async function parseDriverJson(response) {
+  const rawText = await response.text();
+  try {
+    return JSON.parse(rawText);
+  } catch (err) {
+    console.error('Raw driver auth response:', rawText);
+    throw new Error('Invalid server response');
+  }
+}
+
+async function driverAuthPost(body) {
+  const response = await fetch(window.location.href, {
+    method: 'POST',
+    body,
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json' }
+  });
+
+  return parseDriverJson(response);
+}
+
+async function driverLogin() {
+  const identifier = document.getElementById('driverLoginPhone').value.trim();
+  const password = document.getElementById('driverLoginPassword').value;
+
+  if (!identifier || !password) {
+    showToast('Enter your phone/email and password.');
+    return;
+  }
+
+  const body = new FormData();
+  body.append('action', 'login');
+  body.append('phone', identifier);
+  body.append('password', password);
+
+  try {
+    const json = await driverAuthPost(body);
+    if (json.success) {
+      driverAuthenticated = true;
+      showToast(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
+      goToDashboard();
+    } else {
+      showToast(json.data?.message || 'Driver login failed.');
+    }
+  } catch (err) {
+    showToast('Could not reach Idibia right now. Please try again.');
+  }
+}
+
+async function submitDriverSignup() {
+  const firstName = document.getElementById('driverFirstName').value.trim();
+  const lastName = document.getElementById('driverLastName').value.trim();
+  const email = document.getElementById('driverEmail').value.trim();
+  const phone = document.getElementById('driverPhone').value.trim();
+  const password = document.getElementById('driverPassword').value;
+
+  if (!firstName || !lastName || !email || !phone || !password) {
+    showToast('Complete your name, email, phone, and password first.');
+    return false;
+  }
+
+  const body = new FormData();
+  body.append('action', 'signup');
+  body.append('first_name', firstName);
+  body.append('last_name', lastName);
+  body.append('email', email);
+  body.append('phone', phone);
+  body.append('password', password);
+
+  try {
+    const json = await driverAuthPost(body);
+    if (json.success) {
+      driverAuthenticated = true;
+      showToast(json.data?.message || 'Driver account created. Continue your application.');
+      return true;
+    }
+
+    showToast(json.data?.message || 'Driver registration failed.');
+  } catch (err) {
+    showToast('Could not reach Idibia right now. Please try again.');
+  }
+
+  return false;
+}
+
+=======
+const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
+
+>>>>>>> main
 function updateDriver() {
   for (let i = 1; i <= 5; i++) {
     document.getElementById('dstep-' + i).classList.toggle('active', i === driverStep);
@@ -1892,7 +2118,16 @@ function updateDriver() {
   }
 }
 
+<<<<<<< codex/implement-authentication-based-on-existing-projects-pr9gxs
+async function driverNext() {
+  if (driverStep === 1 && !driverAuthenticated) {
+    const created = await submitDriverSignup();
+    if (!created) return;
+  }
+
+=======
 function driverNext() {
+>>>>>>> main
   if (driverStep < 5) {
     driverStep++;
     updateDriver();
