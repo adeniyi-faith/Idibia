@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Idibia Core Tables
  * Description: Creates Idibia custom tables on first load. Place in /wp-content/mu-plugins/
- * Version: 1.2.0
+ * Version: 1.1.0
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -12,9 +12,8 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 function idibia_maybe_create_tables() {
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
     $has_v2 = (bool) get_option( 'idibia_tables_v2' );
-    $has_v3 = (bool) get_option( 'idibia_tables_v3' );
 
-    if ( $has_v1 && $has_v2 && $has_v3 ) return;
+    if ( $has_v1 && $has_v2 ) return;
 
     idibia_create_tables();
 
@@ -23,7 +22,6 @@ function idibia_maybe_create_tables() {
     }
 
     update_option( 'idibia_tables_v2', true );
-    update_option( 'idibia_tables_v3', true );
 }
 
 function idibia_create_tables() {
@@ -76,21 +74,11 @@ function idibia_create_tables() {
         `email_verified`   TINYINT(1)       NOT NULL DEFAULT 0,
         `verify_code`      VARCHAR(10)      NULL,
         `verify_expires`   DATETIME         NULL,
-        `nin`              TEXT             NULL COMMENT 'National ID Number — encrypted AES-256-CBC',
-        `bvn`              TEXT             NULL COMMENT 'Bank Verification Number — encrypted AES-256-CBC',
-        `id_doc_type`      VARCHAR(80)      NULL,
+        `nin`              VARCHAR(11)      NULL COMMENT 'National ID Number — encrypted AES-256-CBC',
+        `bvn`              VARCHAR(11)      NULL COMMENT 'Bank Verification Number — encrypted AES-256-CBC',
         `vehicle_type`     ENUM('bike','car','van','keke') NULL,
         `vehicle_plate`    VARCHAR(20)      NULL,
         `vehicle_model`    VARCHAR(80)      NULL,
-        `bank_name`        VARCHAR(120)     NULL,
-        `account_number`   VARCHAR(30)      NULL,
-        `emergency_name`   VARCHAR(120)     NULL,
-        `emergency_phone`  VARCHAR(30)      NULL,
-        `selfie_path`      VARCHAR(255)     NULL,
-        `id_front_path`    VARCHAR(255)     NULL,
-        `id_back_path`     VARCHAR(255)     NULL,
-        `vehicle_photo_path` VARCHAR(255)   NULL,
-        `insurance_doc_path` VARCHAR(255)   NULL,
         `kyc_status`       ENUM('pending','under_review','approved','rejected') NOT NULL DEFAULT 'pending',
         `kyc_notes`        TEXT             NULL,
         `is_online`        TINYINT(1)       NOT NULL DEFAULT 0,
@@ -182,34 +170,4 @@ function idibia_create_tables() {
         ('notif_dispute_escalation', '1'),
         ('notif_daily_revenue', '1'),
         ('notif_failed_payout', '1');" );
-
-
-    idibia_upgrade_driver_kyc_columns();
-}
-
-function idibia_upgrade_driver_kyc_columns() {
-    global $wpdb;
-    $table = $wpdb->prefix . 'sd_drivers';
-
-    idibia_add_column_if_missing( $table, 'id_doc_type', '`id_doc_type` VARCHAR(80) NULL AFTER `bvn`' );
-    idibia_add_column_if_missing( $table, 'bank_name', '`bank_name` VARCHAR(120) NULL AFTER `vehicle_model`' );
-    idibia_add_column_if_missing( $table, 'account_number', '`account_number` VARCHAR(30) NULL AFTER `bank_name`' );
-    idibia_add_column_if_missing( $table, 'emergency_name', '`emergency_name` VARCHAR(120) NULL AFTER `account_number`' );
-    idibia_add_column_if_missing( $table, 'emergency_phone', '`emergency_phone` VARCHAR(30) NULL AFTER `emergency_name`' );
-    idibia_add_column_if_missing( $table, 'selfie_path', '`selfie_path` VARCHAR(255) NULL AFTER `emergency_phone`' );
-    idibia_add_column_if_missing( $table, 'id_front_path', '`id_front_path` VARCHAR(255) NULL AFTER `selfie_path`' );
-    idibia_add_column_if_missing( $table, 'id_back_path', '`id_back_path` VARCHAR(255) NULL AFTER `id_front_path`' );
-    idibia_add_column_if_missing( $table, 'vehicle_photo_path', '`vehicle_photo_path` VARCHAR(255) NULL AFTER `id_back_path`' );
-    idibia_add_column_if_missing( $table, 'insurance_doc_path', '`insurance_doc_path` VARCHAR(255) NULL AFTER `vehicle_photo_path`' );
-
-    $wpdb->query( "ALTER TABLE `$table` MODIFY `nin` TEXT NULL COMMENT 'National ID Number — encrypted AES-256-CBC'" );
-    $wpdb->query( "ALTER TABLE `$table` MODIFY `bvn` TEXT NULL COMMENT 'Bank Verification Number — encrypted AES-256-CBC'" );
-}
-
-function idibia_add_column_if_missing( string $table, string $column, string $definition ) {
-    global $wpdb;
-    $exists = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM `$table` LIKE %s", $column ) );
-    if ( ! $exists ) {
-        $wpdb->query( "ALTER TABLE `$table` ADD COLUMN $definition" );
-    }
 }

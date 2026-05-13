@@ -1495,12 +1495,11 @@ let onbSlide = 0;
 let selectedCategory = 'Package';
 let currentRating = 5;
 let etaInterval = null;
-const IDIBIA_API_BASE = window.location.origin || 'https://projects.faithadeniyi.online';
+const IDIBIA_API_BASE = 'https://projects.faithadeniyi.online';
 const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
 
 async function idibiaPost(endpoint, body = null) {
-  const cleanEndpoint = endpoint.replace(/^\/+/, '');
-  const res = await fetch(`${IDIBIA_API_BASE}/${cleanEndpoint}`, {
+  const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
     method: 'POST',
     body,
     credentials: 'include',
