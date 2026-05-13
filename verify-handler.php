@@ -23,6 +23,13 @@ if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
     wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
 }
 
+// ── CSRF: verify nonce ────────────────────────────────────────────────────────
+$nonce = isset( $_POST['_nonce'] ) ? sanitize_text_field( $_POST['_nonce'] ) : '';
+if ( ! wp_verify_nonce( $nonce, 'idibia_verify' ) ) {
+    http_response_code( 403 );
+    wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
+}
+
 // ── Start session and pull pending customer ───────────────────────────────────
 if ( ! session_id() ) session_start();
 
