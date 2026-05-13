@@ -7,8 +7,6 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-global $wpdb;
-
 $auth_type = $auth_type ?? '';
 if ( ! in_array( $auth_type, [ 'customer', 'driver' ], true ) ) {
     http_response_code( 401 );
@@ -16,52 +14,33 @@ if ( ! in_array( $auth_type, [ 'customer', 'driver' ], true ) ) {
     exit;
 }
 
-$header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
-if ( ! $header && function_exists( 'getallheaders' ) ) {
-    $headers = getallheaders();
-    foreach ( $headers as $key => $value ) {
-        if ( strtolower( $key ) === 'authorization' ) {
-            $header = $value;
-            break;
-        }
-    }
-}
-
-$token = '';
-if ( preg_match( '/Bearer\s+(.+)/i', $header, $matches ) ) {
-    $token = sanitize_text_field( trim( $matches[1] ) );
-} elseif ( ! empty( $_POST['_token'] ) ) {
-    $token = sanitize_text_field( wp_unslash( $_POST['_token'] ) );
-}
-
-if ( ! $token ) {
+if ( ! is_user_logged_in() ) {
     http_response_code( 401 );
     wp_send_json_error( [ 'message' => 'Unauthenticated.' ] );
     exit;
 }
 
-if ( $auth_type === 'driver' ) {
-    $session_table = $wpdb->prefix . 'sd_driver_sessions';
-    $id_column     = 'driver_id';
-} else {
-    $session_table = $wpdb->prefix . 'sd_sessions';
-    $id_column     = 'customer_id';
-}
+$user_id      = get_current_user_id();
+$account_type = get_user_meta( $user_id, 'idibia_account_type', true );
 
-$session = $wpdb->get_row( $wpdb->prepare(
-    "SELECT `$id_column` AS entity_id FROM `$session_table` WHERE token = %s AND expires_at > %s LIMIT 1",
-    $token,
-    gmdate( 'Y-m-d H:i:s' )
-) );
-
-if ( ! $session ) {
-    http_response_code( 401 );
-    wp_send_json_error( [ 'message' => 'Unauthenticated.' ] );
+if ( $account_type !== $auth_type ) {
+    http_response_code( 403 );
+    wp_send_json_error( [ 'message' => 'Forbidden.' ] );
     exit;
 }
 
+if ( get_user_meta( $user_id, 'idibia_account_status', true ) === 'suspended' ) {
+    http_response_code( 403 );
+    wp_send_json_error( [ 'message' => 'Your account is suspended.' ] );
+    exit;
+}
+
+if ( ! function_exists( 'idibia_find_or_create_profile_row' ) ) {
+    require_once __DIR__ . '/wp-auth-config.php';
+}
+
 if ( $auth_type === 'driver' ) {
-    $GLOBALS['auth_driver_id'] = (int) $session->entity_id;
+    $GLOBALS['auth_driver_id'] = idibia_find_or_create_profile_row( $user_id, 'driver' );
 } else {
-    $GLOBALS['auth_customer_id'] = (int) $session->entity_id;
+    $GLOBALS['auth_customer_id'] = idibia_find_or_create_profile_row( $user_id, 'customer' );
 }
