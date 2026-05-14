@@ -11,10 +11,18 @@ if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
 
 idibia_clean_json_buffer();
 
-$full_name = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );
-$phone     = preg_replace( '/[\s\-()]/', '', sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ) );
-$email     = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
-$password  = (string) ( $_POST['password'] ?? '' );
+$first_name  = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
+$middle_name = sanitize_text_field( wp_unslash( $_POST['middle_name'] ?? '' ) );
+$last_name   = sanitize_text_field( wp_unslash( $_POST['last_name'] ?? '' ) );
+$full_name   = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? trim( $first_name . ' ' . ( $middle_name ? $middle_name . ' ' : '' ) . $last_name ) ) );
+$phone       = preg_replace( '/[\s\-()]/', '', sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ) );
+$email       = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
+$password    = (string) ( $_POST['password'] ?? '' );
+$language    = sanitize_text_field( wp_unslash( $_POST['language'] ?? 'English' ) );
+$dob         = sanitize_text_field( wp_unslash( $_POST['date_of_birth'] ?? '' ) );
+$gender      = sanitize_text_field( wp_unslash( $_POST['gender'] ?? '' ) );
+$state       = sanitize_text_field( wp_unslash( $_POST['state_of_origin'] ?? '' ) );
+$vehicle_type = sanitize_text_field( wp_unslash( $_POST['vehicle_type'] ?? 'bike' ) );
 $errors    = [];
 
 if ( strlen( $full_name ) < 2 ) $errors[] = 'Please enter your full name.';
@@ -43,8 +51,15 @@ update_user_meta( $user_id, 'idibia_account_type', 'driver' );
 update_user_meta( $user_id, 'idibia_account_status', 'pending' );
 update_user_meta( $user_id, 'idibia_kyc_status', 'pending' );
 update_user_meta( $user_id, 'idibia_phone', $phone );
+update_user_meta( $user_id, 'idibia_driver_language', $language );
+update_user_meta( $user_id, 'idibia_driver_middle_name', $middle_name );
+update_user_meta( $user_id, 'idibia_driver_date_of_birth', $dob );
+update_user_meta( $user_id, 'idibia_driver_gender', $gender );
+update_user_meta( $user_id, 'idibia_driver_state_of_origin', $state );
 
 $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [ 'full_name' => $full_name, 'email' => $email, 'phone' => $phone ] );
+global $wpdb;
+$wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike' ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
 $user = get_user_by( 'id', $user_id );
 idibia_finish_wordpress_login( $user );
 
@@ -52,6 +67,8 @@ wp_send_json_success( [
     'redirect'   => '/driver.php',
     'first_name' => $first_name,
     'driver_id'  => $driver_id,
-    'kyc_status' => 'pending',
-    'message'    => 'Driver account created. Continue your KYC application.',
+    'kyc_status'  => 'pending',
+    'status'      => 'pending',
+    'is_approved' => false,
+    'message'     => 'Driver account created. Continue your KYC application.',
 ] );

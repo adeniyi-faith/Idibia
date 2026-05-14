@@ -131,7 +131,14 @@ function idibia_admin_kyc_action(): void {
     $updated = $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'kyc_status' => $decision, 'status' => $status, 'kyc_notes' => $notes ], [ 'id' => $driver_id ], [ '%s', '%s', '%s' ], [ '%d' ] );
     if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not update driver.' ] );
     $driver = $wpdb->get_row( $wpdb->prepare( "SELECT email, full_name FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d", $driver_id ) );
-    if ( $driver ) wp_mail( $driver->email, '[Idibia] Driver application update', "Hi {$driver->full_name},\n\nYour KYC application was $decision.\n\n$notes", [ 'Content-Type: text/plain; charset=UTF-8' ] );
+    if ( $driver ) {
+        $user = get_user_by( 'email', $driver->email );
+        if ( $user instanceof WP_User ) {
+            update_user_meta( $user->ID, 'idibia_kyc_status', $decision );
+            update_user_meta( $user->ID, 'idibia_account_status', $status );
+        }
+        wp_mail( $driver->email, '[Idibia] Driver application update', "Hi {$driver->full_name},\n\nYour KYC application was $decision.\n\n$notes", [ 'Content-Type: text/plain; charset=UTF-8' ] );
+    }
     wp_send_json_success( [ 'message' => 'KYC updated.' ] );
 }
 
@@ -142,7 +149,13 @@ function idibia_admin_suspend_driver(): void {
     $updated = $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'status' => 'suspended', 'is_online' => 0, 'kyc_notes' => $reason ], [ 'id' => $driver_id ], [ '%s', '%d', '%s' ], [ '%d' ] );
     if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not suspend driver.' ] );
     $driver = $wpdb->get_row( $wpdb->prepare( "SELECT email, full_name FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d", $driver_id ) );
-    if ( $driver ) wp_mail( $driver->email, '[Idibia] Driver account suspended', "Hi {$driver->full_name},\n\nYour driver account has been suspended.\n\nReason: $reason", [ 'Content-Type: text/plain; charset=UTF-8' ] );
+    if ( $driver ) {
+        $user = get_user_by( 'email', $driver->email );
+        if ( $user instanceof WP_User ) {
+            update_user_meta( $user->ID, 'idibia_account_status', 'suspended' );
+        }
+        wp_mail( $driver->email, '[Idibia] Driver account suspended', "Hi {$driver->full_name},\n\nYour driver account has been suspended.\n\nReason: $reason", [ 'Content-Type: text/plain; charset=UTF-8' ] );
+    }
     wp_send_json_success( [ 'message' => 'Driver suspended.' ] );
 }
 
