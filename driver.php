@@ -1328,6 +1328,9 @@ svg { display: block; }
             <label class="form-label">Date of Birth</label>
             <input class="form-input" type="date" id="driverDob">
           </div>
+        </div>
+
+        <div class="driver-register-only" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Date of Birth</label>
             <input class="form-input" type="date">
@@ -2102,6 +2105,8 @@ svg { display: block; }
     </div><!-- end dash-main -->
   </div><!-- end screen-driver-dash -->
 
+  <input class="kyc-file-input" type="file" id="driverKycFileInput" accept="image/jpeg,image/png,application/pdf">
+
   <!-- TOAST -->
   <div class="toast" id="toast"></div>
 </div>
@@ -2229,6 +2234,7 @@ async function submitDriverSignup() {
 }
 
 function updateDriver() {
+  syncDriverRegistrationFields();
   for (let i = 1; i <= 5; i++) {
     document.getElementById('dstep-' + i).classList.toggle('active', i === driverStep);
   }
