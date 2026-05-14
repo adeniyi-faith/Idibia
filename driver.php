@@ -149,6 +149,7 @@ body {
   font-family: 'DM Sans', sans-serif;
   background: var(--navy);
   height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
   color: var(--white);
   -webkit-font-smoothing: antialiased;
@@ -159,6 +160,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 #app {
   width: 100%;
   height: 100%;
+  height: var(--app-height, 100dvh);
   position: relative;
   overflow: hidden;
 }
@@ -277,6 +279,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 
 .driver-header {
   background: var(--navy);
+  flex-shrink: 0;
   padding: 56px 24px 24px;
   padding-top: max(56px, env(safe-area-inset-top, 20px));
   display: flex;
@@ -310,7 +313,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 }
 .step-indicator strong { color: var(--gold); font-family: 'Syne', sans-serif; }
 
-.progress-bar-wrap { background: var(--navy); padding: 0 24px 20px; }
+.progress-bar-wrap { background: var(--navy); padding: 0 24px 20px; flex-shrink: 0; }
 .progress-bar-track {
   height: 4px;
   background: rgba(255,255,255,0.08);
@@ -336,10 +339,11 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 @keyframes progress-shimmer { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
 
 .driver-content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px;
-  padding-bottom: 100px;
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
   color: var(--text-primary);
 }
 .driver-content::-webkit-scrollbar { width: 3px; }
@@ -421,7 +425,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 
 /* Driver footer */
 .driver-footer {
-  position: sticky;
+  position: absolute;
   bottom: 0;
   left: 0; right: 0;
   padding: 14px 24px;
@@ -431,6 +435,51 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   display: flex;
   gap: 10px;
   box-shadow: 0 -4px 20px rgba(11,22,40,0.08);
+  z-index: 5;
+}
+
+.driver-auth-card {
+  background: var(--white);
+  border: 1.5px solid var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.driver-auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  margin-bottom: 16px;
+}
+.driver-auth-tab {
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 11px 10px;
+}
+.driver-auth-tab.active {
+  background: var(--gold);
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+}
+.driver-auth-panel { display: none; }
+.driver-auth-panel.active { display: block; }
+.driver-auth-help { color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin: -4px 0 14px; }
+@media (max-width: 480px) {
+  .driver-header { padding-left: 18px; padding-right: 18px; }
+  .driver-content { padding: 22px 18px calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .driver-footer { padding-left: 18px; padding-right: 18px; }
+  .step-title { font-size: 24px; }
+  .step-sub { font-size: 14px; }
 }
 .btn-back {
   width: 52px;
@@ -1166,7 +1215,7 @@ svg { display: block; }
         <p class="step-sub">Select your language and fill in your basic personal information</p>
         <div class="form-group">
           <label class="form-label">Preferred Language</label>
-          <select class="form-input">
+          <select class="form-input" id="driverLanguage">
             <option>English</option>
             <option>Hausa</option>
             <option>Yoruba</option>
@@ -1174,46 +1223,56 @@ svg { display: block; }
             <option>Pidgin</option>
           </select>
         </div>
+
+        <div class="driver-auth-card">
+          <div class="driver-auth-tabs" role="tablist" aria-label="Driver account access">
+            <button class="driver-auth-tab active" id="driverSignupTab" type="button" role="tab" aria-selected="true" aria-controls="driverSignupPanel" onclick="setDriverAuthMode('signup')">Register</button>
+            <button class="driver-auth-tab" id="driverLoginTab" type="button" role="tab" aria-selected="false" aria-controls="driverLoginPanel" onclick="setDriverAuthMode('login')">Sign in</button>
+          </div>
+
+          <div class="driver-auth-panel active" id="driverSignupPanel" role="tabpanel" aria-labelledby="driverSignupTab">
+            <p class="driver-auth-help">Create your driver account first. The Continue button will save it before moving to verification.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-group">
+                <label class="form-label">First Name</label>
+                <input class="form-input" type="text" id="driverFirstName" placeholder="First" autocomplete="given-name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Last Name</label>
+                <input class="form-input" type="text" id="driverLastName" placeholder="Last" autocomplete="family-name">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input class="form-input" type="email" id="driverEmail" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone Number</label>
+              <input class="form-input" type="tel" id="driverPhone" placeholder="08012345678" autocomplete="tel">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Password</label>
+              <input class="form-input" type="password" id="driverPassword" placeholder="Min. 6 characters" autocomplete="new-password">
+            </div>
+          </div>
+
+          <div class="driver-auth-panel" id="driverLoginPanel" role="tabpanel" aria-labelledby="driverLoginTab">
+            <p class="driver-auth-help">Already registered? Sign in with your phone/email and password to open your driver dashboard.</p>
+            <div class="form-group"><label class="form-label">Phone or Email</label><input class="form-input" type="text" id="driverLoginPhone" placeholder="Phone or email" autocomplete="username"></div>
+            <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password"></div>
+            <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
+          </div>
+        </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label class="form-label">First Name</label>
-            <input class="form-input" type="text" id="driverFirstName" placeholder="First" autocomplete="given-name">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Last Name</label>
-            <input class="form-input" type="text" id="driverLastName" placeholder="Last" autocomplete="family-name">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email Address</label>
-          <input class="form-input" type="email" id="driverEmail" placeholder="you@example.com" autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Phone Number</label>
-          <input class="form-input" type="tel" id="driverPhone" placeholder="08012345678" autocomplete="tel">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input class="form-input" type="password" id="driverPassword" placeholder="Min. 6 characters" autocomplete="new-password">
-        </div>
-        <div class="info-note gold" style="margin-bottom:18px">
-          Already registered? Enter your phone/email and password below, then sign in.
-          <div class="form-group" style="margin-top:12px"><input class="form-input" type="text" id="driverLoginPhone" placeholder="Phone or email" autocomplete="username"></div>
-          <div class="form-group"><input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password"></div>
-          <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
-        </div>
-        <div class="form-group">
-            <input class="form-input" type="text" placeholder="First">
-          </div>
           <div class="form-group">
             <label class="form-label">Middle Name</label>
             <input class="form-input" type="text" placeholder="Middle">
           </div>
-        </div>
-        <div class="form-group">
-
-          <label class="form-label">Date of Birth</label>
-          <input class="form-input" type="date">
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input class="form-input" type="date">
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Gender</label>
@@ -1990,8 +2049,16 @@ svg { display: block; }
 
 <script>
 // ===== ONBOARDING =====
+function setAppHeight() {
+  document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+}
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
+window.addEventListener('orientationchange', setAppHeight);
+
 let driverStep = 1;
 let driverAuthenticated = false;
+let driverAuthMode = 'signup';
 const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
 
 async function parseDriverJson(response) {
@@ -2015,13 +2082,24 @@ async function driverAuthPost(body) {
   return parseDriverJson(response);
 }
 
+function setDriverAuthMode(mode) {
+  driverAuthMode = mode === 'login' ? 'login' : 'signup';
+  document.getElementById('driverSignupTab').classList.toggle('active', driverAuthMode === 'signup');
+  document.getElementById('driverLoginTab').classList.toggle('active', driverAuthMode === 'login');
+  document.getElementById('driverSignupPanel').classList.toggle('active', driverAuthMode === 'signup');
+  document.getElementById('driverLoginPanel').classList.toggle('active', driverAuthMode === 'login');
+  document.getElementById('driverSignupTab').setAttribute('aria-selected', driverAuthMode === 'signup');
+  document.getElementById('driverLoginTab').setAttribute('aria-selected', driverAuthMode === 'login');
+  updateDriver();
+}
+
 async function driverLogin() {
   const identifier = document.getElementById('driverLoginPhone').value.trim();
   const password = document.getElementById('driverLoginPassword').value;
 
   if (!identifier || !password) {
     showToast('Enter your phone/email and password.');
-    return;
+    return false;
   }
 
   const body = new FormData();
@@ -2035,12 +2113,15 @@ async function driverLogin() {
       driverAuthenticated = true;
       showToast(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
       goToDashboard();
-    } else {
-      showToast(json.data?.message || 'Driver login failed.');
+      return true;
     }
+
+    showToast(json.data?.message || 'Driver login failed.');
   } catch (err) {
     showToast('Could not reach Idibia right now. Please try again.');
   }
+
+  return false;
 }
 
 async function submitDriverSignup() {
@@ -2079,9 +2160,6 @@ async function submitDriverSignup() {
   return false;
 }
 
-const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
-
-
 function updateDriver() {
   for (let i = 1; i <= 5; i++) {
     document.getElementById('dstep-' + i).classList.toggle('active', i === driverStep);
@@ -2090,17 +2168,22 @@ function updateDriver() {
   document.getElementById('driverStepTitle').textContent = driverTitles[driverStep - 1];
   document.getElementById('driverProgress').style.width = (driverStep / 5 * 100) + '%';
 
-  // Elements to hide/show for Step 5
   const backBtn = document.getElementById('driverBack');
   const nextBtn = document.getElementById('driverNext');
   const headerWrap = document.getElementById('driverHeaderWrap');
   const progressWrap = document.getElementById('driverProgressWrap');
   const footerWrap = document.getElementById('driverFooterWrap');
 
-  // Handle back button visibility
   backBtn.style.visibility = driverStep === 1 ? 'hidden' : 'visible';
 
-  // Handle Full Screen for Step 5
+  if (driverStep === 1) {
+    nextBtn.innerHTML = driverAuthMode === 'login'
+      ? 'Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
+      : 'Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+  } else {
+    nextBtn.innerHTML = 'Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+  }
+
   if (driverStep === 5) {
     headerWrap.style.display = 'none';
     progressWrap.style.display = 'none';
@@ -2114,11 +2197,14 @@ function updateDriver() {
 
 async function driverNext() {
   if (driverStep === 1 && !driverAuthenticated) {
+    if (driverAuthMode === 'login') {
+      await driverLogin();
+      return;
+    }
+
     const created = await submitDriverSignup();
     if (!created) return;
   }
-
-function driverNext() {
 
   if (driverStep < 5) {
     driverStep++;
