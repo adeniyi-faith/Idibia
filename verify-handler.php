@@ -14,8 +14,7 @@
  *  6. Return success + first_name so the frontend can personalise the welcome toast
  */
 
-define( 'WP_USE_THEMES', false );
-require_once __DIR__ . '/wp/wp-load.php';
+require_once __DIR__ . '/wp-auth-config.php';
 
 // ── Only accept POST ──────────────────────────────────────────────────────────
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
@@ -68,7 +67,7 @@ if ( $customer->email_verified ) {
     $token = _idibia_create_session( $customer->id );
     wp_send_json_success( [
         'message'    => 'Already verified.',
-        'first_name' => explode( ' ', $customer->full_name )[0],
+        'first_name' => idibia_split_full_name( $customer->full_name )[0],
         'token'      => $token,
     ] );
 }
@@ -110,7 +109,7 @@ $token = _idibia_create_session( $customer_id );
 unset( $_SESSION['sd_pending_customer_id'], $_SESSION['sd_pending_email'] );
 
 // ── Respond ───────────────────────────────────────────────────────────────────
-$first_name = explode( ' ', $customer->full_name )[0];
+$first_name = idibia_split_full_name( $customer->full_name )[0];
 
 wp_send_json_success( [
     'message'    => 'Email verified! Welcome to Idibia.',

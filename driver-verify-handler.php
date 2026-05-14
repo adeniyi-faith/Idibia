@@ -1,8 +1,7 @@
 <?php
 /** Idibia — Driver Email Verification Handler */
 
-define( 'WP_USE_THEMES', false );
-require_once __DIR__ . '/wp/wp-load.php';
+require_once __DIR__ . '/wp-auth-config.php';
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
     http_response_code( 405 );
     wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
@@ -30,7 +29,7 @@ if ( (int) $driver->email_verified ) {
     unset( $_SESSION['sd_pending_driver_id'], $_SESSION['sd_pending_driver_email'] );
     wp_send_json_success( [
         'message'    => 'Already verified.',
-        'first_name' => idibia_first_name( $driver->full_name ),
+        'first_name' => idibia_split_full_name( $driver->full_name )[0],
         'token'      => idibia_create_driver_session( (int) $driver->id ),
     ] );
 }
@@ -54,7 +53,7 @@ unset( $_SESSION['sd_pending_driver_id'], $_SESSION['sd_pending_driver_email'] )
 
 wp_send_json_success( [
     'message'    => 'Email verified! Continue your driver application.',
-    'first_name' => idibia_first_name( $driver->full_name ),
+    'first_name' => idibia_split_full_name( $driver->full_name )[0],
     'token'      => $token,
 ] );
 
@@ -69,7 +68,3 @@ function idibia_create_driver_session( int $driver_id ): string {
     return $token;
 }
 
-function idibia_first_name( string $full_name ): string {
-    $parts = preg_split( '/\s+/', trim( $full_name ) );
-    return $parts[0] ?? '';
-}
