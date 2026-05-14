@@ -214,10 +214,22 @@ function idibia_admin_save_settings(): void {
     global $wpdb;
     $raw = file_get_contents( 'php://input' );
     $settings = json_decode( $raw, true );
-    if ( ! is_array( $settings ) ) $settings = $_POST['settings'] ?? $_POST;
-    unset( $settings['action'] );
-    foreach ( $settings as $key => $value ) {
-        $wpdb->replace( $wpdb->prefix . 'sd_settings', [ 'setting_key' => sanitize_key( $key ), 'setting_value' => is_scalar( $value ) ? sanitize_text_field( (string) $value ) : wp_json_encode( $value ) ], [ '%s', '%s' ] );
+    if ( ! is_array( $settings ) ) {
+        $settings = $_POST['settings'] ?? $_POST;
     }
+    unset( $settings['action'] );
+
+    if ( ! empty( $settings ) ) {
+        $values       = [];
+        $placeholders = [];
+        foreach ( $settings as $key => $value ) {
+            $placeholders[] = '(%s, %s)';
+            $values[]       = sanitize_key( $key );
+            $values[]       = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : wp_json_encode( $value );
+        }
+        $query = "REPLACE INTO `{$wpdb->prefix}sd_settings` (`setting_key`, `setting_value`) VALUES " . implode( ', ', $placeholders );
+        $wpdb->query( $wpdb->prepare( $query, $values ) );
+    }
+
     wp_send_json_success( [ 'message' => 'Settings saved.' ] );
 }
