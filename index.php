@@ -1,342 +1,8 @@
-<?php
-ob_start();
-define( 'WP_USE_THEMES', false );
-define( 'COOKIEPATH', '/' );
-define( 'SITECOOKIEPATH', '/' );
-
-if ( ! empty( $_SERVER['DOCUMENT_ROOT'] ) && file_exists( rtrim( $_SERVER['DOCUMENT_ROOT'], '/' ) . '/wp-load.php' ) ) {
-    require_once rtrim( $_SERVER['DOCUMENT_ROOT'], '/' ) . '/wp-load.php';
-} elseif ( file_exists( __DIR__ . '/wp/wp-load.php' ) ) {
-    require_once __DIR__ . '/wp/wp-load.php';
-} else {
-    die( 'WordPress not found.' );
-}
-
-add_filter(
-    'auth_cookie_expiration',
-    static function ( $seconds, $user_id, $remember ) {
-        return 30 * 24 * 60 * 60;
-    },
-    99,
-    3
-);
-
-function idibia_index_json( array $payload ): void {
-    echo wp_json_encode( $payload );
-    exit;
-}
-
-function idibia_index_success( array $data = [] ): void {
-    idibia_index_json( [ 'success' => true, 'data' => $data ] );
-}
-
-function idibia_index_error( string $message ): void {
-    idibia_index_json( [ 'success' => false, 'data' => [ 'message' => $message ] ] );
-}
-
-function idibia_index_finish_login( WP_User $user ): void {
-    wp_set_current_user( $user->ID );
-    wp_set_auth_cookie( $user->ID, true, is_ssl() );
-    do_action( 'wp_login', $user->user_login, $user );
-}
-
-function idibia_index_first_name( WP_User $user ): string {
-    $first_name = (string) get_user_meta( $user->ID, 'first_name', true );
-    if ( $first_name !== '' ) {
-        return $first_name;
-    }
-
-    $parts = preg_split( '/\s+/', trim( $user->display_name ) );
-    return $parts[0] ?? '';
-}
-
-function idibia_index_login_from_identifier( string $identifier ): string {
-    $identifier = trim( $identifier );
-
-    if ( strpos( $identifier, '@' ) !== false ) {
-        $user = get_user_by( 'email', sanitize_email( $identifier ) );
-        if ( $user instanceof WP_User ) {
-            return $user->user_login;
-        }
-    }
-
-    return sanitize_text_field( preg_replace( '/[\s\-()]/', '', $identifier ) );
-}
-
-function idibia_index_split_name( string $full_name ): array {
-    $parts      = preg_split( '/\s+/', trim( $full_name ) );
-    $first_name = $parts[0] ?? '';
-    $last_name  = trim( implode( ' ', array_slice( $parts ?: [], 1 ) ) );
-
-    return [ $first_name, $last_name ];
-}
-
-function idibia_index_profile_row( int $user_id, array $args = [] ): int {
-    global $wpdb;
-
-    $table     = $wpdb->prefix . 'sd_customers';
-    $stored_id = (int) get_user_meta( $user_id, 'idibia_customer_id', true );
-
-    if ( $stored_id > 0 ) {
-        $exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `$table` WHERE id = %d LIMIT 1", $stored_id ) );
-        if ( $exists ) {
-            return $stored_id;
-        }
-    }
-
-    $user      = get_userdata( $user_id );
-    $full_name = trim( (string) ( $args['full_name'] ?? $user->display_name ?? '' ) );
-    $email     = sanitize_email( (string) ( $args['email'] ?? $user->user_email ?? '' ) );
-    $phone     = sanitize_text_field( preg_replace( '/[\s\-()]/', '', (string) ( $args['phone'] ?? $user->user_login ?? '' ) ) );
-
-    $existing_by_email = $email ? (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `$table` WHERE email = %s LIMIT 1", $email ) ) : 0;
-    if ( $existing_by_email ) {
-        update_user_meta( $user_id, 'idibia_customer_id', $existing_by_email );
-        return $existing_by_email;
-    }
-
-    $wpdb->insert(
-        $table,
-        [
-            'full_name'      => $full_name ?: $phone,
-            'email'          => $email,
-            'phone'          => $phone,
-            'password_hash'  => '',
-            'email_verified' => 1,
-            'verify_code'    => null,
-            'verify_expires' => null,
-            'referral_code'  => 'IDIBIA-' . strtoupper( substr( md5( $email . $user_id . time() ), 0, 5 ) ),
-            'status'         => 'active',
-        ],
-        [ '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s' ]
-    );
-
-    $profile_id = (int) $wpdb->insert_id;
-    if ( $profile_id > 0 ) {
-        update_user_meta( $user_id, 'idibia_customer_id', $profile_id );
-    }
-
-    return $profile_id;
-}
-
-function idibia_index_send_otp( int $user_id, string $email, string $first_name, bool $resend = false ): void {
-    $otp = (string) wp_rand( 10000, 99999 );
-
-    update_user_meta( $user_id, 'idibia_otp_code', $otp );
-    update_user_meta( $user_id, 'idibia_otp_expires', time() + 10 * MINUTE_IN_SECONDS );
-    set_transient( 'idibia_pending_' . md5( strtolower( $email ) ), $user_id, 10 * MINUTE_IN_SECONDS );
-
-    $subject = $resend ? 'Your new Idibia verification code' : 'Your Idibia verification code';
-    $body    = "Hi {$first_name},\n\nYour verification code is: {$otp}\n\nIt expires in 10 minutes.\n\n— The Idibia Team";
-
-    wp_mail( $email, $subject, $body, [ 'Content-Type: text/plain; charset=UTF-8' ] );
-}
-
-if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
-    while ( ob_get_level() > 0 ) {
-        ob_end_clean();
-    }
-
-    header( 'Content-Type: application/json; charset=utf-8' );
-
-    $action = sanitize_key( wp_unslash( $_POST['action'] ) );
-
-    try {
-        if ( $action === 'login' ) {
-            $identifier = sanitize_text_field( wp_unslash( $_POST['phone'] ?? $_POST['email'] ?? '' ) );
-            $password   = (string) ( $_POST['password'] ?? '' );
-
-            if ( $identifier === '' || $password === '' ) {
-                throw new Exception( 'Email/phone and password are required.' );
-            }
-
-            $user = wp_signon(
-                [
-                    'user_login'    => idibia_index_login_from_identifier( $identifier ),
-                    'user_password' => $password,
-                    'remember'      => true,
-                ],
-                is_ssl()
-            );
-
-            if ( is_wp_error( $user ) ) {
-                throw new Exception( 'Invalid credentials. Please try again.' );
-            }
-
-            if ( get_user_meta( $user->ID, 'idibia_account_type', true ) !== 'customer' ) {
-                wp_logout();
-                throw new Exception( 'Use a customer account to sign in here.' );
-            }
-
-            if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' ) {
-                wp_logout();
-                throw new Exception( 'Your account is not active. Contact support.' );
-            }
-
-            if ( get_user_meta( $user->ID, 'idibia_verified', true ) === '0' ) {
-                wp_logout();
-                throw new Exception( 'Please verify your email first.' );
-            }
-
-            idibia_index_finish_login( $user );
-            idibia_index_profile_row( $user->ID );
-
-            idibia_index_success(
-                [
-                    'redirect'   => '/index.php',
-                    'first_name' => idibia_index_first_name( $user ),
-                ]
-            );
-        }
-
-        if ( $action === 'register' ) {
-            if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_nonce'] ?? '' ) ), 'idibia_register' ) ) {
-                throw new Exception( 'Security check failed. Please refresh and try again.' );
-            }
-
-            $full_name = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );
-            $phone     = preg_replace( '/[\s\-()]/', '', sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ) );
-            $email     = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
-            $password  = (string) ( $_POST['password'] ?? '' );
-            $terms     = ! empty( $_POST['terms'] );
-
-            if ( $full_name === '' || $phone === '' || $email === '' || $password === '' ) {
-                throw new Exception( 'All fields are required.' );
-            }
-            if ( ! is_email( $email ) ) {
-                throw new Exception( 'Please enter a valid email address.' );
-            }
-            if ( ! preg_match( '/^(\+?234|0)[789][01]\d{8}$/', $phone ) ) {
-                throw new Exception( 'Enter a valid Nigerian phone number (e.g. 08012345678).' );
-            }
-            if ( strlen( $password ) < 8 ) {
-                throw new Exception( 'Password must be at least 8 characters.' );
-            }
-            if ( ! $terms ) {
-                throw new Exception( 'You must agree to the Terms of Service.' );
-            }
-            if ( username_exists( $phone ) ) {
-                throw new Exception( 'This phone number is already registered.' );
-            }
-            if ( email_exists( $email ) ) {
-                throw new Exception( 'This email address is already in use.' );
-            }
-
-            [ $first_name, $last_name ] = idibia_index_split_name( $full_name );
-
-            $user_id = wp_insert_user(
-                [
-                    'user_login'   => $phone,
-                    'user_pass'    => $password,
-                    'user_email'   => $email,
-                    'first_name'   => $first_name,
-                    'last_name'    => $last_name,
-                    'display_name' => $full_name,
-                    'role'         => 'subscriber',
-                ]
-            );
-
-            if ( is_wp_error( $user_id ) ) {
-                throw new Exception( $user_id->get_error_message() );
-            }
-
-            update_user_meta( $user_id, 'idibia_account_type', 'customer' );
-            update_user_meta( $user_id, 'idibia_account_status', 'active' );
-            update_user_meta( $user_id, 'idibia_phone', $phone );
-            update_user_meta( $user_id, 'idibia_verified', '0' );
-            update_user_meta( $user_id, 'idibia_total_trips', 0 );
-            update_user_meta( $user_id, 'idibia_rating', 5.0 );
-            update_user_meta( $user_id, 'idibia_credit_score', 50 );
-
-            idibia_index_send_otp( $user_id, $email, $first_name, false );
-
-            idibia_index_success(
-                [
-                    'message'    => 'Account created. Check your email for the verification code.',
-                    'email'      => $email,
-                    'first_name' => $first_name,
-                ]
-            );
-        }
-
-        if ( $action === 'verify' ) {
-            if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_nonce'] ?? '' ) ), 'idibia_verify' ) ) {
-                throw new Exception( 'Security check failed. Please refresh and try again.' );
-            }
-
-            $code  = sanitize_text_field( wp_unslash( $_POST['code'] ?? '' ) );
-            $email = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
-
-            if ( strlen( $code ) !== 5 ) {
-                throw new Exception( 'Enter all 5 digits of the code.' );
-            }
-
-            $user_id = (int) get_transient( 'idibia_pending_' . md5( strtolower( $email ) ) );
-            if ( ! $user_id ) {
-                throw new Exception( 'Verification session expired. Please register again.' );
-            }
-
-            $stored_otp     = (string) get_user_meta( $user_id, 'idibia_otp_code', true );
-            $stored_expires = (int) get_user_meta( $user_id, 'idibia_otp_expires', true );
-
-            if ( time() > $stored_expires ) {
-                throw new Exception( 'Code expired. Please request a new one.' );
-            }
-            if ( $code !== $stored_otp ) {
-                throw new Exception( 'Incorrect code. Please try again.' );
-            }
-
-            update_user_meta( $user_id, 'idibia_verified', '1' );
-            delete_user_meta( $user_id, 'idibia_otp_code' );
-            delete_user_meta( $user_id, 'idibia_otp_expires' );
-            delete_transient( 'idibia_pending_' . md5( strtolower( $email ) ) );
-
-            $user = get_userdata( $user_id );
-            idibia_index_profile_row(
-                $user_id,
-                [
-                    'full_name' => $user->display_name,
-                    'email'     => $user->user_email,
-                    'phone'     => $user->user_login,
-                ]
-            );
-            idibia_index_finish_login( $user );
-
-            idibia_index_success(
-                [
-                    'redirect'   => '/index.php',
-                    'first_name' => idibia_index_first_name( $user ),
-                ]
-            );
-        }
-
-        if ( $action === 'resend' ) {
-            if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_nonce'] ?? '' ) ), 'idibia_verify' ) ) {
-                throw new Exception( 'Security check failed.' );
-            }
-
-            $email   = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
-            $user_id = (int) get_transient( 'idibia_pending_' . md5( strtolower( $email ) ) );
-
-            if ( ! $user_id ) {
-                throw new Exception( 'Session expired. Please register again.' );
-            }
-
-            $user = get_userdata( $user_id );
-            idibia_index_send_otp( $user_id, $email, idibia_index_first_name( $user ), true );
-
-            idibia_index_success( [ 'message' => 'New code sent. Check your inbox.' ] );
-        }
-
-        throw new Exception( 'Invalid action.' );
-    } catch ( Exception $e ) {
-        idibia_index_error( $e->getMessage() );
-    }
-}
-
+<?php ob_start();
+require_once __DIR__ . '/wp-auth-config.php';
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
-ob_end_flush();
+if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1832,16 +1498,6 @@ let etaInterval = null;
 const IDIBIA_API_BASE = window.location.origin;
 const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
 
-async function parseJsonResponse(response, label) {
-  const rawText = await response.text();
-  try {
-    return JSON.parse(rawText);
-  } catch (err) {
-    console.error('Raw response from ' + label + ':', rawText);
-    throw new Error('Invalid server response');
-  }
-}
-
 async function idibiaPost(endpoint, body = null) {
   const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
     method: 'POST',
@@ -1850,18 +1506,13 @@ async function idibiaPost(endpoint, body = null) {
     headers: { 'Accept': 'application/json' }
   });
 
-  return parseJsonResponse(res, endpoint);
-}
-
-async function idibiaAuthPost(body) {
-  const res = await fetch(window.location.href, {
-    method: 'POST',
-    body,
-    credentials: 'same-origin',
-    headers: { 'Accept': 'application/json' }
-  });
-
-  return parseJsonResponse(res, window.location.href);
+  const rawText = await res.text();
+  try {
+    return JSON.parse(rawText);
+  } catch (err) {
+    console.error('Raw response from ' + endpoint + ':', rawText);
+    throw new Error('Invalid server response');
+  }
 }
 
 // ═══════════ INIT ═══════════
@@ -2001,11 +1652,10 @@ async function doLogin() {
 
   try {
     const body = new FormData();
-    body.append('action', 'login');
-    body.append('phone', identifier);
+    body.append('email', identifier);
     body.append('password', password);
 
-    const json = await idibiaAuthPost(body);
+    const json = await idibiaPost('login-handler.php', body);
     if (json.success) {
       enterCustomerApp(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
     } else {
@@ -2234,7 +1884,6 @@ async function doRegister() {
 
   try {
     const body = new FormData();
-    body.append( 'action',    'register' );
     body.append( '_nonce',    nonce );
     body.append( 'full_name', full_name );
     body.append( 'phone',     phone );
@@ -2242,13 +1891,10 @@ async function doRegister() {
     body.append( 'password',  password );
     body.append( 'terms',     terms ? '1' : '' );
 
-    const json = await idibiaAuthPost( body );
+    const json = await idibiaPost( 'register-handler.php', body );
 
     if ( json.success ) {
-      const display = document.getElementById('otpEmailDisplay');
-      if ( display ) display.textContent = json.data?.email || email;
-      showToast( json.data?.message || 'Code sent! Check your inbox.' );
-      goTo( 'screen-otp' );
+      enterCustomerApp( json.data?.first_name ? `Welcome, ${json.data.first_name}! 🎉` : 'Account created successfully.' );
     } else {
       errorText.textContent = json.data?.message || 'Registration failed. Please try again.';
       errorBox.classList.add('show');
@@ -2267,11 +1913,9 @@ async function resendCode() {
   showToast( 'Sending a new code\u2026' );
   try {
     const body = new FormData();
-    body.append( 'action', 'resend' );
     body.append( '_nonce', IDIBIA_VERIFY_NONCE );
-    body.append( 'email', document.getElementById('otpEmailDisplay').textContent.trim() );
 
-    const json = await idibiaAuthPost( body );
+    const json = await idibiaPost( 'resend-code.php', body );
     if ( json.success ) {
       showToast( 'New code sent! Check your inbox.' );
     } else {
@@ -2304,12 +1948,10 @@ async function doVerify() {
 
   try {
     const body = new FormData();
-    body.append( 'action', 'verify' );
     body.append( '_nonce', IDIBIA_VERIFY_NONCE );
     body.append( 'code', code );
-    body.append( 'email', document.getElementById('otpEmailDisplay').textContent.trim() );
 
-    const json = await idibiaAuthPost( body );
+    const json = await idibiaPost( 'verify-handler.php', body );
 
     if ( json.success ) {
       const name = json.data?.first_name || '';

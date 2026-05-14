@@ -103,6 +103,7 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
     wp_send_json_error( [ 'message' => 'Unknown auth action.' ] );
 }
 
+
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?><!DOCTYPE html>
 <html lang="en">
@@ -1202,6 +1203,15 @@ svg { display: block; }
           <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
         </div>
         <div class="form-group">
+            <input class="form-input" type="text" placeholder="First">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Middle Name</label>
+            <input class="form-input" type="text" placeholder="Middle">
+          </div>
+        </div>
+        <div class="form-group">
+
           <label class="form-label">Date of Birth</label>
           <input class="form-input" type="date">
         </div>
@@ -2069,6 +2079,9 @@ async function submitDriverSignup() {
   return false;
 }
 
+const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
+
+
 function updateDriver() {
   for (let i = 1; i <= 5; i++) {
     document.getElementById('dstep-' + i).classList.toggle('active', i === driverStep);
@@ -2104,6 +2117,8 @@ async function driverNext() {
     const created = await submitDriverSignup();
     if (!created) return;
   }
+
+function driverNext() {
 
   if (driverStep < 5) {
     driverStep++;
