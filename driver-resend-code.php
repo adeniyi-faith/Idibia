@@ -1,8 +1,7 @@
 <?php
 /** Idibia — Driver Resend Verification Code Handler */
 
-define( 'WP_USE_THEMES', false );
-require_once __DIR__ . '/wp/wp-load.php';
+require_once __DIR__ . '/wp-auth-config.php';
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
     http_response_code( 405 );
     wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
@@ -30,7 +29,7 @@ $new_expires = gmdate( 'Y-m-d H:i:s', time() + ( 30 * MINUTE_IN_SECONDS ) );
 $updated = $wpdb->update( $table, [ 'verify_code' => $new_code, 'verify_expires' => $new_expires ], [ 'id' => $driver_id ], [ '%s', '%s' ], [ '%d' ] );
 if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not generate a new code. Please try again.' ] );
 
-$first_name = idibia_first_name( $driver->full_name );
+$first_name = idibia_split_full_name( $driver->full_name )[0];
 $site_name  = get_bloginfo( 'name' ) ?: 'Idibia';
 $site_url   = home_url();
 $subject    = "[$site_name] Your new driver verification code is $new_code";
@@ -42,8 +41,3 @@ if ( ! wp_mail( $driver->email, $subject, $body, $headers ) ) {
 }
 
 wp_send_json_success( [ 'message' => 'New code sent! Check your inbox.' ] );
-
-function idibia_first_name( string $full_name ): string {
-    $parts = preg_split( '/\s+/', trim( $full_name ) );
-    return $parts[0] ?? '';
-}

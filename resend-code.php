@@ -13,8 +13,7 @@
  *  6. Send the email again
  */
 
-define( 'WP_USE_THEMES', false );
-require_once __DIR__ . '/wp/wp-load.php';
+require_once __DIR__ . '/wp-auth-config.php';
 
 // ── Only accept POST ──────────────────────────────────────────────────────────
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
@@ -90,7 +89,7 @@ if ( false === $updated ) {
 }
 
 // ── Send the email ────────────────────────────────────────────────────────────
-$first_name = explode( ' ', $customer->full_name )[0];
+$first_name = idibia_split_full_name( $customer->full_name )[0];
 $site_name  = get_bloginfo( 'name' ) ?: 'Idibia';
 $site_url   = home_url();
 
