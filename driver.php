@@ -529,17 +529,6 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 .driver-auth-panel { display: none; }
 .driver-auth-panel.active { display: block; }
 .driver-auth-help { color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin: -4px 0 14px; }
-.driver-login-mode .driver-register-only { display: none !important; }
-.driver-register-only[hidden] { display: none !important; }
-.kyc-file-input {
-  position: fixed;
-  left: -100vw;
-  top: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
 @media (max-width: 480px) {
   .driver-header { padding-left: 18px; padding-right: 18px; }
   .driver-content { padding: 22px 18px calc(96px + env(safe-area-inset-bottom, 0px)); }
@@ -1330,7 +1319,7 @@ svg { display: block; }
           </div>
         </div>
 
-        <div class="driver-register-only" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Middle Name</label>
             <input class="form-input" type="text" id="driverMiddleName" placeholder="Middle">
@@ -1340,7 +1329,14 @@ svg { display: block; }
             <input class="form-input" type="date" id="driverDob">
           </div>
         </div>
-        <div class="form-group driver-register-only">
+
+        <div class="driver-register-only" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input class="form-input" type="date">
+          </div>
+        </div>
+        <div class="form-group">
           <label class="form-label">Gender</label>
           <select class="form-input" id="driverGender">
             <option>Male</option>
@@ -2124,9 +2120,8 @@ setAppHeight();
 window.addEventListener('resize', setAppHeight);
 window.addEventListener('orientationchange', setAppHeight);
 
-const driverInitialContext = <?php echo wp_json_encode( $driver_initial_context ); ?>;
-let driverStep = driverInitialContext.logged_in && driverInitialContext.kyc_status === 'under_review' ? 5 : 1;
-let driverAuthenticated = !!driverInitialContext.logged_in;
+let driverStep = 1;
+let driverAuthenticated = false;
 let driverAuthMode = 'signup';
 const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
 const driverFiles = {};
@@ -2152,17 +2147,6 @@ async function driverAuthPost(body) {
   return parseDriverJson(response);
 }
 
-function syncDriverRegistrationFields() {
-  const isLogin = driverAuthMode === 'login';
-  document.querySelectorAll('.driver-register-only').forEach(el => {
-    if (el.dataset.originalDisplay === undefined) {
-      el.dataset.originalDisplay = el.style.display || '';
-    }
-    el.hidden = isLogin;
-    el.style.display = isLogin ? 'none' : el.dataset.originalDisplay;
-  });
-}
-
 function setDriverAuthMode(mode) {
   driverAuthMode = mode === 'login' ? 'login' : 'signup';
   document.getElementById('driverSignupTab').classList.toggle('active', driverAuthMode === 'signup');
@@ -2171,8 +2155,6 @@ function setDriverAuthMode(mode) {
   document.getElementById('driverLoginPanel').classList.toggle('active', driverAuthMode === 'login');
   document.getElementById('driverSignupTab').setAttribute('aria-selected', driverAuthMode === 'signup');
   document.getElementById('driverLoginTab').setAttribute('aria-selected', driverAuthMode === 'login');
-  document.getElementById('screen-driver').classList.toggle('driver-login-mode', driverAuthMode === 'login');
-  syncDriverRegistrationFields();
   updateDriver();
 }
 
@@ -2251,93 +2233,6 @@ async function submitDriverSignup() {
   return false;
 }
 
-
-function getSelectedValue(groupId, fallback = '') {
-  const active = document.querySelector(`#${groupId} .vehicle-card.active`);
-  return active?.dataset?.value || active?.textContent?.trim() || fallback;
-}
-
-function chooseKycFile(box) {
-  const field = box.dataset.field;
-  if (!field) return;
-
-  const input = document.getElementById('driverKycFileInput');
-  if (!input) {
-    showToast('File picker is not ready yet. Please reload and try again.');
-    return;
-  }
-
-  input.value = '';
-  input.onchange = () => {
-    const file = input.files && input.files[0];
-    if (!file) return;
-    driverFiles[field] = file;
-    markDone(box, file.name);
-  };
-  input.click();
-}
-
-function validateRequiredFiles(fields, message) {
-  const missing = fields.filter(field => !driverFiles[field]);
-  if (missing.length) {
-    showToast(message);
-    return false;
-  }
-  return true;
-}
-
-function requireValue(id, message) {
-  const el = document.getElementById(id);
-  if (!el || !el.value.trim()) {
-    showToast(message);
-    if (el) el.focus();
-    return false;
-  }
-  return true;
-}
-
-async function submitDriverKyc() {
-  if (!requireValue('driverAccountHolder', 'Enter the bank account holder name.')) return false;
-  if (!requireValue('driverAccountNumber', 'Enter the bank account number.')) return false;
-  if (!requireValue('driverEmergencyName', 'Enter your next of kin name.')) return false;
-  if (!requireValue('driverEmergencyPhone', 'Enter your next of kin phone number.')) return false;
-
-  const body = new FormData();
-  body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
-  body.append('vehicle_year', document.getElementById('driverVehicleYear').value.trim());
-  body.append('vehicle_model', `${document.getElementById('driverVehicleYear').value.trim()} ${document.getElementById('driverVehicleManufacturer').value.trim()}`.trim());
-  body.append('vehicle_plate', document.getElementById('driverVehiclePlate').value.trim().toUpperCase());
-  body.append('vehicle_color', document.getElementById('driverVehicleColor').value.trim());
-  body.append('bank_name', document.getElementById('driverBankName').value);
-  body.append('account_holder_name', document.getElementById('driverAccountHolder').value.trim());
-  body.append('account_number', document.getElementById('driverAccountNumber').value.trim());
-  body.append('emergency_name', document.getElementById('driverEmergencyName').value.trim());
-  body.append('emergency_relationship', document.getElementById('driverEmergencyRelationship').value);
-  body.append('emergency_phone', document.getElementById('driverEmergencyPhone').value.trim());
-  body.append('emergency_address', document.getElementById('driverEmergencyAddress').value.trim());
-
-  Object.entries(driverFiles).forEach(([field, file]) => body.append(field, file));
-
-  try {
-    const response = await fetch('/driver-kyc-handler.php', {
-      method: 'POST',
-      body,
-      credentials: 'same-origin',
-      headers: { 'Accept': 'application/json' }
-    });
-    const json = await parseDriverJson(response);
-    if (json.success) {
-      driverInitialContext.kyc_status = 'under_review';
-      showToast(json.data?.message || 'Application submitted for review.');
-      return true;
-    }
-    showToast(json.data?.message || 'Could not submit application.');
-  } catch (err) {
-    showToast('Could not submit application. Please try again.');
-  }
-  return false;
-}
-
 function updateDriver() {
   syncDriverRegistrationFields();
   for (let i = 1; i <= 5; i++) {
@@ -2383,20 +2278,6 @@ async function driverNext() {
 
     const created = await submitDriverSignup();
     if (!created) return;
-  }
-
-  if (driverStep === 2 && !validateRequiredFiles(['id_front', 'id_back', 'selfie'], 'Upload your license, ID/NIN, and profile photo first.')) return;
-
-  if (driverStep === 3) {
-    if (!requireValue('driverVehicleYear', 'Enter your vehicle year.')) return;
-    if (!requireValue('driverVehicleManufacturer', 'Enter your vehicle manufacturer.')) return;
-    if (!requireValue('driverVehiclePlate', 'Enter your license plate number.')) return;
-    if (!validateRequiredFiles(['vehicle_photo', 'vehicle_license_doc'], 'Upload at least one vehicle photo and your vehicle license certificate.')) return;
-  }
-
-  if (driverStep === 4) {
-    const submitted = await submitDriverKyc();
-    if (!submitted) return;
   }
 
   if (driverStep < 5) {

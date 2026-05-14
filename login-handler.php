@@ -3,6 +3,12 @@
 
 require_once __DIR__ . '/wp-auth-config.php';
 
+if ( $_SERVER['REQUEST_METHOD'] === 'OPTIONS' ) {
+    idibia_clean_json_buffer();
+    http_response_code( 204 );
+    exit;
+}
+
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
     idibia_clean_json_buffer();
     http_response_code( 405 );
@@ -10,6 +16,11 @@ if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
 }
 
 idibia_clean_json_buffer();
+
+function idibia_wants_json_response(): bool {
+    $accept = strtolower( (string) ( $_SERVER['HTTP_ACCEPT'] ?? '' ) );
+    return strpos( $accept, 'application/json' ) !== false || strtolower( (string) ( $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '' ) ) === 'xmlhttprequest';
+}
 
 $identifier = sanitize_text_field( wp_unslash( $_POST['phone'] ?? $_POST['email'] ?? '' ) );
 $password   = (string) ( $_POST['password'] ?? '' );
@@ -43,7 +54,12 @@ if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' )
 idibia_finish_wordpress_login( $user );
 idibia_find_or_create_profile_row( $user->ID, 'customer' );
 
+if ( ! idibia_wants_json_response() ) {
+    header( 'Location: dashboard.php' );
+    exit;
+}
+
 wp_send_json_success( [
-    'redirect'   => '/index.php',
+    'redirect'   => 'dashboard.php',
     'first_name' => idibia_first_name_from_user( $user ),
 ] );
