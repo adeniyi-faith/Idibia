@@ -1315,11 +1315,11 @@ svg { display: block; }
             <p class="driver-auth-help">Already registered? Sign in with your phone/email and password to open your driver dashboard.</p>
             <div class="form-group"><label class="form-label">Phone or Email</label><input class="form-input" type="text" id="driverLoginPhone" placeholder="Phone or email" autocomplete="username"></div>
             <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password"></div>
-            <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
+
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="driver-register-only" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Middle Name</label>
             <input class="form-input" type="text" id="driverMiddleName" placeholder="Middle">
@@ -1329,14 +1329,7 @@ svg { display: block; }
             <input class="form-input" type="date" id="driverDob">
           </div>
         </div>
-
-        <div class="driver-register-only" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label class="form-label">Date of Birth</label>
-            <input class="form-input" type="date">
-          </div>
-        </div>
-        <div class="form-group">
+        <div class="form-group driver-register-only">
           <label class="form-label">Gender</label>
           <select class="form-input" id="driverGender">
             <option>Male</option>
@@ -1468,11 +1461,11 @@ svg { display: block; }
         <p class="step-sub">For payouts and your safety record</p>
         <span class="section-label">Billing type</span>
         <div style="display:flex;gap:10px;margin-bottom:22px" id="billingGroup">
-          <div class="vehicle-card active" onclick="selVehicle(this, 'billingGroup')" style="flex:1;flex-direction:row;justify-content:flex-start;padding:14px 16px;gap:10px">
+          <div class="vehicle-card active" data-value="personal" onclick="selVehicle(this, 'billingGroup')" style="flex:1;flex-direction:row;justify-content:flex-start;padding:14px 16px;gap:10px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
             <span>Personal</span>
           </div>
-          <div class="vehicle-card" onclick="selVehicle(this, 'billingGroup')" style="flex:1;flex-direction:row;justify-content:flex-start;padding:14px 16px;gap:10px">
+          <div class="vehicle-card" data-value="company" onclick="selVehicle(this, 'billingGroup')" style="flex:1;flex-direction:row;justify-content:flex-start;padding:14px 16px;gap:10px">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
             <span>Company</span>
           </div>
@@ -2113,6 +2106,8 @@ svg { display: block; }
 
 <script>
 // ===== ONBOARDING =====
+const driverInitialContext = <?php echo wp_json_encode( $driver_initial_context ); ?>;
+
 function setAppHeight() {
   document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
 }
@@ -2124,7 +2119,7 @@ let driverStep = 1;
 let driverAuthenticated = false;
 let driverAuthMode = 'signup';
 const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
-const driverFiles = {};
+let driverFiles = {};
 
 async function parseDriverJson(response) {
   const rawText = await response.text();
@@ -2155,6 +2150,7 @@ function setDriverAuthMode(mode) {
   document.getElementById('driverLoginPanel').classList.toggle('active', driverAuthMode === 'login');
   document.getElementById('driverSignupTab').setAttribute('aria-selected', driverAuthMode === 'signup');
   document.getElementById('driverLoginTab').setAttribute('aria-selected', driverAuthMode === 'login');
+  syncDriverRegistrationFields();
   updateDriver();
 }
 
@@ -2184,7 +2180,15 @@ async function driverLogin() {
       driverAuthenticated = true;
       Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
       showToast(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
-      goToDashboard();
+      if (driverInitialContext.is_approved) {
+        goToDashboard();
+      } else if (driverInitialContext.kyc_status === 'under_review') {
+        driverStep = 5;
+        updateDriver();
+      } else {
+        driverStep = 2; // Move to identity verification
+        updateDriver();
+      }
       return true;
     }
 
@@ -2222,6 +2226,8 @@ async function submitDriverSignup() {
       driverAuthenticated = true;
       Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
       showToast(json.data?.message || 'Driver account created. Continue your application.');
+      driverStep = 2;
+      updateDriver();
       return true;
     }
 
@@ -2231,6 +2237,13 @@ async function submitDriverSignup() {
   }
 
   return false;
+}
+
+function syncDriverRegistrationFields() {
+  const isSignup = driverAuthMode === 'signup';
+  document.querySelectorAll('.driver-register-only').forEach(el => {
+    el.classList.toggle('hidden', !isSignup);
+  });
 }
 
 function updateDriver() {
@@ -2269,15 +2282,54 @@ function updateDriver() {
   }
 }
 
+async function submitDriverKyc() {
+  const body = new FormData();
+  body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
+  body.append('vehicle_year', document.getElementById('driverVehicleYear').value.trim());
+  body.append('vehicle_model', document.getElementById('driverVehicleManufacturer').value.trim());
+  body.append('vehicle_plate', document.getElementById('driverVehiclePlate').value.trim());
+  body.append('vehicle_color', document.getElementById('driverVehicleColor').value.trim());
+  body.append('account_holder_name', document.getElementById('driverAccountHolder').value.trim());
+  body.append('account_number', document.getElementById('driverAccountNumber').value.trim());
+  body.append('bank_name', document.getElementById('driverBankName').value);
+  body.append('emergency_name', document.getElementById('driverEmergencyName').value.trim());
+  body.append('emergency_relationship', document.getElementById('driverEmergencyRelationship').value);
+  body.append('emergency_phone', document.getElementById('driverEmergencyPhone').value.trim());
+  body.append('emergency_address', document.getElementById('driverEmergencyAddress').value.trim());
+  body.append('billing_type', getSelectedValue('billingGroup', 'personal'));
+
+  for (const [key, file] of Object.entries(driverFiles)) {
+    body.append(key, file);
+  }
+
+  showToast('Submitting your application...');
+  try {
+    const response = await fetch('driver-kyc-handler.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    if (json.success) {
+      driverInitialContext.kyc_status = 'under_review';
+      return true;
+    }
+    showToast(json.data?.message || 'Failed to submit KYC.');
+  } catch (err) { showToast('Could not reach server. Please try again.'); }
+  return false;
+}
+
 async function driverNext() {
   if (driverStep === 1 && !driverAuthenticated) {
     if (driverAuthMode === 'login') {
-      await driverLogin();
+      const loggedIn = await driverLogin();
       return;
     }
 
     const created = await submitDriverSignup();
     if (!created) return;
+    return;
+  }
+
+  if (driverStep === 4) {
+    const kycSubmitted = await submitDriverKyc();
+    if (!kycSubmitted) return;
   }
 
   if (driverStep < 5) {
@@ -2298,6 +2350,24 @@ function selVehicle(el, groupId) {
   const parent = el.closest('[id=' + groupId + ']') || el.parentElement;
   parent.querySelectorAll('.vehicle-card').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
+}
+
+function getSelectedValue(groupId, defaultVal) {
+  const group = document.getElementById(groupId);
+  if (!group) return defaultVal;
+  const active = group.querySelector('.active');
+  return active && active.hasAttribute('data-value') ? active.getAttribute('data-value') : defaultVal;
+}
+
+function chooseKycFile(el) {
+  const fieldName = el.getAttribute('data-field');
+  const input = document.getElementById('driverKycFileInput');
+  input.onchange = function(e) {
+    const file = e.target.files[0];
+    if (file) { driverFiles[fieldName] = file; markDone(el, file.name); }
+    input.value = '';
+  };
+  input.click();
 }
 
 function markDone(el, filename = '') {
@@ -2400,6 +2470,21 @@ function setGreeting() {
 setGreeting();
 setDriverAuthMode(driverAuthMode);
 isOnline = !!driverInitialContext.is_online;
+
+if (driverInitialContext.logged_in) {
+  driverAuthenticated = true;
+  if (!driverInitialContext.is_approved) {
+    if (driverInitialContext.kyc_status === 'under_review') {
+      driverStep = 5;
+    } else if (driverInitialContext.kyc_status === 'pending') {
+      driverStep = 2;
+    }
+    updateDriver();
+  } else {
+    goToDashboard();
+  }
+}
+
 if (document.getElementById('onlineToggle')) {
   document.getElementById('onlineToggle').classList.toggle('online', isOnline);
   document.getElementById('onlineToggle').classList.toggle('offline', !isOnline);
