@@ -36,22 +36,35 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
 
         idibia_finish_wordpress_login( $user );
         $driver_id = idibia_find_or_create_profile_row( $user->ID, 'driver' );
+        global $wpdb;
+        $driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+        $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
+        $status     = $driver_row['status'] ?? ( get_user_meta( $user->ID, 'idibia_account_status', true ) ?: 'pending' );
 
         wp_send_json_success( [
-            'redirect'   => '/driver.php',
-            'first_name' => idibia_first_name_from_user( $user ),
-            'driver_id'  => $driver_id,
-            'kyc_status' => get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending',
+            'redirect'    => '/driver.php',
+            'first_name'  => idibia_first_name_from_user( $user ),
+            'driver_id'   => $driver_id,
+            'kyc_status'  => $kyc_status,
+            'status'      => $status,
+            'is_approved' => $kyc_status === 'approved' && $status === 'active',
+            'is_online'   => ! empty( $driver_row['is_online'] ),
         ] );
     }
 
     if ( $action === 'signup' ) {
         $first_name = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
+        $middle_name = sanitize_text_field( wp_unslash( $_POST['middle_name'] ?? '' ) );
         $last_name  = sanitize_text_field( wp_unslash( $_POST['last_name'] ?? '' ) );
-        $full_name  = trim( $first_name . ' ' . $last_name );
+        $full_name  = trim( $first_name . ' ' . ( $middle_name ? $middle_name . ' ' : '' ) . $last_name );
         $phone      = preg_replace( '/[\s\-()]/', '', sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ) );
         $email      = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
         $password   = (string) ( $_POST['password'] ?? '' );
+        $language   = sanitize_text_field( wp_unslash( $_POST['language'] ?? 'English' ) );
+        $dob        = sanitize_text_field( wp_unslash( $_POST['date_of_birth'] ?? '' ) );
+        $gender     = sanitize_text_field( wp_unslash( $_POST['gender'] ?? '' ) );
+        $state      = sanitize_text_field( wp_unslash( $_POST['state_of_origin'] ?? '' ) );
+        $vehicle_type = sanitize_text_field( wp_unslash( $_POST['vehicle_type'] ?? 'bike' ) );
         $errors     = [];
 
         if ( strlen( $first_name ) < 2 || strlen( $last_name ) < 2 ) $errors[] = 'Please enter your first and last name.';
@@ -81,12 +94,19 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
         update_user_meta( $user_id, 'idibia_account_status', 'pending' );
         update_user_meta( $user_id, 'idibia_kyc_status', 'pending' );
         update_user_meta( $user_id, 'idibia_phone', $phone );
+        update_user_meta( $user_id, 'idibia_driver_language', $language );
+        update_user_meta( $user_id, 'idibia_driver_middle_name', $middle_name );
+        update_user_meta( $user_id, 'idibia_driver_date_of_birth', $dob );
+        update_user_meta( $user_id, 'idibia_driver_gender', $gender );
+        update_user_meta( $user_id, 'idibia_driver_state_of_origin', $state );
 
         $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [
             'full_name' => $full_name,
             'email'     => $email,
             'phone'     => $phone,
         ] );
+        global $wpdb;
+        $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike' ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
 
         $user = get_user_by( 'id', $user_id );
         idibia_finish_wordpress_login( $user );
@@ -95,12 +115,47 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
             'redirect'   => '/driver.php',
             'first_name' => $first_name,
             'driver_id'  => $driver_id,
-            'kyc_status' => 'pending',
-            'message'    => 'Driver account created. Continue your KYC application.',
+            'kyc_status'  => 'pending',
+            'status'      => 'pending',
+            'is_approved' => false,
+            'message'     => 'Driver account created. Continue your KYC application.',
         ] );
     }
 
     wp_send_json_error( [ 'message' => 'Unknown auth action.' ] );
+}
+
+
+$driver_initial_context = [
+    'logged_in'   => false,
+    'driver_id'   => 0,
+    'first_name'  => '',
+    'full_name'   => '',
+    'kyc_status'  => 'guest',
+    'status'      => 'guest',
+    'is_approved' => false,
+    'is_online'   => false,
+];
+
+if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_account_type', true ) === 'driver' ) {
+    $current_user = wp_get_current_user();
+    $driver_id    = idibia_find_or_create_profile_row( $current_user->ID, 'driver' );
+    global $wpdb;
+    $driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+
+    $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $current_user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
+    $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
+
+    $driver_initial_context = [
+        'logged_in'   => true,
+        'driver_id'   => $driver_id,
+        'first_name'  => idibia_first_name_from_user( $current_user ),
+        'full_name'   => $driver_row['full_name'] ?? $current_user->display_name,
+        'kyc_status'  => $kyc_status,
+        'status'      => $status,
+        'is_approved' => $kyc_status === 'approved' && $status === 'active',
+        'is_online'   => ! empty( $driver_row['is_online'] ),
+    ];
 }
 
 
@@ -149,6 +204,7 @@ body {
   font-family: 'DM Sans', sans-serif;
   background: var(--navy);
   height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
   color: var(--white);
   -webkit-font-smoothing: antialiased;
@@ -159,6 +215,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 #app {
   width: 100%;
   height: 100%;
+  height: var(--app-height, 100dvh);
   position: relative;
   overflow: hidden;
 }
@@ -277,6 +334,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 
 .driver-header {
   background: var(--navy);
+  flex-shrink: 0;
   padding: 56px 24px 24px;
   padding-top: max(56px, env(safe-area-inset-top, 20px));
   display: flex;
@@ -310,7 +368,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 }
 .step-indicator strong { color: var(--gold); font-family: 'Syne', sans-serif; }
 
-.progress-bar-wrap { background: var(--navy); padding: 0 24px 20px; }
+.progress-bar-wrap { background: var(--navy); padding: 0 24px 20px; flex-shrink: 0; }
 .progress-bar-track {
   height: 4px;
   background: rgba(255,255,255,0.08);
@@ -336,10 +394,11 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 @keyframes progress-shimmer { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
 
 .driver-content {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: 24px;
-  padding-bottom: 100px;
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
   color: var(--text-primary);
 }
 .driver-content::-webkit-scrollbar { width: 3px; }
@@ -421,7 +480,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 
 /* Driver footer */
 .driver-footer {
-  position: sticky;
+  position: absolute;
   bottom: 0;
   left: 0; right: 0;
   padding: 14px 24px;
@@ -431,6 +490,62 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   display: flex;
   gap: 10px;
   box-shadow: 0 -4px 20px rgba(11,22,40,0.08);
+  z-index: 5;
+}
+
+.driver-auth-card {
+  background: var(--white);
+  border: 1.5px solid var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.driver-auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 5px;
+  margin-bottom: 16px;
+}
+.driver-auth-tab {
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 11px 10px;
+}
+.driver-auth-tab.active {
+  background: var(--gold);
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+}
+.driver-auth-panel { display: none; }
+.driver-auth-panel.active { display: block; }
+.driver-auth-help { color: var(--text-secondary); font-size: 13px; line-height: 1.5; margin: -4px 0 14px; }
+.driver-login-mode .driver-register-only { display: none !important; }
+.driver-register-only[hidden] { display: none !important; }
+.kyc-file-input {
+  position: fixed;
+  left: -100vw;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+@media (max-width: 480px) {
+  .driver-header { padding-left: 18px; padding-right: 18px; }
+  .driver-content { padding: 22px 18px calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .driver-footer { padding-left: 18px; padding-right: 18px; }
+  .step-title { font-size: 24px; }
+  .step-sub { font-size: 14px; }
 }
 .btn-back {
   width: 52px;
@@ -1144,7 +1259,7 @@ svg { display: block; }
 <div id="app">
 
   <!-- ===== DRIVER ONBOARDING ===== -->
-  <div class="screen active" id="screen-driver">
+  <div class="screen <?php echo $driver_initial_context['is_approved'] ? '' : 'active'; ?>" id="screen-driver">
     <div class="driver-header" id="driverHeaderWrap">
       <div>
         <div style="font-size:11px;color:var(--slate);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;position:relative;z-index:1">Driver Registration</div>
@@ -1164,9 +1279,9 @@ svg { display: block; }
       <div class="driver-step active" id="dstep-1">
         <h3 class="step-title">Let's get you started</h3>
         <p class="step-sub">Select your language and fill in your basic personal information</p>
-        <div class="form-group">
+        <div class="form-group driver-register-only">
           <label class="form-label">Preferred Language</label>
-          <select class="form-input">
+          <select class="form-input" id="driverLanguage">
             <option>English</option>
             <option>Hausa</option>
             <option>Yoruba</option>
@@ -1174,58 +1289,68 @@ svg { display: block; }
             <option>Pidgin</option>
           </select>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div class="form-group">
-            <label class="form-label">First Name</label>
-            <input class="form-input" type="text" id="driverFirstName" placeholder="First" autocomplete="given-name">
+
+        <div class="driver-auth-card">
+          <div class="driver-auth-tabs" role="tablist" aria-label="Driver account access">
+            <button class="driver-auth-tab active" id="driverSignupTab" type="button" role="tab" aria-selected="true" aria-controls="driverSignupPanel" onclick="setDriverAuthMode('signup')">Register</button>
+            <button class="driver-auth-tab" id="driverLoginTab" type="button" role="tab" aria-selected="false" aria-controls="driverLoginPanel" onclick="setDriverAuthMode('login')">Sign in</button>
           </div>
-          <div class="form-group">
-            <label class="form-label">Last Name</label>
-            <input class="form-input" type="text" id="driverLastName" placeholder="Last" autocomplete="family-name">
+
+          <div class="driver-auth-panel active" id="driverSignupPanel" role="tabpanel" aria-labelledby="driverSignupTab">
+            <p class="driver-auth-help">Create your driver account first. The Continue button will save it before moving to verification.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-group">
+                <label class="form-label">First Name</label>
+                <input class="form-input" type="text" id="driverFirstName" placeholder="First" autocomplete="given-name">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Last Name</label>
+                <input class="form-input" type="text" id="driverLastName" placeholder="Last" autocomplete="family-name">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input class="form-input" type="email" id="driverEmail" placeholder="you@example.com" autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Phone Number</label>
+              <input class="form-input" type="tel" id="driverPhone" placeholder="08012345678" autocomplete="tel">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Password</label>
+              <input class="form-input" type="password" id="driverPassword" placeholder="Min. 6 characters" autocomplete="new-password">
+            </div>
+          </div>
+
+          <div class="driver-auth-panel" id="driverLoginPanel" role="tabpanel" aria-labelledby="driverLoginTab">
+            <p class="driver-auth-help">Already registered? Sign in with your phone/email and password to open your driver dashboard.</p>
+            <div class="form-group"><label class="form-label">Phone or Email</label><input class="form-input" type="text" id="driverLoginPhone" placeholder="Phone or email" autocomplete="username"></div>
+            <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password"></div>
+            <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Email Address</label>
-          <input class="form-input" type="email" id="driverEmail" placeholder="you@example.com" autocomplete="email">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Phone Number</label>
-          <input class="form-input" type="tel" id="driverPhone" placeholder="08012345678" autocomplete="tel">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Password</label>
-          <input class="form-input" type="password" id="driverPassword" placeholder="Min. 6 characters" autocomplete="new-password">
-        </div>
-        <div class="info-note gold" style="margin-bottom:18px">
-          Already registered? Enter your phone/email and password below, then sign in.
-          <div class="form-group" style="margin-top:12px"><input class="form-input" type="text" id="driverLoginPhone" placeholder="Phone or email" autocomplete="username"></div>
-          <div class="form-group"><input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password"></div>
-          <button class="global-btn ghost" type="button" style="width:100%;justify-content:center" onclick="driverLogin()">Sign in as Driver</button>
-        </div>
-        <div class="form-group">
-            <input class="form-input" type="text" placeholder="First">
-          </div>
+
+        <div class="driver-register-only" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Middle Name</label>
-            <input class="form-input" type="text" placeholder="Middle">
+            <input class="form-input" type="text" id="driverMiddleName" placeholder="Middle">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date of Birth</label>
+            <input class="form-input" type="date" id="driverDob">
           </div>
         </div>
-        <div class="form-group">
-
-          <label class="form-label">Date of Birth</label>
-          <input class="form-input" type="date">
-        </div>
-        <div class="form-group">
+        <div class="form-group driver-register-only">
           <label class="form-label">Gender</label>
-          <select class="form-input">
+          <select class="form-input" id="driverGender">
             <option>Male</option>
             <option>Female</option>
             <option>Prefer not to say</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group driver-register-only">
           <label class="form-label">State of Origin</label>
-          <select class="form-input">
+          <select class="form-input" id="driverStateOrigin">
             <option>Abia</option><option>Adamawa</option><option>Akwa Ibom</option><option>Anambra</option>
             <option>Bauchi</option><option>Bayelsa</option><option>Benue</option><option>Borno</option>
             <option>Cross River</option><option>Delta</option><option>Ebonyi</option><option>Edo</option>
@@ -1238,21 +1363,21 @@ svg { display: block; }
             <option>Abuja FCT</option>
           </select>
         </div>
-        <span class="section-label" style="margin-top:8px">Select your vehicle class</span>
-        <div class="vehicle-grid">
-          <div class="vehicle-card active" onclick="selVehicle(this, 'vg1')">
+        <span class="section-label driver-register-only" style="margin-top:8px">Select your vehicle class</span>
+        <div class="vehicle-grid driver-register-only" id="vg1">
+          <div class="vehicle-card active" data-value="bike" onclick="selVehicle(this, 'vg1')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="17" cy="17.5" r="2.5"/><path d="M5.5 17.5h11.5M8 9l-2.5 8.5M12 5l4 12.5M12 5H8l-2.5 4h9l-2.5-4z"/></svg>
             <span>Motorbike</span>
           </div>
-          <div class="vehicle-card" onclick="selVehicle(this, 'vg1')">
+          <div class="vehicle-card" data-value="car" onclick="selVehicle(this, 'vg1')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="15" height="10" rx="2"/><polygon points="16 9 20 9 23 13 23 16 16 16 16 9"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
             <span>Car</span>
           </div>
-          <div class="vehicle-card" onclick="selVehicle(this, 'vg1')">
+          <div class="vehicle-card" data-value="keke" onclick="selVehicle(this, 'vg1')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3m0 0h4l2 5v4h-6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
             <span>Tricycle</span>
           </div>
-          <div class="vehicle-card" onclick="selVehicle(this, 'vg1')">
+          <div class="vehicle-card" data-value="van" onclick="selVehicle(this, 'vg1')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="20" height="14" rx="2"/><circle cx="5.5" cy="20" r="2"/><circle cx="18.5" cy="20" r="2"/><line x1="1" y1="12" x2="21" y2="12"/></svg>
             <span>Van</span>
           </div>
@@ -1267,17 +1392,17 @@ svg { display: block; }
           <strong>🔒 Strictly confidential</strong><br>
           This information is used only for background verification and will never be shared with customers.
         </div>
-        <div class="upload-box" onclick="markDone(this)">
+        <div class="upload-box" data-field="id_front" onclick="chooseKycFile(this)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
           <p><strong>Driver's License</strong></p>
           <small>Tap to upload · JPG, PNG or PDF</small>
         </div>
-        <div class="upload-box" onclick="markDone(this)">
+        <div class="upload-box" data-field="id_back" onclick="chooseKycFile(this)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-6-4L3 20"/></svg>
           <p><strong>National ID Card / NIN Slip</strong></p>
           <small>Tap to upload · JPG or PNG</small>
         </div>
-        <div class="upload-box" onclick="markDone(this)">
+        <div class="upload-box" data-field="selfie" onclick="chooseKycFile(this)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           <p><strong>Profile Photo</strong></p>
           <small>Clear portrait · Full face · No caps or glasses</small>
@@ -1294,47 +1419,47 @@ svg { display: block; }
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Year</label>
-            <input class="form-input" type="number" placeholder="2020">
+            <input class="form-input" type="number" id="driverVehicleYear" placeholder="2020">
           </div>
           <div class="form-group">
             <label class="form-label">Manufacturer</label>
-            <input class="form-input" type="text" placeholder="Toyota">
+            <input class="form-input" type="text" id="driverVehicleManufacturer" placeholder="Toyota">
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">License Plate Number</label>
-          <input class="form-input" type="text" placeholder="e.g. ABC 123 DE" style="text-transform:uppercase">
+          <input class="form-input" type="text" id="driverVehiclePlate" placeholder="e.g. ABC 123 DE" style="text-transform:uppercase">
         </div>
         <div class="form-group">
           <label class="form-label">Vehicle Color</label>
-          <input class="form-input" type="text" placeholder="e.g. Red">
+          <input class="form-input" type="text" id="driverVehicleColor" placeholder="e.g. Red">
         </div>
         <span class="section-label" style="margin-top:4px">Vehicle photos (high quality, all angles)</span>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-          <div class="upload-box" style="padding:22px 12px;margin-bottom:0" onclick="markDone(this)">
+          <div class="upload-box" data-field="vehicle_photo" style="padding:22px 12px;margin-bottom:0" onclick="chooseKycFile(this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-6-6L3 21"/></svg>
             <p style="font-size:12px;margin-top:6px">Exterior</p>
           </div>
-          <div class="upload-box" style="padding:22px 12px;margin-bottom:0" onclick="markDone(this)">
+          <div class="upload-box" data-field="vehicle_interior_photo" style="padding:22px 12px;margin-bottom:0" onclick="chooseKycFile(this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-6-6L3 21"/></svg>
             <p style="font-size:12px;margin-top:6px">Interior</p>
           </div>
-          <div class="upload-box" style="padding:22px 12px;margin-bottom:0" onclick="markDone(this)">
+          <div class="upload-box" data-field="vehicle_front_photo" style="padding:22px 12px;margin-bottom:0" onclick="chooseKycFile(this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-6-6L3 21"/></svg>
             <p style="font-size:12px;margin-top:6px">Front angle</p>
           </div>
-          <div class="upload-box" style="padding:22px 12px;margin-bottom:0" onclick="markDone(this)">
+          <div class="upload-box" data-field="vehicle_rear_photo" style="padding:22px 12px;margin-bottom:0" onclick="chooseKycFile(this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-6-6L3 21"/></svg>
             <p style="font-size:12px;margin-top:6px">Rear angle</p>
           </div>
         </div>
         <span class="section-label">Vehicle documents</span>
-        <div class="upload-box" onclick="markDone(this)">
+        <div class="upload-box" data-field="vehicle_license_doc" onclick="chooseKycFile(this)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <p><strong>Vehicle License Certificate</strong></p>
           <small>Upload valid document</small>
         </div>
-        <div class="upload-box" onclick="markDone(this)">
+        <div class="upload-box" data-field="insurance_doc" onclick="chooseKycFile(this)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <p><strong>Vehicle Inspection Report</strong></p>
           <small>Recent inspection certificate</small>
@@ -1359,15 +1484,15 @@ svg { display: block; }
         <span class="section-label">Bank details</span>
         <div class="form-group">
           <label class="form-label">Account Holder Name</label>
-          <input class="form-input" type="text" placeholder="As on bank records">
+          <input class="form-input" type="text" id="driverAccountHolder" placeholder="As on bank records">
         </div>
         <div class="form-group">
           <label class="form-label">Account Number</label>
-          <input class="form-input" type="number" placeholder="0123456789" maxlength="10">
+          <input class="form-input" type="number" id="driverAccountNumber" placeholder="0123456789" maxlength="10">
         </div>
         <div class="form-group">
           <label class="form-label">Bank Name</label>
-          <select class="form-input">
+          <select class="form-input" id="driverBankName">
             <option>Access Bank</option>
             <option>GTBank</option>
             <option>UBA</option>
@@ -1383,12 +1508,12 @@ svg { display: block; }
         <span class="section-label" style="margin-top:4px">Emergency contact</span>
         <div class="form-group">
           <label class="form-label">Next of Kin Full Name</label>
-          <input class="form-input" type="text" placeholder="Full name">
+          <input class="form-input" type="text" id="driverEmergencyName" placeholder="Full name">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Relationship</label>
-            <select class="form-input">
+            <select class="form-input" id="driverEmergencyRelationship">
               <option>Parent</option>
               <option>Spouse</option>
               <option>Sibling</option>
@@ -1399,12 +1524,12 @@ svg { display: block; }
           </div>
           <div class="form-group">
             <label class="form-label">Phone Number</label>
-            <input class="form-input" type="tel" placeholder="+234...">
+            <input class="form-input" type="tel" id="driverEmergencyPhone" placeholder="+234...">
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">Address</label>
-          <input class="form-input" type="text" placeholder="Next of kin address">
+          <input class="form-input" type="text" id="driverEmergencyAddress" placeholder="Next of kin address">
         </div>
       </div>
 
@@ -1458,7 +1583,7 @@ svg { display: block; }
   </div>
 
   <!-- ===== DRIVER DASHBOARD ===== -->
-  <div class="screen" id="screen-driver-dash">
+  <div class="screen <?php echo $driver_initial_context['is_approved'] ? 'active' : ''; ?>" id="screen-driver-dash">
 
     <!-- Sidebar (desktop only) -->
     <div class="dash-sidebar">
@@ -1984,15 +2109,27 @@ svg { display: block; }
     </div><!-- end dash-main -->
   </div><!-- end screen-driver-dash -->
 
+  <input class="kyc-file-input" type="file" id="driverKycFileInput" accept="image/jpeg,image/png,application/pdf">
+
   <!-- TOAST -->
   <div class="toast" id="toast"></div>
 </div>
 
 <script>
 // ===== ONBOARDING =====
-let driverStep = 1;
-let driverAuthenticated = false;
+function setAppHeight() {
+  document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+}
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
+window.addEventListener('orientationchange', setAppHeight);
+
+const driverInitialContext = <?php echo wp_json_encode( $driver_initial_context ); ?>;
+let driverStep = driverInitialContext.logged_in && driverInitialContext.kyc_status === 'under_review' ? 5 : 1;
+let driverAuthenticated = !!driverInitialContext.logged_in;
+let driverAuthMode = 'signup';
 const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
+const driverFiles = {};
 
 async function parseDriverJson(response) {
   const rawText = await response.text();
@@ -2015,32 +2152,66 @@ async function driverAuthPost(body) {
   return parseDriverJson(response);
 }
 
+function syncDriverRegistrationFields() {
+  const isLogin = driverAuthMode === 'login';
+  document.querySelectorAll('.driver-register-only').forEach(el => {
+    if (el.dataset.originalDisplay === undefined) {
+      el.dataset.originalDisplay = el.style.display || '';
+    }
+    el.hidden = isLogin;
+    el.style.display = isLogin ? 'none' : el.dataset.originalDisplay;
+  });
+}
+
+function setDriverAuthMode(mode) {
+  driverAuthMode = mode === 'login' ? 'login' : 'signup';
+  document.getElementById('driverSignupTab').classList.toggle('active', driverAuthMode === 'signup');
+  document.getElementById('driverLoginTab').classList.toggle('active', driverAuthMode === 'login');
+  document.getElementById('driverSignupPanel').classList.toggle('active', driverAuthMode === 'signup');
+  document.getElementById('driverLoginPanel').classList.toggle('active', driverAuthMode === 'login');
+  document.getElementById('driverSignupTab').setAttribute('aria-selected', driverAuthMode === 'signup');
+  document.getElementById('driverLoginTab').setAttribute('aria-selected', driverAuthMode === 'login');
+  document.getElementById('screen-driver').classList.toggle('driver-login-mode', driverAuthMode === 'login');
+  syncDriverRegistrationFields();
+  updateDriver();
+}
+
 async function driverLogin() {
   const identifier = document.getElementById('driverLoginPhone').value.trim();
   const password = document.getElementById('driverLoginPassword').value;
 
   if (!identifier || !password) {
     showToast('Enter your phone/email and password.');
-    return;
+    return false;
   }
 
   const body = new FormData();
   body.append('action', 'login');
   body.append('phone', identifier);
   body.append('password', password);
+  body.append('language', document.getElementById('driverLanguage').value);
+  body.append('middle_name', document.getElementById('driverMiddleName').value.trim());
+  body.append('date_of_birth', document.getElementById('driverDob').value);
+  body.append('gender', document.getElementById('driverGender').value);
+  body.append('state_of_origin', document.getElementById('driverStateOrigin').value);
+  body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
 
   try {
     const json = await driverAuthPost(body);
     if (json.success) {
       driverAuthenticated = true;
+      Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
       showToast(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
       goToDashboard();
-    } else {
-      showToast(json.data?.message || 'Driver login failed.');
+      return true;
     }
+
+    showToast(json.data?.message || 'Driver login failed.');
   } catch (err) {
     showToast('Could not reach Idibia right now. Please try again.');
   }
+
+  return false;
 }
 
 async function submitDriverSignup() {
@@ -2067,6 +2238,7 @@ async function submitDriverSignup() {
     const json = await driverAuthPost(body);
     if (json.success) {
       driverAuthenticated = true;
+      Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
       showToast(json.data?.message || 'Driver account created. Continue your application.');
       return true;
     }
@@ -2079,10 +2251,95 @@ async function submitDriverSignup() {
   return false;
 }
 
-const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
 
+function getSelectedValue(groupId, fallback = '') {
+  const active = document.querySelector(`#${groupId} .vehicle-card.active`);
+  return active?.dataset?.value || active?.textContent?.trim() || fallback;
+}
+
+function chooseKycFile(box) {
+  const field = box.dataset.field;
+  if (!field) return;
+
+  const input = document.getElementById('driverKycFileInput');
+  if (!input) {
+    showToast('File picker is not ready yet. Please reload and try again.');
+    return;
+  }
+
+  input.value = '';
+  input.onchange = () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    driverFiles[field] = file;
+    markDone(box, file.name);
+  };
+  input.click();
+}
+
+function validateRequiredFiles(fields, message) {
+  const missing = fields.filter(field => !driverFiles[field]);
+  if (missing.length) {
+    showToast(message);
+    return false;
+  }
+  return true;
+}
+
+function requireValue(id, message) {
+  const el = document.getElementById(id);
+  if (!el || !el.value.trim()) {
+    showToast(message);
+    if (el) el.focus();
+    return false;
+  }
+  return true;
+}
+
+async function submitDriverKyc() {
+  if (!requireValue('driverAccountHolder', 'Enter the bank account holder name.')) return false;
+  if (!requireValue('driverAccountNumber', 'Enter the bank account number.')) return false;
+  if (!requireValue('driverEmergencyName', 'Enter your next of kin name.')) return false;
+  if (!requireValue('driverEmergencyPhone', 'Enter your next of kin phone number.')) return false;
+
+  const body = new FormData();
+  body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
+  body.append('vehicle_year', document.getElementById('driverVehicleYear').value.trim());
+  body.append('vehicle_model', `${document.getElementById('driverVehicleYear').value.trim()} ${document.getElementById('driverVehicleManufacturer').value.trim()}`.trim());
+  body.append('vehicle_plate', document.getElementById('driverVehiclePlate').value.trim().toUpperCase());
+  body.append('vehicle_color', document.getElementById('driverVehicleColor').value.trim());
+  body.append('bank_name', document.getElementById('driverBankName').value);
+  body.append('account_holder_name', document.getElementById('driverAccountHolder').value.trim());
+  body.append('account_number', document.getElementById('driverAccountNumber').value.trim());
+  body.append('emergency_name', document.getElementById('driverEmergencyName').value.trim());
+  body.append('emergency_relationship', document.getElementById('driverEmergencyRelationship').value);
+  body.append('emergency_phone', document.getElementById('driverEmergencyPhone').value.trim());
+  body.append('emergency_address', document.getElementById('driverEmergencyAddress').value.trim());
+
+  Object.entries(driverFiles).forEach(([field, file]) => body.append(field, file));
+
+  try {
+    const response = await fetch('/driver-kyc-handler.php', {
+      method: 'POST',
+      body,
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const json = await parseDriverJson(response);
+    if (json.success) {
+      driverInitialContext.kyc_status = 'under_review';
+      showToast(json.data?.message || 'Application submitted for review.');
+      return true;
+    }
+    showToast(json.data?.message || 'Could not submit application.');
+  } catch (err) {
+    showToast('Could not submit application. Please try again.');
+  }
+  return false;
+}
 
 function updateDriver() {
+  syncDriverRegistrationFields();
   for (let i = 1; i <= 5; i++) {
     document.getElementById('dstep-' + i).classList.toggle('active', i === driverStep);
   }
@@ -2090,17 +2347,22 @@ function updateDriver() {
   document.getElementById('driverStepTitle').textContent = driverTitles[driverStep - 1];
   document.getElementById('driverProgress').style.width = (driverStep / 5 * 100) + '%';
 
-  // Elements to hide/show for Step 5
   const backBtn = document.getElementById('driverBack');
   const nextBtn = document.getElementById('driverNext');
   const headerWrap = document.getElementById('driverHeaderWrap');
   const progressWrap = document.getElementById('driverProgressWrap');
   const footerWrap = document.getElementById('driverFooterWrap');
 
-  // Handle back button visibility
   backBtn.style.visibility = driverStep === 1 ? 'hidden' : 'visible';
 
-  // Handle Full Screen for Step 5
+  if (driverStep === 1) {
+    nextBtn.innerHTML = driverAuthMode === 'login'
+      ? 'Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
+      : 'Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+  } else {
+    nextBtn.innerHTML = 'Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+  }
+
   if (driverStep === 5) {
     headerWrap.style.display = 'none';
     progressWrap.style.display = 'none';
@@ -2114,11 +2376,28 @@ function updateDriver() {
 
 async function driverNext() {
   if (driverStep === 1 && !driverAuthenticated) {
+    if (driverAuthMode === 'login') {
+      await driverLogin();
+      return;
+    }
+
     const created = await submitDriverSignup();
     if (!created) return;
   }
 
-function driverNext() {
+  if (driverStep === 2 && !validateRequiredFiles(['id_front', 'id_back', 'selfie'], 'Upload your license, ID/NIN, and profile photo first.')) return;
+
+  if (driverStep === 3) {
+    if (!requireValue('driverVehicleYear', 'Enter your vehicle year.')) return;
+    if (!requireValue('driverVehicleManufacturer', 'Enter your vehicle manufacturer.')) return;
+    if (!requireValue('driverVehiclePlate', 'Enter your license plate number.')) return;
+    if (!validateRequiredFiles(['vehicle_photo', 'vehicle_license_doc'], 'Upload at least one vehicle photo and your vehicle license certificate.')) return;
+  }
+
+  if (driverStep === 4) {
+    const submitted = await submitDriverKyc();
+    if (!submitted) return;
+  }
 
   if (driverStep < 5) {
     driverStep++;
@@ -2140,14 +2419,21 @@ function selVehicle(el, groupId) {
   el.classList.add('active');
 }
 
-function markDone(el) {
+function markDone(el, filename = '') {
   el.classList.add('done');
-  el.querySelector('p').innerHTML = '<strong style="color:var(--success)">✓ Uploaded successfully</strong>';
+  el.querySelector('p').innerHTML = '<strong style="color:var(--success)">✓ File selected</strong>';
   const small = el.querySelector('small');
-  if (small) small.textContent = 'Tap to replace';
+  if (small) small.textContent = filename || 'Tap to replace';
 }
 
 function goToDashboard() {
+  if (!driverInitialContext.is_approved) {
+    driverStep = driverInitialContext.kyc_status === 'under_review' ? 5 : 1;
+    document.getElementById('screen-driver-dash').classList.remove('active');
+    document.getElementById('screen-driver').classList.add('active');
+    updateDriver();
+    return;
+  }
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
 }
@@ -2156,15 +2442,39 @@ function goToDashboard() {
 let isOnline = true;
 let currentTab = 'home';
 
-function toggleOnline() {
-  isOnline = !isOnline;
-  const toggle = document.getElementById('onlineToggle');
+async function toggleOnline() {
+  if (!driverInitialContext.is_approved) {
+    showToast('Your account must be approved before going online.');
+    return;
+  }
 
-  toggle.classList.toggle('online', isOnline);
-  toggle.classList.toggle('offline', !isOnline);
-  document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
+  const requestedState = !isOnline;
+  const body = new FormData();
+  body.append('online', requestedState ? '1' : '0');
 
-  showToast(isOnline ? '✓ You are now online' : 'You are now offline');
+  try {
+    const response = await fetch('/driver-toggle-online.php', {
+      method: 'POST',
+      body,
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const json = await parseDriverJson(response);
+    if (!json.success) {
+      showToast(json.data?.message || 'Could not update online status.');
+      return;
+    }
+
+    isOnline = !!json.data?.is_online;
+    driverInitialContext.is_online = isOnline;
+    const toggle = document.getElementById('onlineToggle');
+    toggle.classList.toggle('online', isOnline);
+    toggle.classList.toggle('offline', !isOnline);
+    document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
+    showToast(isOnline ? '✓ You are now online' : 'You are now offline');
+  } catch (err) {
+    showToast('Could not update online status. Please try again.');
+  }
 }
 
 function switchTab(tab) {
@@ -2207,6 +2517,13 @@ function setGreeting() {
   if (el) el.textContent = greet;
 }
 setGreeting();
+setDriverAuthMode(driverAuthMode);
+isOnline = !!driverInitialContext.is_online;
+if (document.getElementById('onlineToggle')) {
+  document.getElementById('onlineToggle').classList.toggle('online', isOnline);
+  document.getElementById('onlineToggle').classList.toggle('offline', !isOnline);
+  document.getElementById('onlineLabel').textContent = isOnline ? 'Online' : 'Offline';
+}
 
 // Toast
 function showToast(msg) {

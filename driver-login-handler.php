@@ -27,11 +27,17 @@ if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' )
 
 idibia_finish_wordpress_login( $user );
 $driver_id = idibia_find_or_create_profile_row( $user->ID, 'driver' );
-$kyc_status = get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending';
+global $wpdb;
+$driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+$kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
+$status     = $driver_row['status'] ?? ( get_user_meta( $user->ID, 'idibia_account_status', true ) ?: 'pending' );
 
 wp_send_json_success( [
-    'redirect'   => '/driver.php',
-    'first_name' => idibia_first_name_from_user( $user ),
-    'driver_id'  => $driver_id,
-    'kyc_status' => $kyc_status,
+    'redirect'    => '/driver.php',
+    'first_name'  => idibia_first_name_from_user( $user ),
+    'driver_id'   => $driver_id,
+    'kyc_status'  => $kyc_status,
+    'status'      => $status,
+    'is_approved' => $kyc_status === 'approved' && $status === 'active',
+    'is_online'   => ! empty( $driver_row['is_online'] ),
 ] );
