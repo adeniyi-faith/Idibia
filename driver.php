@@ -1,129 +1,7 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
 
-if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
-    idibia_clean_json_buffer();
 
-    $action = sanitize_key( wp_unslash( $_POST['action'] ) );
-
-    if ( $action === 'login' ) {
-        $identifier = sanitize_text_field( wp_unslash( $_POST['phone'] ?? $_POST['email'] ?? '' ) );
-        $password   = (string) ( $_POST['password'] ?? '' );
-
-        if ( ! $identifier || ! $password ) {
-            wp_send_json_error( [ 'message' => 'Enter your phone/email and password.' ] );
-        }
-
-        $user = wp_signon( [
-            'user_login'    => idibia_find_user_login_by_identifier( $identifier ),
-            'user_password' => $password,
-            'remember'      => true,
-        ], is_ssl() );
-
-        if ( is_wp_error( $user ) ) {
-            wp_send_json_error( [ 'message' => 'Invalid login details.' ] );
-        }
-
-        if ( get_user_meta( $user->ID, 'idibia_account_type', true ) !== 'driver' ) {
-            wp_logout();
-            wp_send_json_error( [ 'message' => 'Use a driver account to sign in here.' ] );
-        }
-
-        if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' ) {
-            wp_logout();
-            wp_send_json_error( [ 'message' => 'Your driver account is suspended. Contact support.' ] );
-        }
-
-        idibia_finish_wordpress_login( $user );
-        $driver_id = idibia_find_or_create_profile_row( $user->ID, 'driver' );
-        global $wpdb;
-        $driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
-        $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
-        $status     = $driver_row['status'] ?? ( get_user_meta( $user->ID, 'idibia_account_status', true ) ?: 'pending' );
-
-        wp_send_json_success( [
-            'redirect'    => '/driver.php',
-            'first_name'  => idibia_first_name_from_user( $user ),
-            'driver_id'   => $driver_id,
-            'kyc_status'  => $kyc_status,
-            'status'      => $status,
-            'is_approved' => $kyc_status === 'approved' && $status === 'active',
-            'is_online'   => ! empty( $driver_row['is_online'] ),
-        ] );
-    }
-
-    if ( $action === 'signup' ) {
-        $first_name = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
-        $middle_name = sanitize_text_field( wp_unslash( $_POST['middle_name'] ?? '' ) );
-        $last_name  = sanitize_text_field( wp_unslash( $_POST['last_name'] ?? '' ) );
-        $full_name  = trim( $first_name . ' ' . ( $middle_name ? $middle_name . ' ' : '' ) . $last_name );
-        $phone      = preg_replace( '/[\s\-()]/', '', sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ) );
-        $email      = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
-        $password   = (string) ( $_POST['password'] ?? '' );
-        $language   = sanitize_text_field( wp_unslash( $_POST['language'] ?? 'English' ) );
-        $dob        = sanitize_text_field( wp_unslash( $_POST['date_of_birth'] ?? '' ) );
-        $gender     = sanitize_text_field( wp_unslash( $_POST['gender'] ?? '' ) );
-        $state      = sanitize_text_field( wp_unslash( $_POST['state_of_origin'] ?? '' ) );
-        $vehicle_type = sanitize_text_field( wp_unslash( $_POST['vehicle_type'] ?? 'bike' ) );
-        $errors     = [];
-
-        if ( strlen( $first_name ) < 2 || strlen( $last_name ) < 2 ) $errors[] = 'Please enter your first and last name.';
-        if ( ! is_email( $email ) ) $errors[] = 'Enter a valid email address.';
-        if ( ! preg_match( '/^(\+?234|0)[789][01]\d{8}$/', $phone ) ) $errors[] = 'Enter a valid Nigerian phone number.';
-        if ( strlen( $password ) < 6 ) $errors[] = 'Password must be at least 6 characters.';
-        if ( $errors ) wp_send_json_error( [ 'message' => implode( ' ', $errors ) ] );
-
-        if ( username_exists( $phone ) ) wp_send_json_error( [ 'message' => 'Phone already registered. Try logging in.' ] );
-        if ( email_exists( $email ) ) wp_send_json_error( [ 'message' => 'Email already in use. Try logging in.' ] );
-
-        $user_id = wp_insert_user( [
-            'user_login'   => $phone,
-            'user_pass'    => $password,
-            'user_email'   => $email,
-            'first_name'   => $first_name,
-            'last_name'    => $last_name,
-            'display_name' => $full_name,
-            'role'         => 'subscriber',
-        ] );
-
-        if ( is_wp_error( $user_id ) ) {
-            wp_send_json_error( [ 'message' => $user_id->get_error_message() ?: 'Something went wrong. Please try again.' ] );
-        }
-
-        update_user_meta( $user_id, 'idibia_account_type', 'driver' );
-        update_user_meta( $user_id, 'idibia_account_status', 'pending' );
-        update_user_meta( $user_id, 'idibia_kyc_status', 'pending' );
-        update_user_meta( $user_id, 'idibia_phone', $phone );
-        update_user_meta( $user_id, 'idibia_driver_language', $language );
-        update_user_meta( $user_id, 'idibia_driver_middle_name', $middle_name );
-        update_user_meta( $user_id, 'idibia_driver_date_of_birth', $dob );
-        update_user_meta( $user_id, 'idibia_driver_gender', $gender );
-        update_user_meta( $user_id, 'idibia_driver_state_of_origin', $state );
-
-        $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [
-            'full_name' => $full_name,
-            'email'     => $email,
-            'phone'     => $phone,
-        ] );
-        global $wpdb;
-        $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike' ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
-
-        $user = get_user_by( 'id', $user_id );
-        idibia_finish_wordpress_login( $user );
-
-        wp_send_json_success( [
-            'redirect'   => '/driver.php',
-            'first_name' => $first_name,
-            'driver_id'  => $driver_id,
-            'kyc_status'  => 'pending',
-            'status'      => 'pending',
-            'is_approved' => false,
-            'message'     => 'Driver account created. Continue your KYC application.',
-        ] );
-    }
-
-    wp_send_json_error( [ 'message' => 'Unknown auth action.' ] );
-}
 
 
 $driver_initial_context = [
@@ -2131,8 +2009,8 @@ async function parseDriverJson(response) {
   }
 }
 
-async function driverAuthPost(body) {
-  const response = await fetch(window.location.href, {
+async function driverAuthPost(endpoint, body) {
+  const response = await fetch(endpoint, {
     method: 'POST',
     body,
     credentials: 'same-origin',
@@ -2175,7 +2053,7 @@ async function driverLogin() {
   body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
 
   try {
-    const json = await driverAuthPost(body);
+    const json = await driverAuthPost('driver-login-handler.php', body);
     if (json.success) {
       driverAuthenticated = true;
       Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
@@ -2221,7 +2099,7 @@ async function submitDriverSignup() {
   body.append('password', password);
 
   try {
-    const json = await driverAuthPost(body);
+    const json = await driverAuthPost('driver-register-handler.php', body);
     if (json.success) {
       driverAuthenticated = true;
       Object.assign(driverInitialContext, json.data || {}, { logged_in: true });

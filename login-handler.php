@@ -6,7 +6,7 @@ require_once __DIR__ . '/wp-auth-config.php';
 if ( $_SERVER['REQUEST_METHOD'] === 'OPTIONS' ) {
     idibia_clean_json_buffer();
     http_response_code( 204 );
-    exit;
+    die();
 }
 
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
