@@ -73,7 +73,7 @@ if ( $customer->email_verified ) {
 }
 
 // ── Code match ───────────────────────────────────────────────────────────────
-if ( $customer->verify_code !== $submitted_code ) {
+if ( ! wp_check_password( $submitted_code, $customer->verify_code ) ) {
     wp_send_json_error( [ 'message' => 'Incorrect code. Double-check and try again.' ] );
 }
 
@@ -100,6 +100,12 @@ $updated = $wpdb->update(
 if ( false === $updated ) {
     error_log( "Idibia: failed to mark verified for customer_id=$customer_id" );
     wp_send_json_error( [ 'message' => 'Something went wrong. Please try again.' ] );
+}
+
+$user = get_user_by( 'email', $customer->email );
+if ( $user ) {
+    update_user_meta( $user->ID, 'idibia_account_status', 'active' );
+    idibia_finish_wordpress_login( $user );
 }
 
 // ── Create a session token ────────────────────────────────────────────────────

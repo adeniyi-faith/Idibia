@@ -2,6 +2,14 @@
 /** Idibia — Driver Registration Handler */
 
 require_once __DIR__ . '/wp-auth-config.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
+
+$ip = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' );
+if ( ! idibia_check_rate_limit( 'driver_register', $ip, 5, 300 ) ) {
+    http_response_code( 429 );
+    wp_send_json_error( [ 'message' => 'Too many requests. Please try again later.' ] );
+}
+
 
 if ( $_SERVER['REQUEST_METHOD'] === 'OPTIONS' ) {
     idibia_clean_json_buffer();
@@ -16,6 +24,8 @@ if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
 }
 
 idibia_clean_json_buffer();
+
+
 
 $first_name  = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
 $middle_name = sanitize_text_field( wp_unslash( $_POST['middle_name'] ?? '' ) );
@@ -67,14 +77,26 @@ $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [ 'full_name
 global $wpdb;
 $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike' ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
 $user = get_user_by( 'id', $user_id );
-idibia_finish_wordpress_login( $user );
+
+$otp = sprintf('%05d', wp_rand(0, 99999));
+$expires = gmdate('Y-m-d H:i:s', time() + 15 * MINUTE_IN_SECONDS);
+
+$wpdb->update(
+    $wpdb->prefix . 'sd_drivers',
+    [ 'verify_code' => wp_hash_password($otp), 'verify_expires' => $expires, 'email_verified' => 0, 'status' => 'pending' ],
+    [ 'email' => $email ],
+    [ '%s', '%s', '%d', '%s' ],
+    [ '%s' ]
+);
+
+wp_mail( $email, 'Your Idibia Driver Verification Code', "Your code is: $otp" );
+
+if ( ! session_id() ) session_start();
+$driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_drivers` WHERE email = %s LIMIT 1", $email ) );
+$_SESSION['sd_pending_driver_id'] = $driver_row->id;
+$_SESSION['sd_pending_driver_email'] = $email;
 
 wp_send_json_success( [
-    'redirect'   => '/driver.php',
     'first_name' => $first_name,
-    'driver_id'  => $driver_id,
-    'kyc_status'  => 'pending',
-    'status'      => 'pending',
-    'is_approved' => false,
-    'message'     => 'Driver account created. Continue your KYC application.',
+    'message'    => 'Driver account created. Please verify your email.',
 ] );

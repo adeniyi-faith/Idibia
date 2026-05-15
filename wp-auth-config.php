@@ -98,6 +98,14 @@ function idibia_find_or_create_profile_row( int $user_id, string $type, array $a
 
     $existing_by_email = $email ? (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `$table` WHERE email = %s LIMIT 1", $email ) ) : 0;
     if ( $existing_by_email ) {
+        // Normalize: sync email/phone/full_name
+        $wpdb->update(
+            $table,
+            [ 'full_name' => $full_name ?: $phone, 'phone' => $phone ],
+            [ 'id' => $existing_by_email ],
+            [ '%s', '%s' ],
+            [ '%d' ]
+        );
         update_user_meta( $user_id, $meta_key, $existing_by_email );
         return $existing_by_email;
     }
