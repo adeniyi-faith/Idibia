@@ -985,7 +985,7 @@ a { color: inherit; }
             </div>
           </div>
           <div class="panel-footer">
-            <button class="find-btn" onclick="findRider()">
+            <button class="find-btn" onclick="requestQuote()">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Find a Rider
             </button>
@@ -1971,6 +1971,134 @@ async function doVerify() {
     btn.innerHTML = 'Verify &amp; Get Started <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>';
   }
 }
+
+// ═══════════ QUOTE AND BOOKING ═══════════
+let currentQuoteId = null;
+
+async function requestQuote() {
+  const pickup = document.getElementById('pickupLoc').value.trim();
+  const dropoff = document.getElementById('dropoffLoc').value.trim();
+  const cat = selectedCategory.toLowerCase(); // Package, Food, etc.
+
+  // Hardcode vehicle type for now or pick based on cat
+  const vehicle = cat === 'package' ? 'bike' : 'car';
+
+  if (!pickup || !dropoff) {
+    showToast('Please enter both pickup and drop-off locations.');
+    return;
+  }
+
+  const btn = document.querySelector('button[onclick="requestQuote()"]');
+  if(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Calculating...';
+  }
+
+  try {
+    const body = new FormData();
+    body.append('pickup', pickup);
+    body.append('dropoff', dropoff);
+    body.append('category', cat);
+    body.append('vehicle_type', vehicle);
+
+    const json = await idibiaPost('quote-api.php', body);
+
+    if (json.success) {
+      currentQuoteId = json.data.quote_id;
+      await confirmBooking();
+    } else {
+      showToast(json.data?.message || 'Could not calculate fare. Try again.');
+      if(btn) {
+        btn.disabled = false;
+        btn.textContent = 'Find Rider';
+      }
+    }
+  } catch (err) {
+    showToast('Connection error calculating fare.');
+    if(btn) {
+      btn.disabled = false;
+      btn.textContent = 'Find Rider';
+    }
+  }
+}
+
+async function confirmBooking() {
+  if (!currentQuoteId) return;
+
+  try {
+    const body = new FormData();
+    body.append('quote_id', currentQuoteId);
+
+    const json = await idibiaPost('book-trip-handler.php', body);
+
+    if (json.success) {
+      showToast(json.data.message);
+      goTo('screen-tracking');
+
+      document.getElementById('pickupLoc').value = '';
+      document.getElementById('dropoffLoc').value = '';
+      currentQuoteId = null;
+
+      const btn = document.querySelector('button[onclick="requestQuote()"]');
+      if(btn) {
+        btn.disabled = false;
+        btn.textContent = 'Find Rider';
+      }
+    } else {
+      showToast(json.data?.message || 'Could not book trip.');
+    }
+  } catch(err) {
+     showToast('Connection error booking trip.');
+  }
+}
+
+
+// ═══════════ RECENT ACTIVITY ═══════════
+async function fetchRecentActivity() {
+  const container = document.getElementById('activityCards');
+  if (!container) return;
+
+  try {
+    const res = await fetch(`${IDIBIA_API_BASE}/customer-trips-api.php`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    const json = await res.json();
+
+    if (json.success && json.data.trips.length > 0) {
+      container.innerHTML = '';
+
+      json.data.trips.forEach(trip => {
+        const date = new Date(trip.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+        let iconHtml = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>';
+
+        container.innerHTML += `
+        <div class="activity-card" onclick="goTo('screen-tracking')">
+          <div class="ac-icon">${iconHtml}</div>
+          <div class="ac-details">
+            <strong>${trip.dropoff_address || trip.dropoff || 'Delivery'}</strong>
+            <p>${date} • ${trip.status}</p>
+          </div>
+          <div class="ac-amt">₦${parseFloat(trip.fare).toLocaleString()}</div>
+        </div>`;
+      });
+    } else {
+       container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">No recent activity</div>';
+    }
+  } catch (err) {
+    console.error("Failed to load trips", err);
+  }
+}
+
+// Call it when showing main screen
+const origEnter = window.enterCustomerApp;
+window.enterCustomerApp = function(msg) {
+    if(origEnter) origEnter(msg);
+    fetchRecentActivity();
+};
 </script>
 </body>
 </html>

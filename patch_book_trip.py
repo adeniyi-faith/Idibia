@@ -1,27 +1,9 @@
-<?php
-/** Idibia — Book Trip Handler */
+import sys
 
-if ( ! ob_get_level() ) ob_start();
-require_once __DIR__ . '/wp-auth-config.php';
-require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
-idibia_clean_json_buffer();
+with open("book-trip-handler.php", "r") as f:
+    content = f.read()
 
-
-if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
-    http_response_code( 405 );
-    wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
-}
-
-$ip = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' );
-if ( ! idibia_check_rate_limit( 'booking', $ip, 10, 60 ) ) {
-    http_response_code( 429 );
-    wp_send_json_error( [ 'message' => 'Too many requests. Please try again later.' ] );
-}
-
-$auth_type = 'customer';
-require_once __DIR__ . '/auth-helper.php';
-
-global $wpdb;
+replacement = """global $wpdb;
 $customer_id = (int) $GLOBALS['auth_customer_id'];
 $quote_id    = sanitize_text_field( wp_unslash( $_POST['quote_id'] ?? '' ) );
 $package_metadata = sanitize_text_field( wp_unslash( $_POST['package_details'] ?? '' ) );
@@ -87,4 +69,12 @@ wp_send_json_success( [
     'trip_id'  => $trip_id,
     'trip_ref' => $trip_ref,
     'fare'     => $quote_data['fare_estimate'],
-] );
+] );"""
+
+# Find the point to replace
+start_idx = content.find("global $wpdb;")
+if start_idx != -1:
+    content = content[:start_idx] + replacement
+
+with open("book-trip-handler.php", "w") as f:
+    f.write(content)
