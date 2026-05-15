@@ -4,17 +4,16 @@
 require_once __DIR__ . '/wp-auth-config.php';
 require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 
-if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
-    http_response_code( 405 );
-    wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
-}
-
 $ip = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' );
 if ( ! idibia_check_rate_limit( 'driver_resend_code', $ip, 5, 300 ) ) {
     http_response_code( 429 );
     wp_send_json_error( [ 'message' => 'Too many requests. Please try again later.' ] );
 }
 
+if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
+    http_response_code( 405 );
+    wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
+}
 
 if ( ! session_id() ) session_start();
 $driver_id = isset( $_SESSION['sd_pending_driver_id'] ) ? (int) $_SESSION['sd_pending_driver_id'] : 0;

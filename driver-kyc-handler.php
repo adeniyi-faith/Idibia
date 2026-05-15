@@ -3,19 +3,17 @@
 
 if ( ! ob_get_level() ) ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
-require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 idibia_clean_json_buffer();
 
+$nonce = isset( $_POST['_nonce'] ) ? sanitize_text_field( $_POST['_nonce'] ) : '';
+if ( ! wp_verify_nonce( $nonce, 'idibia_driver_kyc' ) ) {
+    http_response_code( 403 );
+    wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
+}
 
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
     http_response_code( 405 );
     wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
-}
-
-$ip = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' );
-if ( ! idibia_check_rate_limit( 'kyc_submit', $ip, 10, 60 ) ) {
-    http_response_code( 429 );
-    wp_send_json_error( [ 'message' => 'Too many requests. Please try again later.' ] );
 }
 
 $auth_type = 'driver';
