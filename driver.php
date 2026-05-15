@@ -1498,7 +1498,7 @@ svg { display: block; }
             </div>
 
             <!-- Incoming request -->
-            <div class="trip-request-card">
+            <div class="trip-request-card" style="display:none;">
               <div class="trq-header">
                 <div class="trq-tag">New Request</div>
                 <div class="trq-timer-wrap">
@@ -2271,6 +2271,160 @@ function goToDashboard() {
 let isOnline = true;
 let currentTab = 'home';
 
+
+// ═══════════ DISPATCH POLLING & HEARTBEAT ═══════════
+let heartbeatInterval = null;
+let pollingInterval = null;
+let currentOfferId = null;
+let activeTripId = null;
+
+function startHeartbeat() {
+  if (heartbeatInterval) return;
+  // Send initial heartbeat immediately
+  sendHeartbeat();
+  heartbeatInterval = setInterval(sendHeartbeat, 15000);
+}
+
+function stopHeartbeat() {
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  heartbeatInterval = null;
+}
+
+function startPolling() {
+  if (pollingInterval) return;
+  // Poll immediately
+  pollOffers();
+  pollingInterval = setInterval(pollOffers, 10000);
+}
+
+function stopPolling() {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = null;
+}
+
+async function sendHeartbeat() {
+  if (!isOnline) return;
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      const body = new FormData();
+      body.append('lat', lat);
+      body.append('lng', lng);
+
+      try {
+        await idibiaPost('driver-heartbeat-api.php', body);
+      } catch (err) {
+        console.error("Heartbeat failed", err);
+      }
+    }, (error) => {
+        // Fallback or handle geo permission denied
+        console.warn("Geolocation denied/failed. Cannot receive offers.", error);
+    });
+  } else {
+     console.warn("Geolocation not supported by this browser.");
+  }
+}
+
+async function pollOffers() {
+  if (!isOnline) return;
+
+  try {
+    const res = await fetch(`${IDIBIA_API_BASE}/driver-offers-api.php`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    const json = await res.json();
+    if (json.success && json.data.offer) {
+       displayOffer(json.data.offer);
+    } else {
+       hideOffer();
+    }
+  } catch (err) {
+    console.error("Polling failed", err);
+  }
+}
+
+function displayOffer(offer) {
+    currentOfferId = offer.offer_id;
+    activeTripId = offer.trip_id;
+
+    // Update the existing trip card DOM
+    const card = document.querySelector('.trip-request-card');
+    if (!card) return;
+
+    card.style.display = 'block';
+
+    const timer = card.querySelector('#trqTimer');
+    if (timer) timer.textContent = offer.seconds_remaining;
+
+    const fee = card.querySelector('.trq-fee');
+    if (fee) fee.innerHTML = `₦${parseFloat(offer.fare).toLocaleString()} <span>· ${offer.distance_km} km away</span>`;
+
+    // Update details
+    const routeHtml = `
+      <div class="trq-route-row">
+        <div class="trq-route-dot dot-up"></div>
+        <div class="trq-route-text">${offer.pickup_address}</div>
+      </div>
+      <div class="trq-route-row">
+        <div class="trq-route-dot dot-down"></div>
+        <div class="trq-route-text">${offer.dropoff_address}</div>
+      </div>
+    `;
+
+    const routeContainer = card.querySelector('.trq-route');
+    if (routeContainer) routeContainer.innerHTML = routeHtml;
+
+    // Wire up buttons
+    const actions = card.querySelector('.trq-actions');
+    if (actions) {
+       actions.innerHTML = `
+         <button class="btn-decline" onclick="handleTripAction(${offer.trip_id}, 'decline')">Decline</button>
+         <button class="btn-accept" onclick="handleTripAction(${offer.trip_id}, 'accept')">Accept</button>
+       `;
+    }
+}
+
+function hideOffer() {
+    currentOfferId = null;
+    activeTripId = null;
+    const card = document.querySelector('.trip-request-card');
+    if (card) card.style.display = 'none';
+}
+
+async function handleTripAction(tripId, action) {
+    try {
+        const body = new FormData();
+        body.append('_nonce', IDIBIA_VERIFY_NONCE); // Driver has verify_nonce
+        body.append('trip_id', tripId);
+        body.append('action', action);
+
+        const json = await idibiaPost('driver-trip-action-api.php', body);
+
+        if (json.success) {
+            showToast(json.data.message);
+            if (action === 'decline') {
+                hideOffer();
+            } else if (action === 'accept') {
+                // If accepted, transition UI to active trip execution mode
+                // For now, hide the offer card since it's just a request card
+                hideOffer();
+                // Real app would switch to an active trip view
+                showToast("Trip accepted! Navigate to pickup.");
+            }
+        } else {
+            showToast(json.data?.message || 'Action failed.');
+            hideOffer();
+        }
+    } catch (err) {
+        showToast('Connection error processing action.');
+    }
+}
 async function toggleOnline() {
   if (!driverInitialContext.is_approved) {
     showToast('Your account must be approved before going online.');
@@ -2301,6 +2455,16 @@ async function toggleOnline() {
     toggle.classList.toggle('offline', !isOnline);
     document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
     showToast(isOnline ? '✓ You are now online' : 'You are now offline');
+
+    if (isOnline) {
+        startHeartbeat();
+        startPolling();
+    } else {
+        stopHeartbeat();
+        stopPolling();
+        hideOffer();
+    }
+
   } catch (err) {
     showToast('Could not update online status. Please try again.');
   }

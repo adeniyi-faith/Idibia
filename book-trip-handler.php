@@ -4,6 +4,7 @@
 if ( ! ob_get_level() ) ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
 require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-dispatch-helpers.php';
 idibia_clean_json_buffer();
 
 
@@ -77,7 +78,19 @@ if ( ! $inserted ) {
 $trip_id = $wpdb->insert_id;
 idibia_log_event( $trip_id, 'trip_created', [ 'quote_id' => $quote_id, 'fare' => $quote_data['fare_estimate'] ] );
 
+
+// Trigger initial dispatch matching
+$candidates = idibia_find_dispatch_candidates( $trip_id, $quote_data['vehicle_type'], $quote_data['pickup_lat'], $quote_data['pickup_lng'] );
+
+if ( ! empty( $candidates ) ) {
+    idibia_create_dispatch_offer( $trip_id, (int) $candidates[0]['driver_id'] );
+} else {
+    $wpdb->update( $wpdb->prefix . 'sd_trips', [ 'dispatch_status' => 'no_driver' ], [ 'id' => $trip_id ], [ '%s' ], [ '%d' ] );
+    idibia_log_event( $trip_id, 'dispatch_no_driver', [] );
+}
+
 idibia_transaction_commit();
+
 
 // Clean up quote so it can't be reused
 delete_transient( 'idibia_quote_' . $quote_id );
