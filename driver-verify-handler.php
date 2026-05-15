@@ -34,7 +34,7 @@ if ( (int) $driver->email_verified ) {
     ] );
 }
 
-if ( $driver->verify_code !== $submitted_code ) wp_send_json_error( [ 'message' => 'Incorrect code. Double-check and try again.' ] );
+if ( ! wp_check_password( $submitted_code, $driver->verify_code ) ) wp_send_json_error( [ 'message' => 'Incorrect code. Double-check and try again.' ] );
 if ( ! strtotime( $driver->verify_expires ) || time() > strtotime( $driver->verify_expires ) ) {
     wp_send_json_error( [ 'message' => 'That code has expired. Use the Resend Email button to get a fresh one.' ] );
 }
@@ -47,6 +47,11 @@ $updated = $wpdb->update(
     [ '%d' ]
 );
 if ( false === $updated ) wp_send_json_error( [ 'message' => 'Something went wrong. Please try again.' ] );
+
+$user = get_user_by( 'email', $driver->email );
+if ( $user ) {
+    idibia_finish_wordpress_login( $user );
+}
 
 $token = idibia_create_driver_session( $driver_id );
 unset( $_SESSION['sd_pending_driver_id'], $_SESSION['sd_pending_driver_email'] );

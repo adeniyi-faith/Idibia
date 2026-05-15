@@ -10,18 +10,191 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
+    $current_version = (int) get_option( 'idibia_db_version', 0 );
+    $target_version = 3;
+
+    // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
     $has_v2 = (bool) get_option( 'idibia_tables_v2' );
-
-    if ( $has_v1 && $has_v2 ) return;
-
-    idibia_create_tables();
-
-    if ( ! $has_v1 ) {
-        update_option( 'idibia_tables_v1', true );
+    if ( $current_version === 0 && $has_v1 && $has_v2 ) {
+        $current_version = 2;
+        update_option( 'idibia_db_version', 2 );
     }
 
-    update_option( 'idibia_tables_v2', true );
+    if ( $current_version >= $target_version ) return;
+
+    if ( $current_version < 2 ) {
+        idibia_create_tables();
+        update_option( 'idibia_db_version', 2 );
+        $current_version = 2;
+    }
+
+    if ( $current_version < 3 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        // Phase 1: Update sd_trips table
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_trips`
+            ADD COLUMN `pickup_lat` DECIMAL(10,8) NULL AFTER `pickup`,
+            ADD COLUMN `pickup_lng` DECIMAL(11,8) NULL AFTER `pickup_lat`,
+            ADD COLUMN `dropoff_lat` DECIMAL(10,8) NULL AFTER `dropoff`,
+            ADD COLUMN `dropoff_lng` DECIMAL(11,8) NULL AFTER `dropoff_lat`,
+            ADD COLUMN `pickup_address` VARCHAR(255) NULL AFTER `pickup_lng`,
+            ADD COLUMN `dropoff_address` VARCHAR(255) NULL AFTER `dropoff_lng`,
+            ADD COLUMN `package_metadata` TEXT NULL AFTER `dropoff_address`,
+            ADD COLUMN `service_category` VARCHAR(50) NULL AFTER `package_metadata`,
+            ADD COLUMN `vehicle_type` ENUM('bike','car','van','keke') NULL AFTER `service_category`,
+            ADD COLUMN `scheduled_time` DATETIME NULL AFTER `vehicle_type`,
+            ADD COLUMN `fare_estimate` DECIMAL(10,2) NULL AFTER `fare`,
+            ADD COLUMN `final_fare` DECIMAL(10,2) NULL AFTER `fare_estimate`,
+            ADD COLUMN `distance_km` DECIMAL(8,2) NULL AFTER `final_fare`,
+            ADD COLUMN `duration_mins` INT UNSIGNED NULL AFTER `distance_km`,
+            ADD COLUMN `payment_status` ENUM('pending','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending' AFTER `duration_mins`,
+            ADD COLUMN `dispatch_status` ENUM('searching','offered','accepted','arriving','arrived_pickup','picked_up','arrived_dropoff','completed','cancelled','no_driver') NOT NULL DEFAULT 'searching' AFTER `payment_status`,
+            ADD COLUMN `cancellation_reason` VARCHAR(255) NULL AFTER `dispatch_status`,
+            ADD COLUMN `delivery_pin` VARCHAR(10) NULL AFTER `cancellation_reason`,
+            ADD COLUMN `proof_of_delivery_path` VARCHAR(255) NULL AFTER `delivery_pin`,
+            ADD COLUMN `searching_at` DATETIME NULL AFTER `accepted_at`,
+            ADD COLUMN `arrived_at` DATETIME NULL AFTER `searching_at`;"
+        );
+
+
+        // Phase 1: Add new lifecycle tables
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_trip_events` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `trip_id` BIGINT UNSIGNED NOT NULL,
+            `event_type` VARCHAR(50) NOT NULL,
+            `event_data` TEXT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `trip_id` (`trip_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_driver_locations` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `driver_id` BIGINT UNSIGNED NOT NULL,
+            `lat` DECIMAL(10,8) NOT NULL,
+            `lng` DECIMAL(11,8) NOT NULL,
+            `heading` DECIMAL(5,2) NULL,
+            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `driver_id` (`driver_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_dispatch_offers` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `trip_id` BIGINT UNSIGNED NOT NULL,
+            `driver_id` BIGINT UNSIGNED NOT NULL,
+            `status` ENUM('pending','accepted','declined','expired') NOT NULL DEFAULT 'pending',
+            `expires_at` DATETIME NOT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `trip_id` (`trip_id`),
+            KEY `driver_id` (`driver_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_payments` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `trip_id` BIGINT UNSIGNED NOT NULL,
+            `customer_id` BIGINT UNSIGNED NOT NULL,
+            `amount` DECIMAL(10,2) NOT NULL,
+            `provider` VARCHAR(50) NOT NULL,
+            `provider_ref` VARCHAR(100) NULL,
+            `status` ENUM('pending','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending',
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `trip_id` (`trip_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_wallet_ledger` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `driver_id` BIGINT UNSIGNED NOT NULL,
+            `amount` DECIMAL(10,2) NOT NULL,
+            `entry_type` ENUM('earning','commission','bonus','refund','penalty','payout') NOT NULL,
+            `reference_id` BIGINT UNSIGNED NULL COMMENT 'Links to trip_id, payout_id, etc.',
+            `description` VARCHAR(255) NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `driver_id` (`driver_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_payouts` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `driver_id` BIGINT UNSIGNED NOT NULL,
+            `amount` DECIMAL(10,2) NOT NULL,
+            `status` ENUM('pending','processing','paid','failed') NOT NULL DEFAULT 'pending',
+            `provider_ref` VARCHAR(100) NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `driver_id` (`driver_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_ratings` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `trip_id` BIGINT UNSIGNED NOT NULL,
+            `reviewer_id` BIGINT UNSIGNED NOT NULL,
+            `reviewer_type` ENUM('customer','driver') NOT NULL,
+            `subject_id` BIGINT UNSIGNED NOT NULL,
+            `rating` TINYINT UNSIGNED NOT NULL,
+            `comment` TEXT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `trip_id` (`trip_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_notifications` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `user_id` BIGINT UNSIGNED NOT NULL,
+            `user_type` ENUM('customer','driver','admin') NOT NULL,
+            `title` VARCHAR(255) NOT NULL,
+            `body` TEXT NOT NULL,
+            `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `user_id_type` (`user_id`, `user_type`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_support_tickets` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `creator_id` BIGINT UNSIGNED NOT NULL,
+            `creator_type` ENUM('customer','driver') NOT NULL,
+            `trip_id` BIGINT UNSIGNED NULL,
+            `category` VARCHAR(100) NOT NULL,
+            `status` ENUM('open','in_progress','resolved','closed') NOT NULL DEFAULT 'open',
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `creator` (`creator_id`, `creator_type`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_support_messages` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `ticket_id` BIGINT UNSIGNED NOT NULL,
+            `sender_id` BIGINT UNSIGNED NOT NULL,
+            `sender_type` ENUM('customer','driver','admin') NOT NULL,
+            `message` TEXT NOT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `ticket_id` (`ticket_id`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_uploaded_evidence` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `reference_id` BIGINT UNSIGNED NOT NULL COMMENT 'ticket_id or dispute_id',
+            `reference_type` ENUM('ticket','dispute') NOT NULL,
+            `uploader_id` BIGINT UNSIGNED NOT NULL,
+            `uploader_type` ENUM('customer','driver','admin') NOT NULL,
+            `file_path` VARCHAR(255) NOT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `reference` (`reference_id`, `reference_type`)
+        ) $charset;" );
+
+        update_option( 'idibia_db_version', 3 );
+        $current_version = 3;
+    }
 }
 
 function idibia_create_tables() {

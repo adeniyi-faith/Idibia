@@ -2,11 +2,19 @@
 /** Idibia — Driver Login Handler */
 
 require_once __DIR__ . '/wp-auth-config.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
+
 
 if ( $_SERVER['REQUEST_METHOD'] === 'OPTIONS' ) {
     idibia_clean_json_buffer();
     http_response_code( 204 );
     die();
+}
+
+$ip = sanitize_text_field( $_SERVER['REMOTE_ADDR'] ?? '' );
+if ( ! idibia_check_rate_limit( 'driver_login', $ip, 5, 300 ) ) {
+    http_response_code( 429 );
+    wp_send_json_error( [ 'message' => 'Too many requests. Please try again later.' ] );
 }
 
 if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
@@ -16,6 +24,8 @@ if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
 }
 
 idibia_clean_json_buffer();
+
+
 
 $identifier = sanitize_text_field( wp_unslash( $_POST['phone'] ?? $_POST['email'] ?? '' ) );
 $password   = (string) ( $_POST['password'] ?? '' );
