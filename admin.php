@@ -945,7 +945,6 @@ let currentKycId = 0;
 let currentKycTab = 'under_review';
 let currentKycFilter = 'all';
 let kycDrivers = [];
-let kycUploadBaseUrl = '';
 
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -962,112 +961,6 @@ function initials(name){
 function maskAccount(number){
   const clean = String(number || '').replace(/\D/g, '');
   return clean ? '****' + clean.slice(-4) : 'Not provided';
-}
-function displayValue(value, fallback = 'Not provided'){
-  return value === null || value === undefined || String(value).trim() === '' ? fallback : value;
-}
-function detailField(label, value){
-  return `<div class="kyc-detail-field"><div class="kyc-detail-label">${escapeHtml(label)}</div><div class="kyc-detail-value">${escapeHtml(displayValue(value))}</div></div>`;
-}
-function fileUrl(path){
-  const value = String(path || '').trim();
-  if(!value) return '';
-  if(/^https?:\/\//i.test(value) || value.startsWith('/')) return value;
-  return (kycUploadBaseUrl || '/wp/wp-content/uploads/').replace(/\/$/, '') + '/' + value.replace(/^\/+/, '');
-}
-function isImagePath(path){
-  return /\.(jpe?g|png|gif|webp)$/i.test(String(path || '').split('?')[0]);
-}
-function fileCard(label, path, required = false){
-  const url = fileUrl(path);
-  if(!url){
-    return `<div class="kyc-file-card"><div class="kyc-file-preview">${required ? 'Required file missing' : 'Optional file not uploaded'}</div><div class="kyc-file-body"><div class="kyc-file-title">${escapeHtml(label)}</div><div class="kyc-file-meta">${required ? 'Required' : 'Optional'} · Missing</div></div></div>`;
-  }
-  const preview = isImagePath(path) ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(label)} preview">` : 'PDF / document uploaded';
-  return `<div class="kyc-file-card"><a class="kyc-file-preview" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${preview}</a><div class="kyc-file-body"><div class="kyc-file-title">${escapeHtml(label)}</div><div class="kyc-file-meta">${required ? 'Required' : 'Optional'} · Uploaded</div><a class="btn-sm btn-view" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;text-decoration:none">Open file</a></div></div>`;
-}
-function checkItem(ok, label, badClass = 'bad'){
-  return `<div class="kyc-decision-item ${ok ? 'ok' : badClass}"><strong>${ok ? '✓' : badClass === 'warn' ? '!' : '×'}</strong><span>${escapeHtml(label)}</span></div>`;
-}
-function buildKycReviewDetails(driver){
-  const requiredFiles = [
-    ['Selfie / portrait', driver.selfie_path],
-    ['ID front', driver.id_front_path],
-    ['ID back', driver.id_back_path],
-    ['Vehicle exterior', driver.vehicle_photo_path],
-    ['Vehicle license certificate', driver.vehicle_license_doc_path],
-  ];
-  const optionalFiles = [
-    ['Vehicle interior', driver.vehicle_interior_photo_path],
-    ['Vehicle front angle', driver.vehicle_front_photo_path],
-    ['Vehicle rear angle', driver.vehicle_rear_photo_path],
-    ['Inspection / insurance document', driver.insurance_doc_path],
-  ];
-  const missingRequired = requiredFiles.filter(([,path]) => !path).map(([label]) => label);
-  const hasBank = !!(driver.bank_name && driver.account_holder_name && String(driver.account_number || '').replace(/\D/g, '').length >= 10);
-  const hasEmergency = !!(driver.emergency_name && driver.emergency_phone);
-  const hasVehicle = !!(driver.vehicle_type && driver.vehicle_plate && driver.vehicle_model);
-  const hasIdentity = !!(driver.id_doc_type && driver.id_front_path && driver.id_back_path);
-  const docs = requiredFiles.map(([label,path]) => fileCard(label, path, true)).join('') + optionalFiles.map(([label,path]) => fileCard(label, path, false)).join('');
-
-  return `
-    <div class="kyc-detail-section">
-      <h4>Admin decision checklist</h4>
-      <div class="kyc-decision-list">
-        ${checkItem(hasIdentity, 'Identity document type and both ID sides are present.')}
-        ${checkItem(!!driver.selfie_path, 'Selfie / live portrait is uploaded.')}
-        ${checkItem(hasVehicle, 'Vehicle type, plate, and model details are complete.')}
-        ${checkItem(!!driver.vehicle_license_doc_path, 'Vehicle license certificate is uploaded.')}
-        ${checkItem(hasBank, 'Bank payout details are complete.')}
-        ${checkItem(hasEmergency, 'Emergency contact details are complete.')}
-        ${checkItem(missingRequired.length === 0, missingRequired.length ? 'Missing required uploads: ' + missingRequired.join(', ') : 'All required uploads are present.')}
-        ${checkItem(!!driver.insurance_doc_path, 'Inspection / insurance document is uploaded.', 'warn')}
-      </div>
-    </div>
-    <div class="kyc-detail-section">
-      <h4>Personal and account details</h4>
-      <div class="kyc-detail-grid three">
-        ${detailField('Driver ID', '#' + displayValue(driver.id))}
-        ${detailField('Full name', driver.full_name)}
-        ${detailField('Email', driver.email)}
-        ${detailField('Phone', driver.phone)}
-        ${detailField('First name', driver.first_name)}
-        ${detailField('Middle name', driver.middle_name)}
-        ${detailField('Last name', driver.last_name)}
-        ${detailField('Date of birth', driver.date_of_birth)}
-        ${detailField('Gender', driver.gender)}
-        ${detailField('Language', driver.language)}
-        ${detailField('State of origin', driver.state_of_origin)}
-        ${detailField('Submitted', driver.created_at)}
-        ${detailField('KYC status', driver.kyc_status)}
-        ${detailField('Account status', driver.status)}
-        ${detailField('Email verified', Number(driver.email_verified) ? 'Yes' : 'No')}
-      </div>
-    </div>
-    <div class="kyc-detail-section">
-      <h4>Identity, vehicle, payout, and emergency details</h4>
-      <div class="kyc-detail-grid three">
-        ${detailField('ID document type', driver.id_doc_type)}
-        ${detailField('NIN', driver.nin ? 'Submitted securely' : 'Not submitted')}
-        ${detailField('BVN', driver.bvn ? 'Submitted securely' : 'Not submitted')}
-        ${detailField('Vehicle type', vehicleLabel(driver.vehicle_type))}
-        ${detailField('Vehicle plate', driver.vehicle_plate)}
-        ${detailField('Vehicle model', driver.vehicle_model)}
-        ${detailField('Vehicle year', driver.vehicle_year)}
-        ${detailField('Vehicle color', driver.vehicle_color)}
-        ${detailField('Bank name', driver.bank_name)}
-        ${detailField('Account holder', driver.account_holder_name)}
-        ${detailField('Account number', maskAccount(driver.account_number))}
-        ${detailField('Emergency name', driver.emergency_name)}
-        ${detailField('Emergency relationship', driver.emergency_relationship)}
-        ${detailField('Emergency phone', driver.emergency_phone)}
-        ${detailField('Emergency address', driver.emergency_address)}
-      </div>
-    </div>
-    <div class="kyc-detail-section">
-      <h4>Uploaded KYC files</h4>
-      <div class="kyc-file-grid">${docs}</div>
-    </div>`;
 }
 function formatApplied(value){
   if(!value) return 'Recently';
@@ -1120,7 +1013,6 @@ async function loadKycQueue(status = currentKycTab){
   queue.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Loading driver applications…</div>';
   try {
     const data = await adminApi('get_drivers', { kyc_status: status, per_page: 100 });
-    kycUploadBaseUrl = data.upload_base_url || kycUploadBaseUrl;
     kycDrivers = data.drivers || [];
     if(status === 'under_review') {
       kycCount = Number(data.total || kycDrivers.length || 0);
@@ -1147,11 +1039,9 @@ async function kycAction(btn, action){
     if(currentKycTab === 'under_review') { kycCount = Math.max(0, kycCount - 1); updateKycBadge(); }
     toast(data.message || (action === 'approved' ? '✓ Driver approved & notified' : '✗ Application rejected'));
     if(driver && action === 'approved') toast('✓ '+driver.full_name+' can now open the driver dashboard');
-    return true;
   } catch (e) {
     btn.disabled = false;
     toast(e.message);
-    return false;
   }
 }
 function updateKycBadge(){
@@ -1181,7 +1071,6 @@ function openKycDetailById(driverId){
   document.getElementById('detail-vehicle-docs').textContent = [driver.vehicle_license_doc_path ? 'License ✓' : 'License pending', driver.insurance_doc_path ? 'Inspection ✓' : 'Inspection optional/pending'].join(' · ');
   document.getElementById('detail-photo').textContent = driver.selfie_path ? 'Selfie uploaded ✓' : 'Selfie pending';
   document.getElementById('detail-bank').textContent = (driver.bank_name || 'Bank') + ' · ' + maskAccount(driver.account_number) + (driver.account_holder_name ? ' · ' + driver.account_holder_name : '');
-  document.getElementById('kycReviewDetails').innerHTML = buildKycReviewDetails(driver);
   document.getElementById('kycDetail').classList.add('open');
 }
 function openKycDetail(name,vehicle,state,time,docs){
@@ -1197,8 +1086,8 @@ function openKycDetail(name,vehicle,state,time,docs){
 function closeKycDetail(){document.getElementById('kycDetail').classList.remove('open');}
 async function kycDetailAction(action){
   const fakeBtn = document.querySelector(`.kyc-item-wrap[data-driver-id="${currentKycId}"] .${action === 'approved' ? 'btn-approve' : 'btn-reject'}`) || document.createElement('button');
-  const updated = await kycAction(fakeBtn, action);
-  if(updated) closeKycDetail();
+  await kycAction(fakeBtn, action);
+  closeKycDetail();
 }
 loadKycQueue('under_review');
 function filterOps(type,btn){
