@@ -77,6 +77,9 @@ $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [ 'full_name
 global $wpdb;
 $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike' ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
 $user = get_user_by( 'id', $user_id );
+if ( $user instanceof WP_User ) {
+    idibia_finish_wordpress_login( $user );
+}
 
 $otp = sprintf('%05d', wp_rand(0, 99999));
 $expires = gmdate('Y-m-d H:i:s', time() + 15 * MINUTE_IN_SECONDS);
@@ -98,5 +101,15 @@ $_SESSION['sd_pending_driver_email'] = $email;
 
 wp_send_json_success( [
     'first_name' => $first_name,
+    'driver_id'   => $driver_id,
+    'kyc_status'  => 'pending',
+    'status'      => 'pending',
+    'is_approved' => false,
+    'is_online'   => false,
+    'nonces'      => [
+        'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
+        'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+        'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
+    ],
     'message'    => 'Driver account created. Please verify your email.',
 ] );
