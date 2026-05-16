@@ -75,28 +75,26 @@ update_user_meta( $user_id, 'idibia_driver_state_of_origin', $state );
 
 $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [ 'full_name' => $full_name, 'email' => $email, 'phone' => $phone ] );
 global $wpdb;
-$wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike' ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
-$user = get_user_by( 'id', $user_id );
-if ( $user instanceof WP_User ) {
-    idibia_finish_wordpress_login( $user );
-}
-
+$vehicle_type = in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike';
+$wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => $vehicle_type ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
 $otp = sprintf('%05d', wp_rand(0, 99999));
-$expires = gmdate('Y-m-d H:i:s', time() + 15 * MINUTE_IN_SECONDS);
+$expires = gmdate('Y-m-d H:i:s', time() + 30 * MINUTE_IN_SECONDS);
 
-$wpdb->update(
+$verify_updated = $wpdb->update(
     $wpdb->prefix . 'sd_drivers',
     [ 'verify_code' => wp_hash_password($otp), 'verify_expires' => $expires, 'email_verified' => 0, 'status' => 'pending' ],
-    [ 'email' => $email ],
+    [ 'id' => $driver_id ],
     [ '%s', '%s', '%d', '%s' ],
-    [ '%s' ]
+    [ '%d' ]
 );
+if ( false === $verify_updated ) {
+    wp_send_json_error( [ 'message' => 'Could not start email verification. Please try again.' ] );
+}
 
 wp_mail( $email, 'Your Idibia Driver Verification Code', "Your code is: $otp" );
 
 if ( ! session_id() ) session_start();
-$driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_drivers` WHERE email = %s LIMIT 1", $email ) );
-$_SESSION['sd_pending_driver_id'] = $driver_row->id;
+$_SESSION['sd_pending_driver_id'] = $driver_id;
 $_SESSION['sd_pending_driver_email'] = $email;
 
 wp_send_json_success( [
@@ -109,7 +107,6 @@ wp_send_json_success( [
     'nonces'      => [
         'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
         'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
-        'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
     ],
     'message'    => 'Driver account created. Please verify your email.',
 ] );
