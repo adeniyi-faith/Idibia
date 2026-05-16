@@ -46,6 +46,11 @@ if ( $action === 'decline_offer' ) {
 
 if ( $action === 'accept_offer' ) {
     if ( $offer_id <= 0 ) idibia_driver_action_fail( 'Offer ID is required.' );
+
+    // Check if the driver already has an active trip
+    $active_trip = idibia_get_driver_active_trip( $driver_id );
+    if ( $active_trip !== null ) idibia_driver_action_fail( 'You already have an active trip.', 409 );
+
     $offer = $wpdb->get_row( $wpdb->prepare(
         "SELECT o.*, t.driver_id AS assigned_driver_id, t.dispatch_status FROM `{$wpdb->prefix}sd_dispatch_offers` o INNER JOIN `{$wpdb->prefix}sd_trips` t ON t.id = o.trip_id WHERE o.id = %d AND o.driver_id = %d LIMIT 1",
         $offer_id,

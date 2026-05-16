@@ -1,0 +1,92 @@
+
+### Idibia Project: Strict Repository-Grounded Implementation Audit
+
+#### 1. Backend foundation and schemas
+**A. Completion score:** Mostly complete
+**B. Repository evidence:**
+- `wp/wp-content/mu-plugins/idibia-core.php` defines 18 custom tables (`sd_trips`, `sd_customers`, `sd_drivers`, `sd_dispatch_offers`, `sd_ratings`, `sd_payments`, `sd_wallet_ledger`, `sd_payouts`, etc.).
+- Schema migrations are in place (`idibia_db_version`).
+**C. Static/demo/fake areas:** None in schema, fully defined.
+**D. Architectural risks:** The database logic relies heavily on WordPress core `$wpdb`.
+**E. Remaining work:** Indexes could be optimized, but functionally complete.
+
+#### 2. Authentication, verification, and profile consistency
+**A. Completion score:** Mostly complete
+**B. Repository evidence:**
+- Handlers exist: `login-handler.php`, `register-handler.php`, `verify-handler.php`, `driver-login-handler.php`, `driver-register-handler.php`, `driver-verify-handler.php`.
+- `wp-auth-config.php` correctly hashes OTPs (`wp_hash_password`).
+**C. Static/demo/fake areas:** Twilio SMS is not truly integrated yet; verification codes are just stored in DB.
+**D. Architectural risks:** OTP rate limiting could be stricter.
+**E. Remaining work:** Real SMS integration for OTP.
+
+#### 3. Customer quote and booking
+**A. Completion score:** Mostly complete
+**B. Repository evidence:**
+- `quote-api.php` and `book-trip-handler.php` are implemented.
+- `customer-trips-api.php` returns customer trip history.
+- Map abstractions exist in `wp/wp-content/mu-plugins/idibia-map-helpers.php` (ORS usage).
+**C. Static/demo/fake areas:** None. The backend actually connects to OpenRouteService for routing.
+**D. Architectural risks:** Booking heavily relies on Map APIs; if ORS goes down, quotes fail.
+**E. Remaining work:** Ensure robust fallback mechanisms for pricing.
+
+#### 4. Dispatch, driver offers, and trip state transitions
+**A. Completion score:** Mostly complete
+**B. Repository evidence:**
+- Logic in `wp/wp-content/mu-plugins/idibia-dispatch-helpers.php`.
+- `driver-offers-api.php` and `driver-trip-action-api.php`.
+- The logic strictly utilizes transactions (`idibia_transaction_start`, `idibia_transaction_commit`) to prevent race conditions during offer acceptance.
+**C. Static/demo/fake areas:** The dispatch matching algorithm is somewhat basic (haversine formula, limited batch size).
+**D. Architectural risks:** Heavy polling required if not using sockets.
+**E. Remaining work:** Advanced batching, dispatch queues, edge case handling (driver cancellation post-acceptance).
+
+#### 5. Real-time tracking and communications
+**A. Completion score:** Partial
+**B. Repository evidence:**
+- `driver-heartbeat-api.php` implemented (updates `sd_driver_locations`).
+- Client side polls endpoints (seen in `dashboard.php` polling logic).
+**C. Static/demo/fake areas:** No actual WebSocket/Pusher implementation; relies strictly on polling `setInterval` in UI.
+**D. Architectural risks:** High server load due to polling. Polling is not true real-time.
+**E. Remaining work:** Switch to real-time WebSockets (e.g., Pusher) for both tracking and dispatch offers.
+
+#### 6. Payments, wallets, and payouts
+**A. Completion score:** Not started
+**B. Repository evidence:**
+- Schema tables exist (`sd_payments`, `sd_wallet_ledger`, `sd_payouts`).
+- No PHP backend handlers or integration exist in the root folder for processing payments, adding wallet funds, or triggering payouts.
+**C. Static/demo/fake areas:** N/A (not built).
+**D. Architectural risks:** Payment security, double-spend risks, and race conditions must be mitigated when built.
+**E. Remaining work:** Build payment gateway integrations (e.g., Paystack/Flutterwave), wallet funding logic, driver ledger credits, and payout execution.
+
+#### 7. Ratings, support, disputes, and safety
+**A. Completion score:** Not started
+**B. Repository evidence:**
+- Schema tables exist (`sd_ratings`, `sd_support_tickets`, `sd_support_messages`, `sd_disputes`).
+- No PHP handler logic.
+**C. Static/demo/fake areas:** N/A.
+**D. Architectural risks:** Lack of audit trails for dispute resolutions.
+**E. Remaining work:** Build API endpoints for customers and drivers to rate trips, open support tickets, and submit dispute evidence.
+
+#### 8. Admin portal/live operations
+**A. Completion score:** Minimal / Partial
+**B. Repository evidence:**
+- `admin.php` and `admin/api.php` exist.
+- Login flow works via `admin.php` handling `admin_login`.
+**C. Static/demo/fake areas:** Massive hardcoded UI in `admin.php`. Data shown is fake placeholder values, fake trips, fake KYCs, fake dispute modals, fake riders animating via javascript. Backend APIs (`admin/api.php`) do not supply most of this data yet.
+**D. Architectural risks:** Total UI coupling; no real pagination or live DB connections for the metrics shown.
+**E. Remaining work:** Rip out hardcoded data, connect `admin.php` UI strictly to `admin/api.php` endpoints mapping to real DB tables.
+
+#### 9. Production readiness and hardening
+**A. Completion score:** Minimal
+**B. Repository evidence:** Development environment dependencies in `tests` folder. `wp-auth-config.php` has basic CORS and rate limiting functions.
+**C. Static/demo/fake areas:** N/A.
+**D. Architectural risks:** Lack of extensive e2e tests, API keys are managed in `idibia-config.php` which is fine but needs env segregation. Missing centralized audit logging for critical actions (e.g., admin refunds).
+**E. Remaining work:** E2E testing, load testing for dispatch, CI/CD setup, caching, log rotation, security audit of file uploads (KYC).
+
+---
+
+### Overall Assessment
+
+- **Overall platform completion percentage:** ~45-50%
+- **Biggest current technical risk:** Phase 5 (Real-time). Right now, the platform heavily polls, which will collapse the server under load. Secondary risk is the completely unbuilt Payment engine (Phase 6).
+- **Merge-ready?** The current branch is technically functional for the flows built so far (Auth, Booking, Dispatch), but it is incomplete as an end-to-end product.
+- **Next steps:** Phase 5 (Real-time WebSockets) should ideally start next to replace polling, but Phase 6 (Payments) is an absolute blocker for any real-world testing. Both need immediate attention. The Fake Admin UI (Phase 8) also needs to be wired to the real DB.

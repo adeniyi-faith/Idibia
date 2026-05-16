@@ -827,7 +827,7 @@ a { color: inherit; }
             <button class="map-btn" onclick="showToast('Location updated')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
             </button>
-            <button class="map-btn" onclick="goTo('screen-tracking')">
+            <button class="map-btn" onclick="startLiveTracking(1)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
             </button>
             <button class="map-btn" onclick="showToast('Map layers')">
@@ -1012,7 +1012,7 @@ a { color: inherit; }
 
         <div id="trips-container">
           <!-- In Transit -->
-          <div class="trip-card" data-status="in-transit" onclick="goTo('screen-tracking')">
+          <div class="trip-card" data-status="in-transit" onclick="startLiveTracking(1)">
             <div class="trip-top">
               <div><div class="trip-id">#SD-00928</div><div class="trip-date">Today · 2:14 PM</div></div>
               <span class="trip-status in-transit">In Transit</span>
@@ -1025,7 +1025,7 @@ a { color: inherit; }
             <div class="trip-meta">
               <span class="trip-price">₦2,800</span>
               <div class="trip-actions">
-                <button class="trip-action-btn primary" onclick="event.stopPropagation();goTo('screen-tracking')">Track Live</button>
+                <button class="trip-action-btn primary" onclick="event.stopPropagation();startLiveTracking(1)">Track Live</button>
               </div>
             </div>
           </div>
@@ -1733,7 +1733,7 @@ function findRider() {
   showToast('Searching for nearby riders...');
   setTimeout(() => {
     showToast('Amina K. is on the way! ETA: 4 min');
-    setTimeout(() => goTo('screen-tracking'), 1500);
+    setTimeout(() => startLiveTracking(1), 1500);
   }, 2000);
 }
 
@@ -1827,6 +1827,110 @@ function confirmSchedule() {
   const immBtn = document.getElementById('schedImmediate');
   if (immBtn) immBtn.classList.remove('active');
   showToast('Pickup scheduled successfully!');
+}
+
+// ═══════════ LIVE TRACKING (Phase 5) ═══════════
+let currentActiveTripId = null;
+let trackingInterval = null;
+
+function startLiveTracking(tripId) {
+  if (!tripId) return;
+  currentActiveTripId = tripId;
+  goTo('screen-tracking');
+  pollTracking();
+  if (trackingInterval) clearInterval(trackingInterval);
+  trackingInterval = setInterval(pollTracking, 5000);
+}
+
+function stopLiveTracking() {
+  if (trackingInterval) {
+    clearInterval(trackingInterval);
+    trackingInterval = null;
+  }
+}
+
+async function pollTracking() {
+  if (!currentActiveTripId) return stopLiveTracking();
+  try {
+    const res = await fetch(`${IDIBIA_API_BASE}/trip-feed-api.php?trip_id=${currentActiveTripId}`, {
+      credentials: 'same-origin'
+    });
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) stopLiveTracking();
+      return;
+    }
+    const json = await res.json();
+    if (json.success) {
+      updateTrackingUI(json.data);
+    }
+  } catch (err) {
+    console.error('Tracking error:', err);
+  }
+}
+
+function updateTrackingUI(trip) {
+  // Terminal states stop polling
+  if (trip.status === 'completed' || trip.status === 'cancelled') {
+    stopLiveTracking();
+    showToast('Trip is ' + trip.status);
+    setTimeout(() => goTo('screen-home'), 2000);
+    return;
+  }
+
+  // Map updates (simulate or real based on available driver lat/lng)
+  const drv = trip.driver;
+  if (drv) {
+    const drvName = document.querySelector('.rider-name');
+    if (drvName) drvName.textContent = drv.first_name || 'Driver';
+
+    const drvPlate = document.querySelector('.rider-plate');
+    if (drvPlate) drvPlate.textContent = drv.plate || '---';
+
+    const drvRating = document.querySelector('.rider-rating-text');
+    if (drvRating) drvRating.textContent = drv.rating || '5.0';
+
+    const drvAvatar = document.querySelector('.rider-avatar');
+    if (drvAvatar) drvAvatar.innerHTML = (drv.first_name ? drv.first_name[0] : 'D') + '<div class="rider-online"></div>';
+  } else {
+    const drvName = document.querySelector('.rider-name');
+    if (drvName) drvName.textContent = 'Searching...';
+
+    const drvPlate = document.querySelector('.rider-plate');
+    if (drvPlate) drvPlate.textContent = '';
+
+    const drvRating = document.querySelector('.rider-rating-text');
+    if (drvRating) drvRating.textContent = '';
+
+    const drvAvatar = document.querySelector('.rider-avatar');
+    if (drvAvatar) drvAvatar.innerHTML = '...';
+  }
+
+  // Update dots
+  const ds = trip.dispatch_status;
+  let etaMsg = 'Finding driver...';
+  let stepsHTML = '';
+
+  if (ds === 'searching' || ds === 'no_driver') {
+    etaMsg = 'Finding nearby driver...';
+    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Looking for driver</h4><p>We are assigning the best driver.</p></div></div>`;
+  } else if (ds === 'accepted' || ds === 'arriving') {
+    etaMsg = 'Driver is arriving';
+    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Driver on the way</h4><p>Heading to pickup</p></div></div>`;
+  } else if (ds === 'arrived_pickup') {
+    etaMsg = 'Driver at pickup';
+    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Driver at pickup</h4><p>Meet driver at pickup location</p></div></div>`;
+  } else if (ds === 'picked_up') {
+    etaMsg = 'Package in transit';
+    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Picked up</h4><p>Heading to destination</p></div></div>`;
+  } else if (ds === 'arrived_dropoff') {
+    etaMsg = 'Driver at dropoff';
+    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Driver at dropoff</h4><p>Ready to handover package</p></div></div>`;
+  }
+
+  const etaChip = document.querySelector('.eta-chip-text');
+  if (etaChip) etaChip.textContent = etaMsg;
+  const stepsCont = document.querySelector('.tracking-steps');
+  if (stepsCont) stepsCont.innerHTML = stepsHTML;
 }
 
 // ═══════════ ETA COUNTDOWN (tracking screen) ═══════════
@@ -2033,7 +2137,7 @@ async function confirmBooking() {
 
     if (json.success) {
       showToast(json.data.message);
-      goTo('screen-tracking');
+      startLiveTracking(json.data.trip_id || 1);
 
       document.getElementById('pickupLoc').value = '';
       document.getElementById('dropoffLoc').value = '';
@@ -2076,7 +2180,7 @@ async function fetchRecentActivity() {
         let iconHtml = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>';
 
         container.innerHTML += `
-        <div class="activity-card" onclick="goTo('screen-tracking')">
+        <div class="activity-card" onclick="startLiveTracking(${trip.id})">
           <div class="ac-icon">${iconHtml}</div>
           <div class="ac-details">
             <strong>${trip.dropoff_address || trip.dropoff || 'Delivery'}</strong>
