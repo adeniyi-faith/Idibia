@@ -1231,16 +1231,14 @@ svg { display: block; }
           </div>
         </div>
 
-        <div class="driver-auth-card driver-verify-card hidden" id="driverEmailVerifyPanel">
-          <span class="section-label">Email check</span>
-          <h3 class="step-title" style="font-size:20px;margin-bottom:6px">Enter your verification code</h3>
+        <div class="driver-auth-card hidden" id="driverEmailVerifyPanel">
           <p class="driver-auth-help" id="driverEmailVerifyHelp">We sent a 5-digit code to your email. Paste it below to unlock KYC.</p>
           <div class="form-group">
             <label class="form-label">Email Verification Code</label>
-            <input class="form-input driver-verify-code" type="tel" id="driverVerifyCode" inputmode="numeric" maxlength="5" placeholder="12345" autocomplete="one-time-code" oninput="this.value=this.value.replace(/\D/g,'').slice(0,5)">
+            <input class="form-input" type="tel" id="driverVerifyCode" inputmode="numeric" maxlength="5" placeholder="12345" autocomplete="one-time-code">
           </div>
-          <div class="driver-verify-actions">
-            <button class="driver-resend-btn" id="driverResendCodeBtn" type="button" onclick="resendDriverVerifyCode()">↻ Resend code</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn-secondary" type="button" onclick="resendDriverVerifyCode()">Resend code</button>
             <button class="btn-primary" type="button" onclick="verifyDriverEmail()">Verify email</button>
           </div>
         </div>
@@ -2215,76 +2213,12 @@ async function verifyDriverEmail() {
 }
 
 async function resendDriverVerifyCode() {
-  const btn = document.getElementById('driverResendCodeBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
     const json = await driverAuthPost('driver-resend-code.php', new FormData());
     showToast(json.success ? (json.data?.message || 'New code sent! Check your inbox.') : (json.data?.message || 'Could not resend code.'));
   } catch (err) {
     showToast('Could not resend code right now. Please try again.');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '↻ Resend code'; }
   }
-}
-
-function setDriverFieldError(id, hasError) {
-  const field = document.getElementById(id);
-  if (field) field.classList.toggle('error', !!hasError);
-}
-function setDriverUploadError(field, hasError) {
-  const box = document.querySelector(`.upload-box[data-field="${field}"]`);
-  if (box) box.classList.toggle('error', !!hasError);
-}
-function requireDriverFile(field, label, errors) {
-  const missing = !driverFiles[field];
-  setDriverUploadError(field, missing);
-  if (missing) errors.push(label);
-}
-function validateDriverStep(step) {
-  const errors = [];
-  if (step === 2) {
-    requireDriverFile('id_front', 'driver license', errors);
-    requireDriverFile('id_back', 'NIN or ID card', errors);
-    requireDriverFile('selfie', 'profile photo', errors);
-  }
-  if (step === 3) {
-    ['driverVehicleYear','driverVehicleManufacturer','driverVehiclePlate','driverVehicleColor'].forEach(id => setDriverFieldError(id, false));
-    const fields = [
-      ['driverVehicleYear', 'vehicle year'],
-      ['driverVehicleManufacturer', 'vehicle manufacturer'],
-      ['driverVehiclePlate', 'plate number'],
-      ['driverVehicleColor', 'vehicle color']
-    ];
-    fields.forEach(([id, label]) => {
-      const missing = !document.getElementById(id)?.value.trim();
-      setDriverFieldError(id, missing);
-      if (missing) errors.push(label);
-    });
-    requireDriverFile('vehicle_photo', 'vehicle exterior photo', errors);
-    requireDriverFile('vehicle_license_doc', 'vehicle license document', errors);
-  }
-  if (step === 4) {
-    ['driverAccountHolder','driverAccountNumber','driverEmergencyName','driverEmergencyPhone','driverEmergencyAddress'].forEach(id => setDriverFieldError(id, false));
-    const accountNumber = (document.getElementById('driverAccountNumber')?.value || '').replace(/\D/g, '');
-    const fields = [
-      ['driverAccountHolder', 'account holder name', value => !!value.trim()],
-      ['driverAccountNumber', '10-digit account number', () => accountNumber.length >= 10],
-      ['driverEmergencyName', 'emergency contact name', value => !!value.trim()],
-      ['driverEmergencyPhone', 'emergency contact phone', value => !!value.trim()],
-      ['driverEmergencyAddress', 'emergency contact address', value => !!value.trim()]
-    ];
-    fields.forEach(([id, label, test]) => {
-      const value = document.getElementById(id)?.value || '';
-      const invalid = !test(value);
-      setDriverFieldError(id, invalid);
-      if (invalid) errors.push(label);
-    });
-  }
-  if (errors.length) {
-    showToast('Please complete: ' + errors.slice(0, 3).join(', ') + (errors.length > 3 ? '…' : '.'));
-    return false;
-  }
-  return true;
 }
 
 async function submitDriverKyc() {
@@ -2568,6 +2502,13 @@ function renderActiveTrip(trip) {
       </div>
       ${trip.delivery_pin_required ? '<div class="info-note" style="margin-top:12px">Delivery PIN required before completing handoff. Ask the customer for the PIN only at delivery.</div>' : ''}
     </div>`;
+}
+
+
+function callTripCustomer(encodedPhone) {
+  const phone = decodeURIComponent(encodedPhone || '').replace(/[^\d+]/g, '');
+  if (!phone) return showToast('Customer phone is not available.');
+  window.location.href = `tel:${phone}`;
 }
 
 async function driverOfferAction(action, offerId) {
