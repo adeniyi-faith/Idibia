@@ -639,7 +639,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <div class="ops-rider" id="r6" style="top:58%;left:12%">🛺</div>
       <div class="ops-rider" id="r7" style="top:75%;left:32%">🛵</div>
       <div class="ops-rider" id="r8" style="top:12%;left:85%">🚗</div>
-      <div class="map-legend"><span style="color:var(--success)">●</span> 284 active &nbsp;<span style="color:var(--info)">●</span> 47 in trip &nbsp;<span style="color:var(--warn)">●</span> 12 delayed</div>
+      <div class="map-legend" id="opsMapLegend"><span style="color:var(--success)">●</span> Loading live operations…</div>
     </div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="filterOps('all',this)">All</button>
@@ -649,18 +649,15 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <button class="filter-btn" onclick="filterOps('tricycle',this)">🛺 Tricycle</button>
     </div>
     <div class="metrics-grid four">
-      <div class="metric-card"><div class="metric-label">AVG PICKUP TIME</div><div class="metric-value">4.2m</div></div>
-      <div class="metric-card"><div class="metric-label">COMPLETION RATE</div><div class="metric-value">96.4%</div></div>
-      <div class="metric-card"><div class="metric-label">ON-TIME RATE</div><div class="metric-value">91.8%</div></div>
-      <div class="metric-card"><div class="metric-label">AVG FARE</div><div class="metric-value">₦2,840</div></div>
+      <div class="metric-card"><div class="metric-label">ONLINE DRIVERS</div><div class="metric-value" id="opsOnlineDrivers">--</div></div>
+      <div class="metric-card"><div class="metric-label">ACTIVE TRIPS</div><div class="metric-value" id="opsActiveTrips">--</div></div>
+      <div class="metric-card"><div class="metric-label">LAST LOCATION</div><div class="metric-value" id="opsLastLocation">--</div></div>
+      <div class="metric-card"><div class="metric-label">REFRESH</div><div class="metric-value" id="opsRefreshAge">Live</div></div>
     </div>
     <div class="scard">
-      <div class="scard-header"><h3>Active Riders</h3><span style="font-size:11px;color:var(--text-muted)">Live · 284 online</span></div>
-      <div>
-        <div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">AK</div><div class="item-info"><div class="item-name">Amina Kalu · 🛵</div><div class="item-meta">In transit → GRA Phase 2 · ETA 8min</div></div><span class="badge badge-info">In Trip</span></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">BE</div><div class="item-info"><div class="item-name">Bayo Eze · 🚗</div><div class="item-meta">Online · D-Line area</div></div><span class="badge badge-success">Available</span></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(245,166,35,0.1);color:var(--warn)">CI</div><div class="item-info"><div class="item-name">Chuks Ikenna · 🛺</div><div class="item-meta">Delayed · Trans Amadi</div></div><span class="badge badge-warn">Delayed</span></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">DO</div><div class="item-info"><div class="item-name">Dayo Okon · 🛵</div><div class="item-meta">Online · Rumuola area</div></div><span class="badge badge-success">Available</span></div>
+      <div class="scard-header"><h3>Active Riders</h3><span id="opsListMeta" style="font-size:11px;color:var(--text-muted)">Live feed</span></div>
+      <div id="opsDriverList">
+        <div class="list-item"><div class="item-info"><div class="item-name">Loading live driver locations…</div><div class="item-meta">Authenticated admins can view current trip state and last known driver location here.</div></div></div>
       </div>
     </div>
   </div>
@@ -932,6 +929,8 @@ function nav(name,btn){
   document.getElementById('notifPanel').classList.remove('open');
 
   // Close sidebar on mobile after navigation
+  if(name === 'ops') loadLiveOps();
+
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
     document.querySelector('.sidebar-overlay').classList.remove('open');
@@ -1090,6 +1089,42 @@ async function kycDetailAction(action){
   closeKycDetail();
 }
 loadKycQueue('under_review');
+
+async function loadLiveOps(){
+  try {
+    const data = await adminApi('get_live_ops');
+    renderLiveOps(data);
+  } catch (err) {
+    const list = document.getElementById('opsDriverList');
+    if(list) list.innerHTML = `<div class="list-item"><div class="item-info"><div class="item-name">Could not load live operations</div><div class="item-meta">${escapeHtml(err.message)}</div></div></div>`;
+  }
+}
+function renderLiveOps(data){
+  const drivers = data.drivers || [];
+  document.getElementById('opsOnlineDrivers').textContent = data.metrics?.online_drivers ?? drivers.length;
+  document.getElementById('opsActiveTrips').textContent = data.metrics?.active_trips ?? drivers.filter(d => d.trip_id).length;
+  const newest = drivers.find(d => d.updated_at)?.updated_at || 'No GPS';
+  document.getElementById('opsLastLocation').textContent = newest === 'No GPS' ? newest : 'Updated';
+  document.getElementById('opsRefreshAge').textContent = 'Now';
+  document.getElementById('opsMapLegend').innerHTML = `<span style="color:var(--success)">●</span> ${drivers.length} online &nbsp;<span style="color:var(--info)">●</span> ${drivers.filter(d => d.trip_id).length} in trip`;
+  document.getElementById('opsListMeta').textContent = `Live · ${drivers.length} online`;
+  const list = document.getElementById('opsDriverList');
+  if(!drivers.length){
+    list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active drivers right now</div><div class="item-meta">Drivers appear here after heartbeat or active-trip assignment.</div></div></div>';
+    return;
+  }
+  list.innerHTML = drivers.map(driver => {
+    const inTrip = !!driver.trip_id;
+    const badge = inTrip ? '<span class="badge badge-info">In Trip</span>' : '<span class="badge badge-success">Available</span>';
+    const location = driver.lat != null && driver.lng != null ? `${Number(driver.lat).toFixed(5)}, ${Number(driver.lng).toFixed(5)} · ${driver.updated_at || 'recent'}` : 'No last known location';
+    const meta = inTrip ? `${escapeHtml(driver.trip_ref)} · ${escapeHtml(driver.dispatch_status)} → ${escapeHtml(driver.dropoff_address || 'drop-off')} · GPS ${escapeHtml(location)}` : `Online · GPS ${escapeHtml(location)}`;
+    return `<div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">${escapeHtml(initials(driver.full_name || driver.first_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name || driver.first_name || 'Driver')} · ${vehicleIcon(driver.vehicle_type)}</div><div class="item-meta">${meta}</div></div>${badge}</div>`;
+  }).join('');
+}
+setInterval(() => {
+  if(document.getElementById('panel-ops')?.classList.contains('active')) loadLiveOps();
+}, 15000);
+
 function filterOps(type,btn){
   document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');toast('Filtering: '+type);

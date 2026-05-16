@@ -57,6 +57,11 @@ try {
             idibia_admin_paginated_trips();
             break;
 
+        case 'get_live_ops':
+            idibia_require_method( 'GET' );
+            idibia_admin_live_ops();
+            break;
+
         case 'get_disputes':
             idibia_require_method( 'GET' );
             idibia_admin_paginated_disputes();
@@ -209,6 +214,51 @@ function idibia_admin_paginated_trips(): void {
     $sql = "SELECT t.*, c.full_name AS customer_name, d.full_name AS driver_name FROM `{$wpdb->prefix}sd_trips` t LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id WHERE $sql_where ORDER BY t.created_at DESC LIMIT %d OFFSET %d";
     $rows = $wpdb->get_results( idibia_sql( $sql, array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
     wp_send_json_success( [ 'trips' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+}
+
+
+function idibia_admin_live_ops(): void {
+    global $wpdb;
+
+    $active_statuses = "'accepted','arriving','arrived_pickup','picked_up','arrived_dropoff'";
+    $drivers = $wpdb->get_results(
+        "SELECT d.id AS driver_id, d.full_name, d.first_name, d.vehicle_type, d.is_online,
+                dl.lat, dl.lng, dl.heading, dl.updated_at,
+                t.id AS trip_id, t.trip_ref, t.dispatch_status, t.status AS trip_status,
+                t.pickup_address, t.dropoff_address, t.distance_km, t.duration_mins,
+                c.full_name AS customer_name
+         FROM `{$wpdb->prefix}sd_drivers` d
+         LEFT JOIN `{$wpdb->prefix}sd_driver_locations` dl ON dl.driver_id = d.id
+         LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.driver_id = d.id AND t.dispatch_status IN ($active_statuses)
+         LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id
+         WHERE d.status = 'active' AND (d.is_online = 1 OR t.id IS NOT NULL)
+         ORDER BY t.id IS NULL ASC, dl.updated_at DESC, d.full_name ASC
+         LIMIT 100",
+        ARRAY_A
+    ) ?: [];
+
+    $active_trips = 0;
+    foreach ( $drivers as &$driver ) {
+        $driver['driver_id'] = (int) $driver['driver_id'];
+        $driver['is_online'] = (int) $driver['is_online'];
+        $driver['trip_id'] = $driver['trip_id'] !== null ? (int) $driver['trip_id'] : null;
+        $driver['lat'] = $driver['lat'] !== null ? (float) $driver['lat'] : null;
+        $driver['lng'] = $driver['lng'] !== null ? (float) $driver['lng'] : null;
+        $driver['heading'] = $driver['heading'] !== null ? (float) $driver['heading'] : null;
+        $driver['distance_km'] = $driver['distance_km'] !== null ? (float) $driver['distance_km'] : null;
+        $driver['duration_mins'] = $driver['duration_mins'] !== null ? (int) $driver['duration_mins'] : null;
+        if ( $driver['trip_id'] ) $active_trips++;
+    }
+    unset( $driver );
+
+    wp_send_json_success( [
+        'drivers' => $drivers,
+        'metrics' => [
+            'online_drivers' => count( $drivers ),
+            'active_trips'   => $active_trips,
+            'last_refreshed' => gmdate( 'Y-m-d H:i:s' ),
+        ],
+    ] );
 }
 
 function idibia_admin_paginated_disputes(): void {

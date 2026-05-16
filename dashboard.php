@@ -803,7 +803,7 @@ a { color: inherit; }
             <div class="rider-blip">
               <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" width="16" height="16"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             </div>
-            <div class="rider-label">Amina K.</div>
+            <div class="rider-label" id="trackingMapDriverLabel">Searching</div>
           </div>
           <div class="rider-marker" style="top:52%;right:22%">
             <div class="rider-blip">
@@ -1285,7 +1285,7 @@ a { color: inherit; }
       <div class="rider-blip">
         <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" width="16" height="16"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
       </div>
-      <div class="rider-label">Amina K.</div>
+      <div class="rider-label" id="trackingMapDriverLabel">Searching</div>
     </div>
     <!-- Route line -->
     <svg viewBox="0 0 100 60" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none">
@@ -1301,8 +1301,8 @@ a { color: inherit; }
     <div class="map-eta-chip" style="bottom:14px;left:14px">
       <div class="eta-chip-dot"></div>
       <div>
-        <div class="eta-chip-text">12 min ETA</div>
-        <div class="eta-chip-sub">4.2 km remaining</div>
+        <div class="eta-chip-text" id="trackingEtaLabel">Finding driver</div>
+        <div class="eta-chip-sub" id="trackingDistanceLabel">Live feed connected</div>
       </div>
     </div>
   </div>
@@ -1312,21 +1312,21 @@ a { color: inherit; }
         <div class="rider-avatar">AK<div class="rider-online"></div></div>
         <div class="rider-info-col">
           <div class="rider-profile-top">
-            <div class="rider-name">Amina Kolawole</div>
-            <div class="rider-plate">KJA 482 BE</div>
+            <div class="rider-name" id="trackingDriverName">Searching for driver</div>
+            <div class="rider-plate" id="trackingDriverPlate">Pending</div>
           </div>
           <div class="rider-rating">
             <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            4.9 · 2,341 trips
+            <span class="rider-rating-text" id="trackingDriverRating">Waiting for assignment</span>
           </div>
         </div>
       </div>
       <div class="rider-contact">
-        <button class="contact-btn call" onclick="showToast('Calling Amina...')">
+        <button class="contact-btn call" onclick="showToast('Starting masked relay call...')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           Call
         </button>
-        <button class="contact-btn" onclick="showToast('Opening chat...')">
+        <button class="contact-btn" onclick="showToast('Opening masked support chat...')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Message
         </button>
@@ -1338,19 +1338,19 @@ a { color: inherit; }
       <div class="eta-bar">
         <div class="eta-item">
           <div class="eta-label">ETA</div>
-          <div class="eta-value" id="etaMinutes">12</div>
+          <div class="eta-value" id="etaMinutes">--</div>
           <div class="eta-unit">minutes</div>
         </div>
         <div class="eta-divider"></div>
         <div class="eta-item">
           <div class="eta-label">Distance</div>
-          <div class="eta-value">4.2</div>
+          <div class="eta-value" id="trackingDistanceValue">--</div>
           <div class="eta-unit">km away</div>
         </div>
         <div class="eta-divider"></div>
         <div class="eta-item">
           <div class="eta-label">Trip Fare</div>
-          <div class="eta-value" style="font-size:18px">₦2,800</div>
+          <div class="eta-value" id="trackingFareValue" style="font-size:18px">₦--</div>
           <div class="eta-unit">fixed price</div>
         </div>
       </div>
@@ -1380,9 +1380,9 @@ a { color: inherit; }
       </div>
       <div class="safety-text">
         <h4>Trip is secured</h4>
-        <p>PIN required on delivery. Share your trip.</p>
+        <p id="trackingPinText">PIN required on delivery. Share your trip only with trusted contacts.</p>
       </div>
-      <button class="safety-btn" onclick="showToast('Trip link copied to clipboard!')">Share</button>
+      <button class="safety-btn" onclick="shareTrackingLink()">Share</button>
     </div>
   </div>
 </div>
@@ -1829,6 +1829,10 @@ function confirmSchedule() {
   showToast('Pickup scheduled successfully!');
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+}
+
 // ═══════════ LIVE TRACKING (Phase 5) ═══════════
 let currentActiveTripId = null;
 let trackingInterval = null;
@@ -1869,68 +1873,81 @@ async function pollTracking() {
 }
 
 function updateTrackingUI(trip) {
-  // Terminal states stop polling
-  if (trip.status === 'completed' || trip.status === 'cancelled') {
+  if (!trip) return;
+
+  // Terminal states stop polling after rendering the final timeline once.
+  const isTerminal = trip.status === 'completed' || trip.status === 'cancelled' || ['completed','cancelled'].includes(trip.dispatch_status);
+
+  const drv = trip.driver;
+  const driverName = drv?.full_name || drv?.first_name || 'Searching for driver';
+  const shortName = drv?.first_name || driverName.split(' ')[0] || 'Driver';
+  const initials = driverName.split(' ').filter(Boolean).map(part => part[0]).join('').slice(0, 2).toUpperCase() || 'DR';
+
+  const drvName = document.getElementById('trackingDriverName');
+  if (drvName) drvName.textContent = driverName;
+
+  const mapLabel = document.getElementById('trackingMapDriverLabel');
+  if (mapLabel) mapLabel.textContent = shortName;
+
+  const drvPlate = document.getElementById('trackingDriverPlate');
+  if (drvPlate) drvPlate.textContent = drv?.plate || (drv ? 'No plate' : 'Pending');
+
+  const drvRating = document.getElementById('trackingDriverRating');
+  if (drvRating) drvRating.textContent = drv ? `${drv.rating || '5.0'} · ${Number(drv.total_trips || 0).toLocaleString()} trips · ${drv.masked_phone || 'masked'}` : 'Waiting for assignment';
+
+  const drvAvatar = document.querySelector('.rider-avatar');
+  if (drvAvatar) drvAvatar.innerHTML = drv ? `${escapeHtml(initials)}<div class="rider-online"></div>` : '…';
+
+  const eta = trip.eta || {};
+  const etaChip = document.getElementById('trackingEtaLabel');
+  if (etaChip) etaChip.textContent = eta.label || statusLabel(trip.dispatch_status);
+
+  const distanceLabel = document.getElementById('trackingDistanceLabel');
+  if (distanceLabel) distanceLabel.textContent = eta.distance_km != null ? `${eta.distance_km} km remaining` : `Trip ${trip.trip_ref || ''}`;
+
+  const etaMinutes = document.getElementById('etaMinutes');
+  if (etaMinutes) etaMinutes.textContent = eta.minutes != null ? eta.minutes : '--';
+
+  const distanceValue = document.getElementById('trackingDistanceValue');
+  if (distanceValue) distanceValue.textContent = eta.distance_km != null ? eta.distance_km : '--';
+
+  const fareValue = document.getElementById('trackingFareValue');
+  if (fareValue) fareValue.textContent = `₦${Number(trip.fare || 0).toLocaleString()}`;
+
+  const pinText = document.getElementById('trackingPinText');
+  if (pinText) pinText.textContent = trip.delivery_pin ? `Delivery PIN: ${trip.delivery_pin} · only share with your assigned driver at handoff.` : 'PIN pending. Support and cancellation actions remain available.';
+
+  const stepsCont = document.querySelector('.tracking-steps');
+  if (stepsCont) stepsCont.innerHTML = renderTrackingTimeline(trip);
+
+  if (isTerminal) {
     stopLiveTracking();
     showToast('Trip is ' + trip.status);
-    setTimeout(() => goTo('screen-home'), 2000);
-    return;
   }
+}
 
-  // Map updates (simulate or real based on available driver lat/lng)
-  const drv = trip.driver;
-  if (drv) {
-    const drvName = document.querySelector('.rider-name');
-    if (drvName) drvName.textContent = drv.first_name || 'Driver';
+function statusLabel(status) {
+  return ({
+    searching: 'Finding nearby driver', offered: 'Awaiting driver acceptance', accepted: 'Driver assigned',
+    arriving: 'Driver is arriving', arrived_pickup: 'Driver at pickup', picked_up: 'Package in transit',
+    arrived_dropoff: 'Driver at drop-off', completed: 'Delivered', cancelled: 'Cancelled', no_driver: 'No driver available yet'
+  })[status] || 'Tracking trip';
+}
 
-    const drvPlate = document.querySelector('.rider-plate');
-    if (drvPlate) drvPlate.textContent = drv.plate || '---';
+function renderTrackingTimeline(trip) {
+  const timeline = Array.isArray(trip.timeline) && trip.timeline.length ? trip.timeline : [{ label: statusLabel(trip.dispatch_status), created_at: trip.created_at }];
+  return timeline.map((event, idx) => {
+    const active = idx === timeline.length - 1 && !['completed','cancelled'].includes(trip.dispatch_status);
+    const dot = active ? 'active' : 'done';
+    const when = event.created_at ? new Date(String(event.created_at).replace(' ', 'T') + 'Z').toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : 'Just now';
+    return `<div class="t-step"><div class="t-step-dot ${dot}">${dot === 'done' ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="11" height="11"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor" width="8" height="8"><circle cx="12" cy="12" r="5"/></svg>'}</div><div class="t-step-info"><h4>${escapeHtml(event.label || event.event_type || 'Trip update')}</h4><p>${escapeHtml(when)}</p></div></div>`;
+  }).join('');
+}
 
-    const drvRating = document.querySelector('.rider-rating-text');
-    if (drvRating) drvRating.textContent = drv.rating || '5.0';
-
-    const drvAvatar = document.querySelector('.rider-avatar');
-    if (drvAvatar) drvAvatar.innerHTML = (drv.first_name ? drv.first_name[0] : 'D') + '<div class="rider-online"></div>';
-  } else {
-    const drvName = document.querySelector('.rider-name');
-    if (drvName) drvName.textContent = 'Searching...';
-
-    const drvPlate = document.querySelector('.rider-plate');
-    if (drvPlate) drvPlate.textContent = '';
-
-    const drvRating = document.querySelector('.rider-rating-text');
-    if (drvRating) drvRating.textContent = '';
-
-    const drvAvatar = document.querySelector('.rider-avatar');
-    if (drvAvatar) drvAvatar.innerHTML = '...';
-  }
-
-  // Update dots
-  const ds = trip.dispatch_status;
-  let etaMsg = 'Finding driver...';
-  let stepsHTML = '';
-
-  if (ds === 'searching' || ds === 'no_driver') {
-    etaMsg = 'Finding nearby driver...';
-    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Looking for driver</h4><p>We are assigning the best driver.</p></div></div>`;
-  } else if (ds === 'accepted' || ds === 'arriving') {
-    etaMsg = 'Driver is arriving';
-    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Driver on the way</h4><p>Heading to pickup</p></div></div>`;
-  } else if (ds === 'arrived_pickup') {
-    etaMsg = 'Driver at pickup';
-    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Driver at pickup</h4><p>Meet driver at pickup location</p></div></div>`;
-  } else if (ds === 'picked_up') {
-    etaMsg = 'Package in transit';
-    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Picked up</h4><p>Heading to destination</p></div></div>`;
-  } else if (ds === 'arrived_dropoff') {
-    etaMsg = 'Driver at dropoff';
-    stepsHTML = `<div class="t-step"><div class="t-step-dot done"></div><div class="t-step-info"><h4>Driver at dropoff</h4><p>Ready to handover package</p></div></div>`;
-  }
-
-  const etaChip = document.querySelector('.eta-chip-text');
-  if (etaChip) etaChip.textContent = etaMsg;
-  const stepsCont = document.querySelector('.tracking-steps');
-  if (stepsCont) stepsCont.innerHTML = stepsHTML;
+function shareTrackingLink() {
+  const url = `${window.location.origin}${window.location.pathname}?track=${encodeURIComponent(currentActiveTripId || '')}`;
+  if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
+  showToast('Trip tracking link copied.');
 }
 
 // ═══════════ ETA COUNTDOWN (tracking screen) ═══════════
