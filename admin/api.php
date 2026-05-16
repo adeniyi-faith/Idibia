@@ -34,7 +34,7 @@ try {
             idibia_require_method( 'GET' );
             $driver_id = absint( $_GET['driver_id'] ?? 0 );
             $driver = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
-            $driver ? wp_send_json_success( [ 'driver' => $driver ] ) : wp_send_json_error( [ 'message' => 'Driver not found.' ] );
+            $driver ? wp_send_json_success( [ 'driver' => idibia_admin_prepare_driver( $driver ) ] ) : wp_send_json_error( [ 'message' => 'Driver not found.' ] );
             break;
 
         case 'kyc_action':
@@ -118,7 +118,30 @@ function idibia_admin_paginated_drivers(): void {
     $sql_where = implode( ' AND ', $where );
     $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE $sql_where", $args ) );
     $rows = $wpdb->get_results( idibia_sql( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE $sql_where ORDER BY created_at DESC LIMIT %d OFFSET %d", array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
-    wp_send_json_success( [ 'drivers' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+    $rows = array_map( 'idibia_admin_prepare_driver', $rows ?: [] );
+    wp_send_json_success( [
+        'drivers'         => $rows,
+        'page'            => $page,
+        'per_page'        => $per_page,
+        'total'           => $total,
+        'upload_base_url' => trailingslashit( wp_upload_dir()['baseurl'] ?? '' ),
+    ] );
+}
+
+function idibia_admin_prepare_driver( array $driver ): array {
+    $user = ! empty( $driver['email'] ) ? get_user_by( 'email', $driver['email'] ) : false;
+    if ( $user instanceof WP_User ) {
+        $driver['user_id']         = $user->ID;
+        $driver['first_name']      = (string) get_user_meta( $user->ID, 'first_name', true );
+        $driver['last_name']       = (string) get_user_meta( $user->ID, 'last_name', true );
+        $driver['language']        = (string) get_user_meta( $user->ID, 'idibia_driver_language', true );
+        $driver['middle_name']     = (string) get_user_meta( $user->ID, 'idibia_driver_middle_name', true );
+        $driver['date_of_birth']   = (string) get_user_meta( $user->ID, 'idibia_driver_date_of_birth', true );
+        $driver['gender']          = (string) get_user_meta( $user->ID, 'idibia_driver_gender', true );
+        $driver['state_of_origin'] = (string) get_user_meta( $user->ID, 'idibia_driver_state_of_origin', true );
+    }
+
+    return $driver;
 }
 
 function idibia_admin_kyc_action(): void {

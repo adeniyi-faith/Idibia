@@ -36,6 +36,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'nonces'      => [
             'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
             'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+            'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
         ],
     ];
 }
@@ -2130,6 +2131,7 @@ function updateDriver() {
 
 async function submitDriverKyc() {
   const body = new FormData();
+  body.append('_nonce', driverInitialContext.nonces?.driver_kyc || '');
   body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
   body.append('vehicle_year', document.getElementById('driverVehicleYear').value.trim());
   body.append('vehicle_model', document.getElementById('driverVehicleManufacturer').value.trim());

@@ -56,4 +56,9 @@ wp_send_json_success( [
     'status'      => $status,
     'is_approved' => $kyc_status === 'approved' && $status === 'active',
     'is_online'   => ! empty( $driver_row['is_online'] ),
+    'nonces'      => [
+        'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
+        'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+        'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
+    ],
 ] );
