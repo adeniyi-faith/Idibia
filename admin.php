@@ -318,6 +318,31 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   .panel-search select, .panel-search button{flex:none;}
 }
 
+
+.kyc-detail-section{background:var(--white);border:1.5px solid var(--surface-2);border-radius:14px;padding:14px;margin:14px 0;}
+.kyc-detail-section h4{font-size:13px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--surface);}
+.kyc-detail-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+@media(min-width:650px){.kyc-detail-grid{grid-template-columns:repeat(2,1fr);}}
+@media(min-width:980px){.kyc-detail-grid.three{grid-template-columns:repeat(3,1fr);}}
+.kyc-detail-field{background:var(--surface);border-radius:10px;padding:10px;}
+.kyc-detail-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;}
+.kyc-detail-value{font-size:12px;font-weight:600;color:var(--text-primary);line-height:1.35;word-break:break-word;}
+.kyc-file-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+@media(min-width:600px){.kyc-file-grid{grid-template-columns:repeat(2,1fr);}}
+@media(min-width:900px){.kyc-file-grid{grid-template-columns:repeat(3,1fr);}}
+.kyc-file-card{border:1.5px solid var(--surface-2);border-radius:12px;background:var(--white);overflow:hidden;}
+.kyc-file-preview{height:110px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;text-align:center;padding:10px;}
+.kyc-file-preview img{width:100%;height:100%;object-fit:cover;}
+.kyc-file-body{padding:10px;}
+.kyc-file-title{font-size:12px;font-weight:700;margin-bottom:4px;}
+.kyc-file-meta{font-size:11px;color:var(--text-muted);margin-bottom:8px;}
+.kyc-decision-list{display:grid;grid-template-columns:1fr;gap:8px;}
+@media(min-width:700px){.kyc-decision-list{grid-template-columns:repeat(2,1fr);}}
+.kyc-decision-item{display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:10px;background:var(--surface);font-size:12px;line-height:1.35;}
+.kyc-decision-item.ok{color:var(--success);}
+.kyc-decision-item.warn{color:var(--warn);}
+.kyc-decision-item.bad{color:var(--danger);}
+
 /* KYC STEPPER */
 .kyc-steps{display:flex;gap:4px;margin-bottom:16px;}
 .kyc-step{flex:1;height:4px;border-radius:2px;background:var(--surface-2);}
@@ -574,6 +599,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">PHOTO REVIEW</div><div style="font-size:12px;font-weight:600" id="detail-photo">Clear portrait ✓</div></div>
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">BANK DETAILS</div><div style="font-size:12px;font-weight:600" id="detail-bank">Bank details pending</div></div>
           </div>
+          <div id="kycReviewDetails"></div>
           <div class="form-group">
             <label class="form-label">Rejection reason (if rejecting)</label>
             <select class="form-input" id="reject-reason">
@@ -1054,6 +1080,7 @@ function openKycDetail(name,vehicle,state,time,docs){
   document.getElementById('detail-meta').textContent=vehicle+' · '+state+' · Applied '+time;
   document.getElementById('detail-avatar').textContent=initials(name);
   document.getElementById('detail-docs').textContent=docs;
+  document.getElementById('kycReviewDetails').innerHTML = '';
   document.getElementById('kycDetail').classList.add('open');
 }
 function closeKycDetail(){document.getElementById('kycDetail').classList.remove('open');}
