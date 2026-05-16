@@ -600,7 +600,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">BANK DETAILS</div><div style="font-size:12px;font-weight:600" id="detail-bank">Bank details pending</div></div>
           </div>
           <div id="kycReviewDetails"></div>
-          <div class="form-group">
+          <div class="form-group" id="kycRejectReasonGroup">
             <label class="form-label">Rejection reason (if rejecting)</label>
             <select class="form-input" id="reject-reason">
               <option value="">Select reason…</option>
@@ -609,7 +609,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
               <option>Profile photo invalid (cap/glasses)</option><option>Other</option>
             </select>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div id="kycReviewActions" style="display:flex;gap:10px;flex-wrap:wrap;">
             <button class="btn-sm btn-reject" style="flex:1;min-width:140px;height:40px;font-size:13px" onclick="kycDetailAction('rejected')">Reject Application</button>
             <button class="btn-sm btn-approve" style="flex:1;min-width:140px;height:40px;font-size:13px" onclick="kycDetailAction('approved')">Approve Driver</button>
           </div>
@@ -992,6 +992,23 @@ async function adminApi(action, params = {}, method = 'GET'){
   if(!data.success) throw new Error(data.data?.message || 'Admin request failed.');
   return data.data;
 }
+async function adminApiAllPages(action, params = {}){
+  const perPage = 100;
+  let page = 1;
+  let allDrivers = [];
+  let firstPage = null;
+  while(true){
+    const data = await adminApi(action, { ...params, page, per_page: perPage });
+    if(!firstPage) firstPage = data;
+    const drivers = data.drivers || [];
+    allDrivers = allDrivers.concat(drivers);
+    const total = Number(data.total || allDrivers.length || 0);
+    if(allDrivers.length >= total || drivers.length < perPage) {
+      return { ...data, ...firstPage, drivers: allDrivers, total };
+    }
+    page += 1;
+  }
+}
 function renderKycQueue(){
   const queue = document.getElementById('kycQueue');
   const visible = kycDrivers.filter(driver => currentKycFilter === 'all' || driver.vehicle_type === currentKycFilter);
@@ -1011,7 +1028,7 @@ async function loadKycQueue(status = currentKycTab){
   const queue = document.getElementById('kycQueue');
   queue.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Loading driver applications…</div>';
   try {
-    const data = await adminApi('get_drivers', { kyc_status: status, per_page: 100 });
+    const data = await adminApiAllPages('get_drivers', { kyc_status: status });
     kycDrivers = data.drivers || [];
     if(status === 'under_review') {
       kycCount = Number(data.total || kycDrivers.length || 0);
@@ -1026,6 +1043,10 @@ async function kycAction(btn, action){
   const item = btn.closest('.kyc-item-wrap');
   const driverId = Number(item?.dataset.driverId || currentKycId || 0);
   const driver = kycDrivers.find(row => Number(row.id) === driverId);
+  if(!driver || driver.kyc_status !== 'under_review'){
+    toast('This KYC record has already been resolved.');
+    return;
+  }
   const notes = action === 'rejected' ? (document.getElementById('reject-reason')?.value || 'Rejected from admin KYC review.') : 'Approved from admin KYC review.';
   btn.disabled = true;
   try {
@@ -1070,6 +1091,11 @@ function openKycDetailById(driverId){
   document.getElementById('detail-vehicle-docs').textContent = [driver.vehicle_license_doc_path ? 'License ✓' : 'License pending', driver.insurance_doc_path ? 'Inspection ✓' : 'Inspection optional/pending'].join(' · ');
   document.getElementById('detail-photo').textContent = driver.selfie_path ? 'Selfie uploaded ✓' : 'Selfie pending';
   document.getElementById('detail-bank').textContent = (driver.bank_name || 'Bank') + ' · ' + maskAccount(driver.account_number) + (driver.account_holder_name ? ' · ' + driver.account_holder_name : '');
+  const canReview = driver.kyc_status === 'under_review';
+  const reviewActions = document.getElementById('kycReviewActions');
+  const rejectReason = document.getElementById('kycRejectReasonGroup');
+  if(reviewActions) reviewActions.style.display = canReview ? 'flex' : 'none';
+  if(rejectReason) rejectReason.style.display = canReview ? 'block' : 'none';
   document.getElementById('kycDetail').classList.add('open');
 }
 function openKycDetail(name,vehicle,state,time,docs){
@@ -1084,6 +1110,11 @@ function openKycDetail(name,vehicle,state,time,docs){
 }
 function closeKycDetail(){document.getElementById('kycDetail').classList.remove('open');}
 async function kycDetailAction(action){
+  const driver = kycDrivers.find(row => Number(row.id) === Number(currentKycId));
+  if(!driver || driver.kyc_status !== 'under_review'){
+    toast('This KYC record has already been resolved.');
+    return;
+  }
   const fakeBtn = document.querySelector(`.kyc-item-wrap[data-driver-id="${currentKycId}"] .${action === 'approved' ? 'btn-approve' : 'btn-reject'}`) || document.createElement('button');
   await kycAction(fakeBtn, action);
   closeKycDetail();
@@ -1101,13 +1132,15 @@ async function loadLiveOps(){
 }
 function renderLiveOps(data){
   const drivers = data.drivers || [];
-  document.getElementById('opsOnlineDrivers').textContent = data.metrics?.online_drivers ?? drivers.length;
-  document.getElementById('opsActiveTrips').textContent = data.metrics?.active_trips ?? drivers.filter(d => d.trip_id).length;
+  const onlineDriverCount = data.metrics?.online_drivers ?? drivers.filter(d => Number(d.is_online) === 1).length;
+  const activeTripCount = data.metrics?.active_trips ?? drivers.filter(d => d.trip_id).length;
+  document.getElementById('opsOnlineDrivers').textContent = onlineDriverCount;
+  document.getElementById('opsActiveTrips').textContent = activeTripCount;
   const newest = drivers.find(d => d.updated_at)?.updated_at || 'No GPS';
   document.getElementById('opsLastLocation').textContent = newest === 'No GPS' ? newest : 'Updated';
   document.getElementById('opsRefreshAge').textContent = 'Now';
-  document.getElementById('opsMapLegend').innerHTML = `<span style="color:var(--success)">●</span> ${drivers.length} online &nbsp;<span style="color:var(--info)">●</span> ${drivers.filter(d => d.trip_id).length} in trip`;
-  document.getElementById('opsListMeta').textContent = `Live · ${drivers.length} online`;
+  document.getElementById('opsMapLegend').innerHTML = `<span style="color:var(--success)">●</span> ${onlineDriverCount} online &nbsp;<span style="color:var(--info)">●</span> ${activeTripCount} in trip`;
+  document.getElementById('opsListMeta').textContent = `Live · ${onlineDriverCount} online`;
   const list = document.getElementById('opsDriverList');
   if(!drivers.length){
     list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active drivers right now</div><div class="item-meta">Drivers appear here after heartbeat or active-trip assignment.</div></div></div>';
