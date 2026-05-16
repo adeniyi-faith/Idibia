@@ -542,25 +542,19 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <div class="page-sub">Driver applications awaiting admin review</div>
     </div>
     <div class="tabs">
-      <button class="tab active" onclick="kycTab('pending',this)">Pending <span id="kyc-pending-count">(7)</span></button>
+      <button class="tab active" onclick="kycTab('under_review',this)">Pending <span id="kyc-pending-count">(0)</span></button>
       <button class="tab" onclick="kycTab('approved',this)">Approved</button>
       <button class="tab" onclick="kycTab('rejected',this)">Rejected</button>
     </div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="filterKyc('all',this)">All Vehicles</button>
-      <button class="filter-btn" onclick="filterKyc('motorbike',this)">Motorbike</button>
+      <button class="filter-btn" onclick="filterKyc('bike',this)">Motorbike</button>
       <button class="filter-btn" onclick="filterKyc('car',this)">Car</button>
       <button class="filter-btn" onclick="filterKyc('van',this)">Van</button>
-      <button class="filter-btn" onclick="filterKyc('tricycle',this)">Tricycle</button>
+      <button class="filter-btn" onclick="filterKyc('keke',this)">Tricycle</button>
     </div>
     <div class="scard" id="kycQueue">
-      <div class="kyc-item-wrap" data-type="motorbike"><div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">CN</div><div class="item-info"><div class="item-name">Chidi Nwosu</div><div class="item-meta">🏍 Motorbike · Rivers · Applied 2h ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetail('Chidi Nwosu','Motorbike','Rivers','2h ago','ID: NIN-774920, License: DL-082947')">View</button><button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button></div></div></div>
-      <div class="kyc-item-wrap" data-type="car"><div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.12);color:var(--info)">FA</div><div class="item-info"><div class="item-name">Fatima Abdullahi</div><div class="item-meta">🚗 Car · Kano · Applied 4h ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetail('Fatima Abdullahi','Car','Kano','4h ago','ID: NIN-223841, License: DL-039182')">View</button><button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button></div></div></div>
-      <div class="kyc-item-wrap" data-type="van"><div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.12);color:var(--success)">EM</div><div class="item-info"><div class="item-name">Emeka Mba</div><div class="item-meta">🚐 Van · Lagos · Applied 5h ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetail('Emeka Mba','Van','Lagos','5h ago','ID: NIN-558120, License: DL-112034')">View</button><button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button></div></div></div>
-      <div class="kyc-item-wrap" data-type="motorbike"><div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">YS</div><div class="item-info"><div class="item-name">Yewande Sola</div><div class="item-meta">🏍 Motorbike · Ogun · Applied 6h ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetail('Yewande Sola','Motorbike','Ogun','6h ago','ID: NIN-981023, License: DL-567234')">View</button><button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button></div></div></div>
-      <div class="kyc-item-wrap" data-type="tricycle"><div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.12);color:var(--info)">BU</div><div class="item-info"><div class="item-name">Babatunde Usman</div><div class="item-meta">🛺 Tricycle · Abuja · Applied 7h ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetail('Babatunde Usman','Tricycle','Abuja','7h ago','ID: NIN-340291, License: DL-009123')">View</button><button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button></div></div></div>
-      <div class="kyc-item-wrap" data-type="car"><div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.12);color:var(--success)">NA</div><div class="item-info"><div class="item-name">Ngozi Ama</div><div class="item-meta">🚗 Car · Enugu · Applied 9h ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetail('Ngozi Ama','Car','Enugu','9h ago','ID: NIN-672841, License: DL-234567')">View</button><button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button></div></div></div>
-      <div class="kyc-item-wrap" data-type="motorbike"><div class="list-item"><div class="avatar" style="background:rgba(245,166,35,0.12);color:var(--warn)">TK</div><div class="item-info"><div class="item-name">Taiwo Kehinde</div><div class="item-meta">🏍 Motorbike · Rivers · Applied 11h ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetail('Taiwo Kehinde','Motorbike','Rivers','11h ago','ID: NIN-112398, License: DL-998234')">View</button><button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button></div></div></div>
+      <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Loading driver applications…</div>
       <div id="kyc-empty" style="display:none;padding:32px;text-align:center;color:var(--text-muted);font-size:13px">All applications reviewed ✓</div>
     </div>
     <!-- KYC DETAIL OVERLAY -->
@@ -576,9 +570,9 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:16px">Step 5 of 5 · Pending admin review</div>
           <div class="metrics-grid">
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">DOCUMENT STATUS</div><div style="font-size:12px;font-weight:600" id="detail-docs">ID verified ✓</div></div>
-            <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">VEHICLE DOCS</div><div style="font-size:12px;font-weight:600">License & Inspection ✓</div></div>
-            <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">PHOTO REVIEW</div><div style="font-size:12px;font-weight:600">Clear portrait ✓</div></div>
-            <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">BANK DETAILS</div><div style="font-size:12px;font-weight:600">UBA · ****4821 ✓</div></div>
+            <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">VEHICLE DOCS</div><div style="font-size:12px;font-weight:600" id="detail-vehicle-docs">License & Inspection ✓</div></div>
+            <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">PHOTO REVIEW</div><div style="font-size:12px;font-weight:600" id="detail-photo">Clear portrait ✓</div></div>
+            <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">BANK DETAILS</div><div style="font-size:12px;font-weight:600" id="detail-bank">Bank details pending</div></div>
           </div>
           <div class="form-group">
             <label class="form-label">Rejection reason (if rejecting)</label>
@@ -918,46 +912,157 @@ function nav(name,btn){
   }
 }
 
-let kycCount=7;
-function kycAction(btn,action){
-  const item=btn.closest('.kyc-item-wrap');
-  item.style.opacity='0';item.style.transform='translateX(20px)';item.style.transition='all 0.3s';
-  setTimeout(()=>{item.remove();kycCount=Math.max(0,kycCount-1);updateKycBadge();},300);
-  toast(action==='approved'?'✓ Driver approved & notified':'✗ Application rejected');
+const ADMIN_API_URL = '/admin/api.php';
+let kycCount = 0;
+let currentKycName = '';
+let currentKycId = 0;
+let currentKycTab = 'under_review';
+let currentKycFilter = 'all';
+let kycDrivers = [];
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+function vehicleLabel(type){
+  return {bike:'Motorbike',car:'Car',van:'Van',keke:'Tricycle'}[type] || (type ? type : 'Vehicle');
+}
+function vehicleIcon(type){
+  return {bike:'🏍',car:'🚗',van:'🚐',keke:'🛺'}[type] || '🚚';
+}
+function initials(name){
+  return String(name || 'DR').split(' ').filter(Boolean).map(n=>n[0]).join('').slice(0,2).toUpperCase() || 'DR';
+}
+function maskAccount(number){
+  const clean = String(number || '').replace(/\D/g, '');
+  return clean ? '****' + clean.slice(-4) : 'Not provided';
+}
+function formatApplied(value){
+  if(!value) return 'Recently';
+  const created = new Date(String(value).replace(' ', 'T') + 'Z');
+  if(Number.isNaN(created.getTime())) return value;
+  const diffHours = Math.max(0, Math.round((Date.now() - created.getTime()) / 36e5));
+  if(diffHours < 1) return 'Just now';
+  if(diffHours < 24) return diffHours + 'h ago';
+  const days = Math.round(diffHours / 24);
+  return days + 'd ago';
+}
+async function adminApi(action, params = {}, method = 'GET'){
+  const body = new FormData();
+  const url = new URL(ADMIN_API_URL, window.location.origin);
+  url.searchParams.set('action', action);
+  Object.entries(params).forEach(([key,value]) => {
+    if(method === 'GET') url.searchParams.set(key, value);
+    else body.append(key, value);
+  });
+  if(method !== 'GET') body.append('action', action);
+  const response = await fetch(url.toString(), {
+    method,
+    body: method === 'GET' ? undefined : body,
+    credentials: 'same-origin',
+    headers: { 'Accept': 'application/json' }
+  });
+  const rawText = await response.text();
+  let data;
+  try { data = JSON.parse(rawText); } catch (e) { console.error('Raw admin API response:', rawText); throw new Error('Invalid server response'); }
+  if(!data.success) throw new Error(data.data?.message || 'Admin request failed.');
+  return data.data;
+}
+function renderKycQueue(){
+  const queue = document.getElementById('kycQueue');
+  const visible = kycDrivers.filter(driver => currentKycFilter === 'all' || driver.vehicle_type === currentKycFilter);
+  if(!visible.length){
+    queue.innerHTML = '<div id="kyc-empty" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">'+(currentKycTab === 'under_review' ? 'All applications reviewed ✓' : 'No '+escapeHtml(currentKycTab.replace('_',' '))+' applications found.')+'</div>';
+    return;
+  }
+  queue.innerHTML = visible.map(driver => {
+    const canReview = driver.kyc_status === 'under_review';
+    const applied = formatApplied(driver.created_at);
+    const state = driver.emergency_address || driver.vehicle_plate || 'Submitted KYC';
+    return `<div class="kyc-item-wrap" data-driver-id="${Number(driver.id)}" data-type="${escapeHtml(driver.vehicle_type)}"><div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name || 'Unnamed driver')}</div><div class="item-meta">${vehicleIcon(driver.vehicle_type)} ${escapeHtml(vehicleLabel(driver.vehicle_type))} · ${escapeHtml(state)} · Applied ${escapeHtml(applied)}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetailById(${Number(driver.id)})">View</button>${canReview ? `<button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button>` : `<span class="badge ${driver.kyc_status === 'approved' ? 'badge-success' : 'badge-danger'}">${escapeHtml(driver.kyc_status)}</span>`}</div></div></div>`;
+  }).join('');
+}
+async function loadKycQueue(status = currentKycTab){
+  currentKycTab = status;
+  const queue = document.getElementById('kycQueue');
+  queue.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Loading driver applications…</div>';
+  try {
+    const data = await adminApi('get_drivers', { kyc_status: status, per_page: 100 });
+    kycDrivers = data.drivers || [];
+    if(status === 'under_review') {
+      kycCount = Number(data.total || kycDrivers.length || 0);
+      updateKycBadge();
+    }
+    renderKycQueue();
+  } catch (e) {
+    queue.innerHTML = '<div style="padding:32px;text-align:center;color:var(--danger);font-size:13px">Could not load KYC applications. '+escapeHtml(e.message)+'</div>';
+  }
+}
+async function kycAction(btn, action){
+  const item = btn.closest('.kyc-item-wrap');
+  const driverId = Number(item?.dataset.driverId || currentKycId || 0);
+  const driver = kycDrivers.find(row => Number(row.id) === driverId);
+  const notes = action === 'rejected' ? (document.getElementById('reject-reason')?.value || 'Rejected from admin KYC review.') : 'Approved from admin KYC review.';
+  btn.disabled = true;
+  try {
+    const data = await adminApi('kyc_action', { driver_id: driverId, decision: action, notes }, 'POST');
+    if(item){
+      item.style.opacity='0';item.style.transform='translateX(20px)';item.style.transition='all 0.3s';
+      setTimeout(()=>{item.remove();renderKycQueue();},300);
+    }
+    kycDrivers = kycDrivers.filter(row => Number(row.id) !== driverId);
+    if(currentKycTab === 'under_review') { kycCount = Math.max(0, kycCount - 1); updateKycBadge(); }
+    toast(data.message || (action === 'approved' ? '✓ Driver approved & notified' : '✗ Application rejected'));
+    if(driver && action === 'approved') toast('✓ '+driver.full_name+' can now open the driver dashboard');
+  } catch (e) {
+    btn.disabled = false;
+    toast(e.message);
+  }
 }
 function updateKycBadge(){
-  document.getElementById('kyc-badge').textContent=kycCount;
-  document.getElementById('kyc-pending-count').textContent='('+kycCount+')';
-  if(kycCount===0)document.getElementById('kyc-empty').style.display='block';
+  document.getElementById('kyc-badge').textContent = kycCount;
+  document.getElementById('kyc-pending-count').textContent = '(' + kycCount + ')';
 }
 function kycTab(tab,btn){
   document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
-  if(tab==='approved')toast('Showing 28 approved drivers');
-  else if(tab==='rejected')toast('Showing 3 rejected applications');
+  loadKycQueue(tab);
 }
 function filterKyc(type,btn){
+  currentKycFilter = type;
   document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('.kyc-item-wrap').forEach(item=>{
-    item.style.display=(type==='all'||item.dataset.type===type)?'':'none';
-  });
+  renderKycQueue();
 }
-let currentKycName='';
+function openKycDetailById(driverId){
+  const driver = kycDrivers.find(row => Number(row.id) === Number(driverId));
+  if(!driver){ toast('Driver record not found.'); return; }
+  currentKycId = Number(driver.id);
+  currentKycName = driver.full_name || 'Driver';
+  document.getElementById('detail-name').textContent = currentKycName;
+  document.getElementById('detail-meta').textContent = vehicleLabel(driver.vehicle_type) + ' · ' + (driver.vehicle_plate || 'No plate') + ' · Applied ' + formatApplied(driver.created_at);
+  document.getElementById('detail-avatar').textContent = initials(currentKycName);
+  document.getElementById('detail-docs').textContent = (driver.id_doc_type || 'Identity') + (driver.id_front_path || driver.id_back_path ? ' uploaded ✓' : ' pending');
+  document.getElementById('detail-vehicle-docs').textContent = [driver.vehicle_license_doc_path ? 'License ✓' : 'License pending', driver.insurance_doc_path ? 'Inspection ✓' : 'Inspection optional/pending'].join(' · ');
+  document.getElementById('detail-photo').textContent = driver.selfie_path ? 'Selfie uploaded ✓' : 'Selfie pending';
+  document.getElementById('detail-bank').textContent = (driver.bank_name || 'Bank') + ' · ' + maskAccount(driver.account_number) + (driver.account_holder_name ? ' · ' + driver.account_holder_name : '');
+  document.getElementById('kycDetail').classList.add('open');
+}
 function openKycDetail(name,vehicle,state,time,docs){
   currentKycName=name;
+  currentKycId=0;
   document.getElementById('detail-name').textContent=name;
   document.getElementById('detail-meta').textContent=vehicle+' · '+state+' · Applied '+time;
-  document.getElementById('detail-avatar').textContent=name.split(' ').map(n=>n[0]).join('').slice(0,2);
+  document.getElementById('detail-avatar').textContent=initials(name);
   document.getElementById('detail-docs').textContent=docs;
   document.getElementById('kycDetail').classList.add('open');
 }
 function closeKycDetail(){document.getElementById('kycDetail').classList.remove('open');}
-function kycDetailAction(action){
+async function kycDetailAction(action){
+  const fakeBtn = document.querySelector(`.kyc-item-wrap[data-driver-id="${currentKycId}"] .${action === 'approved' ? 'btn-approve' : 'btn-reject'}`) || document.createElement('button');
+  await kycAction(fakeBtn, action);
   closeKycDetail();
-  toast(action==='approved'?'✓ '+currentKycName+' approved':'✗ '+currentKycName+' rejected');
-  kycCount=Math.max(0,kycCount-1);updateKycBadge();
 }
+loadKycQueue('under_review');
 function filterOps(type,btn){
   document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');toast('Filtering: '+type);
