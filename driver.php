@@ -2066,8 +2066,20 @@ async function driverLogin() {
   try {
     const json = await driverAuthPost('driver-login-handler.php', body);
     if (json.success) {
-      driverAuthenticated = true;
       Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
+      if (!driverInitialContext.email_verified) {
+        driverAuthenticated = false;
+        driverAwaitingEmailVerification = true;
+        const help = document.getElementById('driverEmailVerifyHelp');
+        if (help) help.textContent = 'Welcome back. Enter the 5-digit code we sent to ' + identifier + ' to unlock KYC.';
+        showToast('Please verify your email to continue your driver application.');
+        driverStep = 1;
+        updateDriver();
+        document.getElementById('driverVerifyCode')?.focus();
+        return true;
+      }
+      driverAuthenticated = true;
+      driverAwaitingEmailVerification = false;
       showToast(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
       if (driverInitialContext.is_approved) {
         goToDashboard();

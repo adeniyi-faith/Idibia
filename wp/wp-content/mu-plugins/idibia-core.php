@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 3;
+    $target_version = 4;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -195,6 +195,16 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 3 );
         $current_version = 3;
     }
+
+    if ( $current_version < 4 ) {
+        idibia_widen_driver_verify_code_column();
+        update_option( 'idibia_db_version', 4 );
+    }
+}
+
+function idibia_widen_driver_verify_code_column(): void {
+    global $wpdb;
+    $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_drivers` MODIFY `verify_code` VARCHAR(255) NULL" );
 }
 
 function idibia_create_tables() {
@@ -245,7 +255,7 @@ function idibia_create_tables() {
         `phone`            VARCHAR(30)      NOT NULL DEFAULT '',
         `password_hash`    VARCHAR(255)     NOT NULL,
         `email_verified`   TINYINT(1)       NOT NULL DEFAULT 0,
-        `verify_code`      VARCHAR(10)      NULL,
+        `verify_code`      VARCHAR(255)     NULL,
         `verify_expires`   DATETIME         NULL,
         `nin`              VARCHAR(255)     NULL COMMENT 'National ID Number — encrypted AES-256-CBC',
         `bvn`              VARCHAR(255)     NULL COMMENT 'Bank Verification Number — encrypted AES-256-CBC',
