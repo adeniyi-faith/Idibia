@@ -83,11 +83,15 @@ function idibia_get_driver_offers( int $driver_id ): array {
 function idibia_get_driver_active_trip( int $driver_id ): ?array {
     global $wpdb;
     $row = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, trip_ref, pickup, dropoff, pickup_address, dropoff_address, status, dispatch_status,
-                service_category, vehicle_type, distance_km, duration_mins, fare, fare_estimate, accepted_at
-         FROM `{$wpdb->prefix}sd_trips`
-         WHERE driver_id = %d AND dispatch_status IN ('accepted','arriving','arrived_pickup','picked_up','arrived_dropoff')
-         ORDER BY accepted_at DESC LIMIT 1",
+        "SELECT t.id, t.trip_ref, t.pickup, t.dropoff, t.pickup_address, t.dropoff_address,
+                t.pickup_lat, t.pickup_lng, t.dropoff_lat, t.dropoff_lng, t.status, t.dispatch_status,
+                t.service_category, t.vehicle_type, t.distance_km, t.duration_mins, t.fare,
+                t.fare_estimate, t.accepted_at, t.delivery_pin, c.full_name AS customer_name,
+                c.phone AS customer_phone
+         FROM `{$wpdb->prefix}sd_trips` t
+         LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id
+         WHERE t.driver_id = %d AND t.dispatch_status IN ('accepted','arriving','arrived_pickup','picked_up','arrived_dropoff')
+         ORDER BY t.accepted_at DESC LIMIT 1",
         $driver_id
     ), ARRAY_A );
 
@@ -95,11 +99,17 @@ function idibia_get_driver_active_trip( int $driver_id ): ?array {
         return null;
     }
 
+    $customer_phone = preg_replace( '/\D+/', '', (string) ( $row['customer_phone'] ?? '' ) );
+
     return [
         'trip_id'          => (int) $row['id'],
         'trip_ref'         => $row['trip_ref'],
         'pickup_address'   => $row['pickup_address'] ?: $row['pickup'],
         'dropoff_address'  => $row['dropoff_address'] ?: $row['dropoff'],
+        'pickup_lat'       => $row['pickup_lat'] !== null ? (float) $row['pickup_lat'] : null,
+        'pickup_lng'       => $row['pickup_lng'] !== null ? (float) $row['pickup_lng'] : null,
+        'dropoff_lat'      => $row['dropoff_lat'] !== null ? (float) $row['dropoff_lat'] : null,
+        'dropoff_lng'      => $row['dropoff_lng'] !== null ? (float) $row['dropoff_lng'] : null,
         'status'           => $row['status'],
         'dispatch_status'  => $row['dispatch_status'],
         'service_category' => $row['service_category'] ?: 'package',
@@ -107,6 +117,12 @@ function idibia_get_driver_active_trip( int $driver_id ): ?array {
         'distance_km'      => (float) $row['distance_km'],
         'duration_mins'    => (int) $row['duration_mins'],
         'fare'             => (float) ( $row['fare_estimate'] ?: $row['fare'] ),
+        'delivery_pin_required' => ! empty( $row['delivery_pin'] ),
+        'customer'         => [
+            'name'         => $row['customer_name'] ?: 'Customer',
+            'masked_phone' => $customer_phone ? '•••• ' . substr( $customer_phone, -4 ) : 'Masked contact',
+            'contact'      => 'masked_relay',
+        ],
     ];
 }
 
@@ -182,6 +198,7 @@ function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
             [ '%d' ]
         );
         idibia_log_event( $trip_id, 'dispatch_offers_created', [ 'count' => $created ] );
+        idibia_notify_trip_participants( $trip_id, 'dispatch_offers_created' );
     } else {
         $wpdb->update(
             $wpdb->prefix . 'sd_trips',
@@ -191,6 +208,7 @@ function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
             [ '%d' ]
         );
         idibia_log_event( $trip_id, 'dispatch_no_driver' );
+        idibia_notify_trip_participants( $trip_id, 'dispatch_no_driver' );
     }
 
     return [ 'created' => $created ];

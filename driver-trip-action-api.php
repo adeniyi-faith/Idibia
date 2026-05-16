@@ -72,6 +72,7 @@ if ( $action === 'accept_offer' ) {
     $wpdb->update( $wpdb->prefix . 'sd_dispatch_offers', [ 'status' => 'accepted' ], [ 'id' => $offer_id ], [ '%s' ], [ '%d' ] );
     $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->prefix}sd_dispatch_offers` SET status = 'expired' WHERE trip_id = %d AND id <> %d AND status = 'pending'", (int) $offer['trip_id'], $offer_id ) );
     idibia_log_event( (int) $offer['trip_id'], 'offer_accepted', [ 'driver_id' => $driver_id ] );
+    idibia_notify_trip_participants( (int) $offer['trip_id'], 'offer_accepted' );
     idibia_transaction_commit();
     wp_send_json_success( [ 'message' => 'Trip accepted.', 'active_trip' => idibia_get_driver_active_trip( $driver_id ) ] );
 }
@@ -95,6 +96,11 @@ if ( ! in_array( $trip['dispatch_status'], $transition['from'], true ) ) idibia_
 $data = [ 'dispatch_status' => $transition['to'], 'status' => $transition['status'] ];
 $formats = [ '%s', '%s' ];
 if ( $action === 'complete' ) {
+    $submitted_pin = sanitize_text_field( wp_unslash( $_POST['delivery_pin'] ?? '' ) );
+    if ( ! empty( $trip['delivery_pin'] ) && ! hash_equals( (string) $trip['delivery_pin'], $submitted_pin ) ) {
+        idibia_driver_action_fail( 'Delivery PIN is required to complete this trip.', 409 );
+    }
+
     $fare = (float) ( $trip['final_fare'] ?: $trip['fare_estimate'] ?: $trip['fare'] );
     $driver_share = round( $fare * ( 100 - (int) $trip['platform_pct'] ) / 100, 2 );
     $data['final_fare'] = $fare;
@@ -107,5 +113,9 @@ if ( $action === 'complete' ) {
 
 $wpdb->update( $wpdb->prefix . 'sd_trips', $data, [ 'id' => $trip_id ], $formats, [ '%d' ] );
 idibia_log_event( $trip_id, $transition['event'], [ 'driver_id' => $driver_id ] );
+idibia_notify_trip_participants( $trip_id, $transition['event'] );
+if ( $action === 'complete' ) {
+    idibia_notify_trip_participants( $trip_id, 'payment_captured' );
+}
 idibia_transaction_commit();
 wp_send_json_success( [ 'message' => 'Trip updated.', 'active_trip' => idibia_get_driver_active_trip( $driver_id ) ] );

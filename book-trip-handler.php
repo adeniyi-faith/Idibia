@@ -35,6 +35,7 @@ if ( ! $quote_data ) {
 }
 
 $trip_ref = strtoupper( substr( md5( uniqid( '', true ) ), 0, 8 ) );
+$delivery_pin = (string) random_int( 1000, 9999 );
 $platform_pct = (int) get_option( 'sd_platform_commission_pct', 20 );
 
 idibia_transaction_start();
@@ -62,10 +63,11 @@ $inserted = $wpdb->insert(
         'fare_estimate'  => $quote_data['fare_estimate'],
         'status'         => 'pending',
         'dispatch_status'=> 'searching',
+        'delivery_pin'   => $delivery_pin,
         'platform_pct'   => $platform_pct,
     ],
     [
-        '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%f', '%d', '%f', '%f', '%s', '%s', '%d'
+        '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%f', '%d', '%f', '%f', '%s', '%s', '%s', '%d'
     ]
 );
 
@@ -77,6 +79,7 @@ if ( ! $inserted ) {
 
 $trip_id = $wpdb->insert_id;
 idibia_log_event( $trip_id, 'trip_created', [ 'quote_id' => $quote_id, 'fare' => $quote_data['fare_estimate'] ] );
+idibia_notify_trip_participants( $trip_id, 'trip_created' );
 
 idibia_transaction_commit();
 $dispatch_result = idibia_dispatch_trip( $trip_id );
