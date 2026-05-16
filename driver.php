@@ -2372,19 +2372,41 @@ function renderActiveTrip(trip) {
     arriving: ['arrived_pickup', 'Arrived at pickup'],
     arrived_pickup: ['picked_up', 'Picked up'],
     picked_up: ['arrived_dropoff', 'Arrived at drop-off'],
-    arrived_dropoff: ['complete', 'Complete trip']
+    arrived_dropoff: ['complete', 'Complete with PIN']
   }[trip.dispatch_status];
+  const navTarget = trip.dispatch_status === 'picked_up' || trip.dispatch_status === 'arrived_dropoff'
+    ? `${trip.dropoff_lat || ''},${trip.dropoff_lng || ''}`
+    : `${trip.pickup_lat || ''},${trip.pickup_lng || ''}`;
+  const navUrl = navTarget.replace(',', '').trim() ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(navTarget)}` : '#';
   return `
     <div class="trip-request-card">
       <div class="trq-header"><div class="trq-tag">Active Trip · ${escapeHtml(trip.trip_ref || '')}</div></div>
       <div class="trq-fee">₦${Number(trip.fare || 0).toLocaleString()} <span>· ${escapeHtml(trip.dispatch_status || '')}</span></div>
+      <div class="trq-meta">
+        <div class="trq-meta-chip">Next: ${escapeHtml(nextAction?.[1] || 'Await update')}</div>
+        <div class="trq-meta-chip">Customer: ${escapeHtml(trip.customer?.name || 'Customer')}</div>
+        <div class="trq-meta-chip">${escapeHtml(trip.customer?.phone || 'No phone saved')}</div>
+      </div>
       <div class="trq-route">
         <div class="trq-route-line"></div>
         <div class="trq-point"><div class="trq-dot from"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div><div class="trq-point-addr">${escapeHtml(trip.pickup_address)}</div></div></div>
         <div class="trq-point"><div class="trq-dot to"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div><div class="trq-point-addr">${escapeHtml(trip.dropoff_address)}</div></div></div>
       </div>
-      ${nextAction ? `<div class="trq-actions"><button class="trq-accept" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button></div>` : ''}
+      <div class="trq-actions">
+        <button class="trq-decline" onclick="window.open('${navUrl}', '_blank')">Navigate</button>
+        <button class="trq-decline" onclick="callTripCustomer('${encodeURIComponent(String(trip.customer?.phone || ''))}')">Call Customer</button>
+        <button class="trq-decline" onclick="showToast('Safety/support alerted for this active trip')">Safety</button>
+        ${nextAction ? `<button class="trq-accept" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button>` : ''}
+      </div>
+      ${trip.delivery_pin_required ? '<div class="info-note" style="margin-top:12px">Delivery PIN required before completing handoff. Ask the customer for the PIN only at delivery.</div>' : ''}
     </div>`;
+}
+
+
+function callTripCustomer(encodedPhone) {
+  const phone = decodeURIComponent(encodedPhone || '').replace(/[^\d+]/g, '');
+  if (!phone) return showToast('Customer phone is not available.');
+  window.location.href = `tel:${phone}`;
 }
 
 async function driverOfferAction(action, offerId) {
@@ -2399,6 +2421,11 @@ async function driverTripAction(action, tripId) {
   const body = new FormData();
   body.append('action', action);
   body.append('trip_id', tripId);
+  if (action === 'complete') {
+    const pin = prompt('Enter customer delivery PIN');
+    if (!pin) return;
+    body.append('delivery_pin', pin.trim());
+  }
   body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
   await sendDriverTripAction(body);
 }
