@@ -54,10 +54,6 @@ $nonces = [
 ];
 if ( $email_verified ) {
     $nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
-} else {
-    if ( ! session_id() ) session_start();
-    $_SESSION['sd_pending_driver_id'] = $driver_id;
-    $_SESSION['sd_pending_driver_email'] = $user->user_email;
 }
 
 wp_send_json_success( [

@@ -25,7 +25,7 @@ $driver = $wpdb->get_row( $wpdb->prepare(
 
 if ( ! $driver ) wp_send_json_error( [ 'message' => 'Account not found. Please register again.' ] );
 
-if ( (int) $driver->email_verified && empty( $driver->verify_code ) ) {
+if ( (int) $driver->email_verified ) {
     $user = get_user_by( 'email', $driver->email );
     if ( $user ) {
         idibia_finish_wordpress_login( $user );
@@ -58,19 +58,15 @@ unset( $_SESSION['sd_pending_driver_id'], $_SESSION['sd_pending_driver_email'] )
 wp_send_json_success( idibia_driver_verify_response( $driver, 'Email verified! Continue your driver application.' ) );
 
 function idibia_driver_verify_response( object $driver, string $message ): array {
-    global $wpdb;
     $driver_id = (int) $driver->id;
-    $fresh = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ) );
-    $kyc_status = $fresh->kyc_status ?? 'pending';
-    $status = $fresh->status ?? 'pending';
     return [
         'message'        => $message,
         'first_name'     => idibia_split_full_name( $driver->full_name )[0],
         'driver_id'      => $driver_id,
-        'kyc_status'     => $kyc_status,
-        'status'         => $status,
-        'is_approved'    => $kyc_status === 'approved' && $status === 'active',
-        'is_online'      => ! empty( $fresh->is_online ),
+        'kyc_status'     => 'pending',
+        'status'         => 'pending',
+        'is_approved'    => false,
+        'is_online'      => false,
         'email_verified' => true,
         'token'          => idibia_create_driver_session( $driver_id ),
         'nonces'         => [

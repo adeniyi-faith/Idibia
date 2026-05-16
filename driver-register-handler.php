@@ -75,8 +75,7 @@ update_user_meta( $user_id, 'idibia_driver_state_of_origin', $state );
 
 $driver_id = idibia_find_or_create_profile_row( $user_id, 'driver', [ 'full_name' => $full_name, 'email' => $email, 'phone' => $phone ] );
 global $wpdb;
-$vehicle_type = in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike';
-$wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => $vehicle_type ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
+$wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'vehicle_type' => in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ? $vehicle_type : 'bike' ], [ 'id' => $driver_id ], [ '%s' ], [ '%d' ] );
 $otp = sprintf('%05d', wp_rand(0, 99999));
 $expires = gmdate('Y-m-d H:i:s', time() + 30 * MINUTE_IN_SECONDS);
 
