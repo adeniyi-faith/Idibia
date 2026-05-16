@@ -23,8 +23,9 @@ if ( ! is_user_logged_in() ) {
     exit;
 }
 
-function idibia_visible_phone( ?string $phone ): string {
-    return trim( (string) $phone );
+function idibia_mask_phone( ?string $phone ): string {
+    $digits = preg_replace( '/\D+/', '', (string) $phone );
+    return $digits ? '•••• ' . substr( $digits, -4 ) : 'Masked contact';
 }
 
 function idibia_trip_feed_eta( array $trip, ?array $location ): array {
@@ -80,7 +81,7 @@ function idibia_trip_timeline( array $events ): array {
     }, $events );
 }
 
-function idibia_build_trip_feed_payload( int $trip_id, string $viewer_type ): array {
+function idibia_build_trip_feed_payload( int $trip_id ): array {
     global $wpdb;
 
     $trip = $wpdb->get_row( $wpdb->prepare(
@@ -110,8 +111,8 @@ function idibia_build_trip_feed_payload( int $trip_id, string $viewer_type ): ar
                 'plate'        => $driver['vehicle_plate'],
                 'rating'       => $driver['rating'] !== null ? (float) $driver['rating'] : null,
                 'total_trips'  => (int) $driver['total_trips'],
-                'phone'       => idibia_visible_phone( $driver['phone'] ?? '' ),
-                'contact'     => 'direct_phone',
+                'masked_phone' => idibia_mask_phone( $driver['phone'] ?? '' ),
+                'contact'      => 'masked_relay',
                 'location'     => $loc ? [
                     'lat'        => (float) $loc['lat'],
                     'lng'        => (float) $loc['lng'],
@@ -139,15 +140,15 @@ function idibia_build_trip_feed_payload( int $trip_id, string $viewer_type ): ar
         'distance_km'     => $trip['distance_km'] !== null ? (float) $trip['distance_km'] : null,
         'duration_mins'   => $trip['duration_mins'] !== null ? (int) $trip['duration_mins'] : null,
         'eta'             => $eta,
-        'delivery_pin'    => $viewer_type === 'customer' ? $trip['delivery_pin'] : null,
+        'delivery_pin'    => $trip['delivery_pin'],
         'created_at'      => $trip['created_at'],
         'accepted_at'     => $trip['accepted_at'],
         'completed_at'    => $trip['completed_at'],
         'driver'          => $driver_info,
         'customer'        => [
             'name'         => $trip['customer_name'] ?: 'Customer',
-            'phone'       => idibia_visible_phone( $trip['customer_phone'] ?? '' ),
-            'contact'     => 'direct_phone',
+            'masked_phone' => idibia_mask_phone( $trip['customer_phone'] ?? '' ),
+            'contact'      => 'masked_relay',
         ],
         'timeline'        => idibia_trip_timeline( $events ),
         'actions'         => [
@@ -186,8 +187,7 @@ if ( $account_type === 'customer' ) {
     wp_send_json_error( [ 'message' => 'Forbidden.' ] );
 }
 
-$viewer_type = current_user_can( 'manage_options' ) && ! in_array( $account_type, [ 'customer', 'driver' ], true ) ? 'admin' : $account_type;
-$payload = idibia_build_trip_feed_payload( $trip_id, $viewer_type );
+$payload = idibia_build_trip_feed_payload( $trip_id );
 if ( isset( $_GET['stream'] ) && $_GET['stream'] === '1' ) {
     while ( ob_get_level() > 0 ) ob_end_clean();
     header( 'Content-Type: text/event-stream; charset=utf-8' );

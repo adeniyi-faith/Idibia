@@ -318,6 +318,31 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   .panel-search select, .panel-search button{flex:none;}
 }
 
+
+.kyc-detail-section{background:var(--white);border:1.5px solid var(--surface-2);border-radius:14px;padding:14px;margin:14px 0;}
+.kyc-detail-section h4{font-size:13px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--surface);}
+.kyc-detail-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+@media(min-width:650px){.kyc-detail-grid{grid-template-columns:repeat(2,1fr);}}
+@media(min-width:980px){.kyc-detail-grid.three{grid-template-columns:repeat(3,1fr);}}
+.kyc-detail-field{background:var(--surface);border-radius:10px;padding:10px;}
+.kyc-detail-label{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px;}
+.kyc-detail-value{font-size:12px;font-weight:600;color:var(--text-primary);line-height:1.35;word-break:break-word;}
+.kyc-file-grid{display:grid;grid-template-columns:1fr;gap:10px;}
+@media(min-width:600px){.kyc-file-grid{grid-template-columns:repeat(2,1fr);}}
+@media(min-width:900px){.kyc-file-grid{grid-template-columns:repeat(3,1fr);}}
+.kyc-file-card{border:1.5px solid var(--surface-2);border-radius:12px;background:var(--white);overflow:hidden;}
+.kyc-file-preview{height:110px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:12px;text-align:center;padding:10px;}
+.kyc-file-preview img{width:100%;height:100%;object-fit:cover;}
+.kyc-file-body{padding:10px;}
+.kyc-file-title{font-size:12px;font-weight:700;margin-bottom:4px;}
+.kyc-file-meta{font-size:11px;color:var(--text-muted);margin-bottom:8px;}
+.kyc-decision-list{display:grid;grid-template-columns:1fr;gap:8px;}
+@media(min-width:700px){.kyc-decision-list{grid-template-columns:repeat(2,1fr);}}
+.kyc-decision-item{display:flex;align-items:flex-start;gap:8px;padding:10px;border-radius:10px;background:var(--surface);font-size:12px;line-height:1.35;}
+.kyc-decision-item.ok{color:var(--success);}
+.kyc-decision-item.warn{color:var(--warn);}
+.kyc-decision-item.bad{color:var(--danger);}
+
 /* KYC STEPPER */
 .kyc-steps{display:flex;gap:4px;margin-bottom:16px;}
 .kyc-step{flex:1;height:4px;border-radius:2px;background:var(--surface-2);}
@@ -574,7 +599,8 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">PHOTO REVIEW</div><div style="font-size:12px;font-weight:600" id="detail-photo">Clear portrait ✓</div></div>
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">BANK DETAILS</div><div style="font-size:12px;font-weight:600" id="detail-bank">Bank details pending</div></div>
           </div>
-          <div class="form-group">
+          <div id="kycReviewDetails"></div>
+          <div class="form-group" id="kycRejectReasonGroup">
             <label class="form-label">Rejection reason (if rejecting)</label>
             <select class="form-input" id="reject-reason">
               <option value="">Select reason…</option>
@@ -583,7 +609,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
               <option>Profile photo invalid (cap/glasses)</option><option>Other</option>
             </select>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div id="kycReviewActions" style="display:flex;gap:10px;flex-wrap:wrap;">
             <button class="btn-sm btn-reject" style="flex:1;min-width:140px;height:40px;font-size:13px" onclick="kycDetailAction('rejected')">Reject Application</button>
             <button class="btn-sm btn-approve" style="flex:1;min-width:140px;height:40px;font-size:13px" onclick="kycDetailAction('approved')">Approve Driver</button>
           </div>
@@ -966,6 +992,23 @@ async function adminApi(action, params = {}, method = 'GET'){
   if(!data.success) throw new Error(data.data?.message || 'Admin request failed.');
   return data.data;
 }
+async function adminApiAllPages(action, params = {}){
+  const perPage = 100;
+  let page = 1;
+  let allDrivers = [];
+  let firstPage = null;
+  while(true){
+    const data = await adminApi(action, { ...params, page, per_page: perPage });
+    if(!firstPage) firstPage = data;
+    const drivers = data.drivers || [];
+    allDrivers = allDrivers.concat(drivers);
+    const total = Number(data.total || allDrivers.length || 0);
+    if(allDrivers.length >= total || drivers.length < perPage) {
+      return { ...data, ...firstPage, drivers: allDrivers, total };
+    }
+    page += 1;
+  }
+}
 function renderKycQueue(){
   const queue = document.getElementById('kycQueue');
   const visible = kycDrivers.filter(driver => currentKycFilter === 'all' || driver.vehicle_type === currentKycFilter);
@@ -985,7 +1028,7 @@ async function loadKycQueue(status = currentKycTab){
   const queue = document.getElementById('kycQueue');
   queue.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Loading driver applications…</div>';
   try {
-    const data = await adminApi('get_drivers', { kyc_status: status, per_page: 100 });
+    const data = await adminApiAllPages('get_drivers', { kyc_status: status });
     kycDrivers = data.drivers || [];
     if(status === 'under_review') {
       kycCount = Number(data.total || kycDrivers.length || 0);
@@ -1000,6 +1043,10 @@ async function kycAction(btn, action){
   const item = btn.closest('.kyc-item-wrap');
   const driverId = Number(item?.dataset.driverId || currentKycId || 0);
   const driver = kycDrivers.find(row => Number(row.id) === driverId);
+  if(!driver || driver.kyc_status !== 'under_review'){
+    toast('This KYC record has already been resolved.');
+    return;
+  }
   const notes = action === 'rejected' ? (document.getElementById('reject-reason')?.value || 'Rejected from admin KYC review.') : 'Approved from admin KYC review.';
   btn.disabled = true;
   try {
@@ -1044,6 +1091,11 @@ function openKycDetailById(driverId){
   document.getElementById('detail-vehicle-docs').textContent = [driver.vehicle_license_doc_path ? 'License ✓' : 'License pending', driver.insurance_doc_path ? 'Inspection ✓' : 'Inspection optional/pending'].join(' · ');
   document.getElementById('detail-photo').textContent = driver.selfie_path ? 'Selfie uploaded ✓' : 'Selfie pending';
   document.getElementById('detail-bank').textContent = (driver.bank_name || 'Bank') + ' · ' + maskAccount(driver.account_number) + (driver.account_holder_name ? ' · ' + driver.account_holder_name : '');
+  const canReview = driver.kyc_status === 'under_review';
+  const reviewActions = document.getElementById('kycReviewActions');
+  const rejectReason = document.getElementById('kycRejectReasonGroup');
+  if(reviewActions) reviewActions.style.display = canReview ? 'flex' : 'none';
+  if(rejectReason) rejectReason.style.display = canReview ? 'block' : 'none';
   document.getElementById('kycDetail').classList.add('open');
 }
 function openKycDetail(name,vehicle,state,time,docs){
@@ -1053,10 +1105,16 @@ function openKycDetail(name,vehicle,state,time,docs){
   document.getElementById('detail-meta').textContent=vehicle+' · '+state+' · Applied '+time;
   document.getElementById('detail-avatar').textContent=initials(name);
   document.getElementById('detail-docs').textContent=docs;
+  document.getElementById('kycReviewDetails').innerHTML = '';
   document.getElementById('kycDetail').classList.add('open');
 }
 function closeKycDetail(){document.getElementById('kycDetail').classList.remove('open');}
 async function kycDetailAction(action){
+  const driver = kycDrivers.find(row => Number(row.id) === Number(currentKycId));
+  if(!driver || driver.kyc_status !== 'under_review'){
+    toast('This KYC record has already been resolved.');
+    return;
+  }
   const fakeBtn = document.querySelector(`.kyc-item-wrap[data-driver-id="${currentKycId}"] .${action === 'approved' ? 'btn-approve' : 'btn-reject'}`) || document.createElement('button');
   await kycAction(fakeBtn, action);
   closeKycDetail();
@@ -1074,13 +1132,15 @@ async function loadLiveOps(){
 }
 function renderLiveOps(data){
   const drivers = data.drivers || [];
-  document.getElementById('opsOnlineDrivers').textContent = data.metrics?.online_drivers ?? drivers.length;
-  document.getElementById('opsActiveTrips').textContent = data.metrics?.active_trips ?? drivers.filter(d => d.trip_id).length;
+  const onlineDriverCount = data.metrics?.online_drivers ?? drivers.filter(d => Number(d.is_online) === 1).length;
+  const activeTripCount = data.metrics?.active_trips ?? drivers.filter(d => d.trip_id).length;
+  document.getElementById('opsOnlineDrivers').textContent = onlineDriverCount;
+  document.getElementById('opsActiveTrips').textContent = activeTripCount;
   const newest = drivers.find(d => d.updated_at)?.updated_at || 'No GPS';
   document.getElementById('opsLastLocation').textContent = newest === 'No GPS' ? newest : 'Updated';
   document.getElementById('opsRefreshAge').textContent = 'Now';
-  document.getElementById('opsMapLegend').innerHTML = `<span style="color:var(--success)">●</span> ${drivers.length} online &nbsp;<span style="color:var(--info)">●</span> ${drivers.filter(d => d.trip_id).length} in trip`;
-  document.getElementById('opsListMeta').textContent = `Live · ${drivers.length} online`;
+  document.getElementById('opsMapLegend').innerHTML = `<span style="color:var(--success)">●</span> ${onlineDriverCount} online &nbsp;<span style="color:var(--info)">●</span> ${activeTripCount} in trip`;
+  document.getElementById('opsListMeta').textContent = `Live · ${onlineDriverCount} online`;
   const list = document.getElementById('opsDriverList');
   if(!drivers.length){
     list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active drivers right now</div><div class="item-meta">Drivers appear here after heartbeat or active-trip assignment.</div></div></div>';

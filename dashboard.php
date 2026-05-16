@@ -1322,11 +1322,11 @@ a { color: inherit; }
         </div>
       </div>
       <div class="rider-contact">
-        <button class="contact-btn call" id="trackingCallDriverBtn" onclick="callTrackingDriver()">
+        <button class="contact-btn call" onclick="showToast('Starting masked relay call...')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           Call
         </button>
-        <button class="contact-btn" id="trackingMessageDriverBtn" onclick="messageTrackingDriver()">
+        <button class="contact-btn" onclick="showToast('Opening masked support chat...')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Message
         </button>
@@ -1893,7 +1893,7 @@ function updateTrackingUI(trip) {
   if (drvPlate) drvPlate.textContent = drv?.plate || (drv ? 'No plate' : 'Pending');
 
   const drvRating = document.getElementById('trackingDriverRating');
-  if (drvRating) drvRating.textContent = drv ? `${drv.rating || '5.0'} · ${Number(drv.total_trips || 0).toLocaleString()} trips · ${drv.phone || 'No phone saved'}` : 'Waiting for assignment';
+  if (drvRating) drvRating.textContent = drv ? `${drv.rating || '5.0'} · ${Number(drv.total_trips || 0).toLocaleString()} trips · ${drv.masked_phone || 'masked'}` : 'Waiting for assignment';
 
   const drvAvatar = document.querySelector('.rider-avatar');
   if (drvAvatar) drvAvatar.innerHTML = drv ? `${escapeHtml(initials)}<div class="rider-online"></div>` : '…';
@@ -1915,9 +1915,7 @@ function updateTrackingUI(trip) {
   if (fareValue) fareValue.textContent = `₦${Number(trip.fare || 0).toLocaleString()}`;
 
   const pinText = document.getElementById('trackingPinText');
-  if (pinText) pinText.textContent = trip.delivery_pin ? `Delivery PIN: ${trip.delivery_pin} · give this to your assigned driver only at handoff.` : 'Delivery PIN is hidden for drivers and admins.';
-
-  window.currentTrackingDriverPhone = drv?.phone || '';
+  if (pinText) pinText.textContent = trip.delivery_pin ? `Delivery PIN: ${trip.delivery_pin} · only share with your assigned driver at handoff.` : 'PIN pending. Support and cancellation actions remain available.';
 
   const stepsCont = document.querySelector('.tracking-steps');
   if (stepsCont) stepsCont.innerHTML = renderTrackingTimeline(trip);
@@ -1944,23 +1942,6 @@ function renderTrackingTimeline(trip) {
     const when = event.created_at ? new Date(String(event.created_at).replace(' ', 'T') + 'Z').toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : 'Just now';
     return `<div class="t-step"><div class="t-step-dot ${dot}">${dot === 'done' ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="11" height="11"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor" width="8" height="8"><circle cx="12" cy="12" r="5"/></svg>'}</div><div class="t-step-info"><h4>${escapeHtml(event.label || event.event_type || 'Trip update')}</h4><p>${escapeHtml(when)}</p></div></div>`;
   }).join('');
-}
-
-
-function cleanPhoneForLink(phone) {
-  return String(phone || '').replace(/[^\d+]/g, '');
-}
-
-function callTrackingDriver() {
-  const phone = cleanPhoneForLink(window.currentTrackingDriverPhone);
-  if (!phone) return showToast('Driver phone is not available yet.');
-  window.location.href = `tel:${phone}`;
-}
-
-function messageTrackingDriver() {
-  const phone = cleanPhoneForLink(window.currentTrackingDriverPhone);
-  if (!phone) return showToast('Driver phone is not available yet.');
-  window.location.href = `sms:${phone}`;
 }
 
 function shareTrackingLink() {

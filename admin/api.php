@@ -34,7 +34,7 @@ try {
             idibia_require_method( 'GET' );
             $driver_id = absint( $_GET['driver_id'] ?? 0 );
             $driver = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
-            $driver ? wp_send_json_success( [ 'driver' => $driver ] ) : wp_send_json_error( [ 'message' => 'Driver not found.' ] );
+            $driver ? wp_send_json_success( [ 'driver' => idibia_admin_prepare_driver( $driver ) ] ) : wp_send_json_error( [ 'message' => 'Driver not found.' ] );
             break;
 
         case 'kyc_action':
@@ -123,7 +123,30 @@ function idibia_admin_paginated_drivers(): void {
     $sql_where = implode( ' AND ', $where );
     $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE $sql_where", $args ) );
     $rows = $wpdb->get_results( idibia_sql( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE $sql_where ORDER BY created_at DESC LIMIT %d OFFSET %d", array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
-    wp_send_json_success( [ 'drivers' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+    $rows = array_map( 'idibia_admin_prepare_driver', $rows ?: [] );
+    wp_send_json_success( [
+        'drivers'         => $rows,
+        'page'            => $page,
+        'per_page'        => $per_page,
+        'total'           => $total,
+        'upload_base_url' => trailingslashit( wp_upload_dir()['baseurl'] ?? '' ),
+    ] );
+}
+
+function idibia_admin_prepare_driver( array $driver ): array {
+    $user = ! empty( $driver['email'] ) ? get_user_by( 'email', $driver['email'] ) : false;
+    if ( $user instanceof WP_User ) {
+        $driver['user_id']         = $user->ID;
+        $driver['first_name']      = (string) get_user_meta( $user->ID, 'first_name', true );
+        $driver['last_name']       = (string) get_user_meta( $user->ID, 'last_name', true );
+        $driver['language']        = (string) get_user_meta( $user->ID, 'idibia_driver_language', true );
+        $driver['middle_name']     = (string) get_user_meta( $user->ID, 'idibia_driver_middle_name', true );
+        $driver['date_of_birth']   = (string) get_user_meta( $user->ID, 'idibia_driver_date_of_birth', true );
+        $driver['gender']          = (string) get_user_meta( $user->ID, 'idibia_driver_gender', true );
+        $driver['state_of_origin'] = (string) get_user_meta( $user->ID, 'idibia_driver_state_of_origin', true );
+    }
+
+    return $driver;
 }
 
 function idibia_admin_kyc_action(): void {
@@ -132,8 +155,12 @@ function idibia_admin_kyc_action(): void {
     $decision  = sanitize_text_field( wp_unslash( $_POST['decision'] ?? '' ) );
     $notes     = sanitize_textarea_field( wp_unslash( $_POST['notes'] ?? '' ) );
     if ( ! in_array( $decision, [ 'approved', 'rejected' ], true ) ) wp_send_json_error( [ 'message' => 'Invalid decision.' ] );
+    $current_status = $wpdb->get_var( $wpdb->prepare( "SELECT kyc_status FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ) );
+    if ( $current_status !== 'under_review' ) {
+        wp_send_json_error( [ 'message' => 'This KYC record has already been resolved.' ] );
+    }
     $status = $decision === 'approved' ? 'active' : 'pending';
-    $updated = $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'kyc_status' => $decision, 'status' => $status, 'kyc_notes' => $notes ], [ 'id' => $driver_id ], [ '%s', '%s', '%s' ], [ '%d' ] );
+    $updated = $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'kyc_status' => $decision, 'status' => $status, 'kyc_notes' => $notes ], [ 'id' => $driver_id, 'kyc_status' => 'under_review' ], [ '%s', '%s', '%s' ], [ '%d', '%s' ] );
     if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not update driver.' ] );
     $driver = $wpdb->get_row( $wpdb->prepare( "SELECT email, full_name FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d", $driver_id ) );
     if ( $driver ) {
@@ -208,11 +235,13 @@ function idibia_admin_live_ops(): void {
          LEFT JOIN `{$wpdb->prefix}sd_driver_locations` dl ON dl.driver_id = d.id
          LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.driver_id = d.id AND t.dispatch_status IN ($active_statuses)
          LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id
-         WHERE d.status = 'active' AND (d.is_online = 1 OR t.id IS NOT NULL)
+         WHERE d.status = 'active' AND d.kyc_status = 'approved' AND (d.is_online = 1 OR t.id IS NOT NULL)
          ORDER BY t.id IS NULL ASC, dl.updated_at DESC, d.full_name ASC
          LIMIT 100",
         ARRAY_A
     ) ?: [];
+
+    $online_drivers = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE is_online = 1 AND status = 'active' AND kyc_status = 'approved'" );
 
     $active_trips = 0;
     foreach ( $drivers as &$driver ) {
@@ -231,7 +260,7 @@ function idibia_admin_live_ops(): void {
     wp_send_json_success( [
         'drivers' => $drivers,
         'metrics' => [
-            'online_drivers' => count( $drivers ),
+            'online_drivers' => $online_drivers,
             'active_trips'   => $active_trips,
             'last_refreshed' => gmdate( 'Y-m-d H:i:s' ),
         ],

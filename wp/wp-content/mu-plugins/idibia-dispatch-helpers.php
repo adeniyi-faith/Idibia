@@ -99,7 +99,7 @@ function idibia_get_driver_active_trip( int $driver_id ): ?array {
         return null;
     }
 
-    $customer_phone = trim( (string) ( $row['customer_phone'] ?? '' ) );
+    $customer_phone = preg_replace( '/\D+/', '', (string) ( $row['customer_phone'] ?? '' ) );
 
     return [
         'trip_id'          => (int) $row['id'],
@@ -120,8 +120,8 @@ function idibia_get_driver_active_trip( int $driver_id ): ?array {
         'delivery_pin_required' => ! empty( $row['delivery_pin'] ),
         'customer'         => [
             'name'         => $row['customer_name'] ?: 'Customer',
-            'phone'   => $customer_phone,
-            'contact' => 'direct_phone',
+            'masked_phone' => $customer_phone ? '•••• ' . substr( $customer_phone, -4 ) : 'Masked contact',
+            'contact'      => 'masked_relay',
         ],
     ];
 }
