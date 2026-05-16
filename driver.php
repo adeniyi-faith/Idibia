@@ -23,6 +23,14 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
 
     $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $current_user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
     $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
+    $email_verified = ! empty( $driver_row['email_verified'] );
+    $driver_nonces = [
+        'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
+        'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+    ];
+    if ( $email_verified ) {
+        $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
+    }
 
     $driver_initial_context = [
         'logged_in'   => true,
@@ -33,11 +41,8 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'status'      => $status,
         'is_approved' => $kyc_status === 'approved' && $status === 'active',
         'is_online'   => ! empty( $driver_row['is_online'] ),
-        'nonces'      => [
-            'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
-            'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
-            'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
-        ],
+        'email_verified' => $email_verified,
+        'nonces'      => $driver_nonces,
     ];
 }
 
@@ -155,6 +160,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   box-shadow: 0 0 0 3px rgba(245,200,66,0.15);
 }
 .form-input::placeholder { color: var(--text-muted); }
+.form-input.error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(232,72,74,0.12); }
 .section-label {
   font-size: 11px;
   font-weight: 700;
@@ -343,6 +349,29 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   background: rgba(34,196,122,0.04);
 }
 .upload-box.done svg { color: var(--success); }
+.upload-box.error { border-color: var(--danger); background: rgba(232,72,74,0.04); }
+.driver-verify-actions { display:grid; grid-template-columns:1fr 1.25fr; gap:10px; }
+.driver-resend-btn {
+  min-height:52px;
+  border:1.5px solid rgba(245,200,66,0.45);
+  border-radius:var(--radius-sm);
+  background:linear-gradient(135deg, rgba(245,200,66,0.10), rgba(245,200,66,0.03));
+  color:var(--gold-dark);
+  font-family:'Syne',sans-serif;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  transition:transform .15s, box-shadow .2s, border-color .2s;
+}
+.driver-resend-btn:hover { border-color:var(--gold); box-shadow:0 8px 22px rgba(245,200,66,0.16); transform:translateY(-1px); }
+.driver-resend-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; box-shadow:none; }
+.driver-verify-card { border-color:rgba(245,200,66,0.45); box-shadow:0 12px 30px rgba(11,22,40,0.08); }
+.driver-verify-code { text-align:center; font-size:24px; letter-spacing:8px; font-family:'Syne',sans-serif; font-weight:800; }
+@media (max-width:480px){ .driver-verify-actions { grid-template-columns:1fr; } }
 
 /* Info notes */
 .info-note {
@@ -1202,6 +1231,20 @@ svg { display: block; }
           </div>
         </div>
 
+        <div class="driver-auth-card driver-verify-card hidden" id="driverEmailVerifyPanel">
+          <span class="section-label">Email check</span>
+          <h3 class="step-title" style="font-size:20px;margin-bottom:6px">Enter your verification code</h3>
+          <p class="driver-auth-help" id="driverEmailVerifyHelp">We sent a 5-digit code to your email. Paste it below to unlock KYC.</p>
+          <div class="form-group">
+            <label class="form-label">Email Verification Code</label>
+            <input class="form-input driver-verify-code" type="tel" id="driverVerifyCode" inputmode="numeric" maxlength="5" placeholder="12345" autocomplete="one-time-code" oninput="this.value=this.value.replace(/\D/g,'').slice(0,5)">
+          </div>
+          <div class="driver-verify-actions">
+            <button class="driver-resend-btn" id="driverResendCodeBtn" type="button" onclick="resendDriverVerifyCode()">↻ Resend code</button>
+            <button class="btn-primary" type="button" onclick="verifyDriverEmail()">Verify email</button>
+          </div>
+        </div>
+
         <div class="driver-register-only" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div class="form-group">
             <label class="form-label">Middle Name</label>
@@ -1964,6 +2007,7 @@ window.addEventListener('orientationchange', setAppHeight);
 
 let driverStep = 1;
 let driverAuthenticated = false;
+let driverAwaitingEmailVerification = false;
 let driverAuthMode = 'signup';
 const driverTitles = ['Account Setup','Identity Verification','Vehicle Information','Financial & Emergency','Application Submitted'];
 let driverFiles = {};
@@ -2066,16 +2110,24 @@ async function submitDriverSignup() {
   body.append('email', email);
   body.append('phone', phone);
   body.append('password', password);
+  body.append('middle_name', document.getElementById('driverMiddleName').value.trim());
+  body.append('date_of_birth', document.getElementById('driverDob').value);
+  body.append('gender', document.getElementById('driverGender').value);
+  body.append('state_of_origin', document.getElementById('driverStateOrigin').value);
+  body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
 
   try {
     const json = await driverAuthPost('driver-register-handler.php', body);
     if (json.success) {
-      driverAuthenticated = true;
-      Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
-      showToast(json.data?.message || 'Driver account created. Continue your application.');
-      driverStep = 2;
+      driverAuthenticated = false;
+      driverAwaitingEmailVerification = true;
+      Object.assign(driverInitialContext, json.data || {}, { logged_in: false, email_verified: false });
+      const help = document.getElementById('driverEmailVerifyHelp');
+      if (help) help.textContent = 'We sent a 5-digit code to ' + email + '. Paste it below to unlock KYC.';
+      showToast(json.data?.message || 'Driver account created. Please verify your email.');
       updateDriver();
-      return true;
+      document.getElementById('driverVerifyCode')?.focus();
+      return false;
     }
 
     showToast(json.data?.message || 'Driver registration failed.');
@@ -2107,13 +2159,17 @@ function updateDriver() {
   const headerWrap = document.getElementById('driverHeaderWrap');
   const progressWrap = document.getElementById('driverProgressWrap');
   const footerWrap = document.getElementById('driverFooterWrap');
+  const emailVerifyPanel = document.getElementById('driverEmailVerifyPanel');
+  if (emailVerifyPanel) emailVerifyPanel.classList.toggle('hidden', !(driverStep === 1 && driverAwaitingEmailVerification));
 
   backBtn.style.visibility = driverStep === 1 ? 'hidden' : 'visible';
 
   if (driverStep === 1) {
-    nextBtn.innerHTML = driverAuthMode === 'login'
-      ? 'Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
-      : 'Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+    nextBtn.innerHTML = driverAwaitingEmailVerification
+      ? 'Verify email <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
+      : (driverAuthMode === 'login'
+        ? 'Sign in <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>'
+        : 'Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>');
   } else {
     nextBtn.innerHTML = 'Continue <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
   }
@@ -2129,7 +2185,113 @@ function updateDriver() {
   }
 }
 
+async function verifyDriverEmail() {
+  const codeInput = document.getElementById('driverVerifyCode');
+  const code = (codeInput?.value || '').replace(/\D/g, '').slice(0, 5);
+  if (code.length !== 5) {
+    showToast('Enter the 5-digit code from your email.');
+    codeInput?.focus();
+    return false;
+  }
+  const body = new FormData();
+  body.append('code', code);
+  try {
+    const json = await driverAuthPost('driver-verify-handler.php', body);
+    if (json.success) {
+      driverAuthenticated = true;
+      driverAwaitingEmailVerification = false;
+      Object.assign(driverInitialContext, json.data || {}, { logged_in: true, email_verified: true });
+      showToast(json.data?.message || 'Email verified. Continue your driver application.');
+      driverStep = 2;
+      updateDriver();
+      document.getElementById('driverContent').scrollTop = 0;
+      return true;
+    }
+    showToast(json.data?.message || 'Could not verify your email.');
+  } catch (err) {
+    showToast('Could not reach Idibia right now. Please try again.');
+  }
+  return false;
+}
+
+async function resendDriverVerifyCode() {
+  const btn = document.getElementById('driverResendCodeBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const json = await driverAuthPost('driver-resend-code.php', new FormData());
+    showToast(json.success ? (json.data?.message || 'New code sent! Check your inbox.') : (json.data?.message || 'Could not resend code.'));
+  } catch (err) {
+    showToast('Could not resend code right now. Please try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Resend code'; }
+  }
+}
+
+function setDriverFieldError(id, hasError) {
+  const field = document.getElementById(id);
+  if (field) field.classList.toggle('error', !!hasError);
+}
+function setDriverUploadError(field, hasError) {
+  const box = document.querySelector(`.upload-box[data-field="${field}"]`);
+  if (box) box.classList.toggle('error', !!hasError);
+}
+function requireDriverFile(field, label, errors) {
+  const missing = !driverFiles[field];
+  setDriverUploadError(field, missing);
+  if (missing) errors.push(label);
+}
+function validateDriverStep(step) {
+  const errors = [];
+  if (step === 2) {
+    requireDriverFile('id_front', 'driver license', errors);
+    requireDriverFile('id_back', 'NIN or ID card', errors);
+    requireDriverFile('selfie', 'profile photo', errors);
+  }
+  if (step === 3) {
+    ['driverVehicleYear','driverVehicleManufacturer','driverVehiclePlate','driverVehicleColor'].forEach(id => setDriverFieldError(id, false));
+    const fields = [
+      ['driverVehicleYear', 'vehicle year'],
+      ['driverVehicleManufacturer', 'vehicle manufacturer'],
+      ['driverVehiclePlate', 'plate number'],
+      ['driverVehicleColor', 'vehicle color']
+    ];
+    fields.forEach(([id, label]) => {
+      const missing = !document.getElementById(id)?.value.trim();
+      setDriverFieldError(id, missing);
+      if (missing) errors.push(label);
+    });
+    requireDriverFile('vehicle_photo', 'vehicle exterior photo', errors);
+    requireDriverFile('vehicle_license_doc', 'vehicle license document', errors);
+  }
+  if (step === 4) {
+    ['driverAccountHolder','driverAccountNumber','driverEmergencyName','driverEmergencyPhone','driverEmergencyAddress'].forEach(id => setDriverFieldError(id, false));
+    const accountNumber = (document.getElementById('driverAccountNumber')?.value || '').replace(/\D/g, '');
+    const fields = [
+      ['driverAccountHolder', 'account holder name', value => !!value.trim()],
+      ['driverAccountNumber', '10-digit account number', () => accountNumber.length >= 10],
+      ['driverEmergencyName', 'emergency contact name', value => !!value.trim()],
+      ['driverEmergencyPhone', 'emergency contact phone', value => !!value.trim()],
+      ['driverEmergencyAddress', 'emergency contact address', value => !!value.trim()]
+    ];
+    fields.forEach(([id, label, test]) => {
+      const value = document.getElementById(id)?.value || '';
+      const invalid = !test(value);
+      setDriverFieldError(id, invalid);
+      if (invalid) errors.push(label);
+    });
+  }
+  if (errors.length) {
+    showToast('Please complete: ' + errors.slice(0, 3).join(', ') + (errors.length > 3 ? '…' : '.'));
+    return false;
+  }
+  return true;
+}
+
 async function submitDriverKyc() {
+  if (!driverInitialContext.email_verified || !driverInitialContext.nonces?.driver_kyc) {
+    showToast('Please verify your email before submitting KYC.');
+    return false;
+  }
   const body = new FormData();
   body.append('_nonce', driverInitialContext.nonces?.driver_kyc || '');
   body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
@@ -2165,17 +2327,23 @@ async function submitDriverKyc() {
 
 async function driverNext() {
   if (driverStep === 1 && !driverAuthenticated) {
+    if (driverAwaitingEmailVerification) {
+      await verifyDriverEmail();
+      return;
+    }
     if (driverAuthMode === 'login') {
-      const loggedIn = await driverLogin();
+      await driverLogin();
       return;
     }
 
-    const created = await submitDriverSignup();
-    if (!created) return;
+    await submitDriverSignup();
     return;
   }
 
+  if (driverStep >= 2 && driverStep <= 3 && !validateDriverStep(driverStep)) return;
+
   if (driverStep === 4) {
+    if (!validateDriverStep(4)) return;
     const kycSubmitted = await submitDriverKyc();
     if (!kycSubmitted) return;
   }
@@ -2212,7 +2380,7 @@ function chooseKycFile(el) {
   const input = document.getElementById('driverKycFileInput');
   input.onchange = function(e) {
     const file = e.target.files[0];
-    if (file) { driverFiles[fieldName] = file; markDone(el, file.name); }
+    if (file) { driverFiles[fieldName] = file; el.classList.remove('error'); markDone(el, file.name); }
     input.value = '';
   };
   input.click();

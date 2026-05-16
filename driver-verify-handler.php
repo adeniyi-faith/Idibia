@@ -25,13 +25,13 @@ $driver = $wpdb->get_row( $wpdb->prepare(
 
 if ( ! $driver ) wp_send_json_error( [ 'message' => 'Account not found. Please register again.' ] );
 
-if ( (int) $driver->email_verified ) {
+if ( (int) $driver->email_verified && empty( $driver->verify_code ) ) {
+    $user = get_user_by( 'email', $driver->email );
+    if ( $user ) {
+        idibia_finish_wordpress_login( $user );
+    }
     unset( $_SESSION['sd_pending_driver_id'], $_SESSION['sd_pending_driver_email'] );
-    wp_send_json_success( [
-        'message'    => 'Already verified.',
-        'first_name' => idibia_split_full_name( $driver->full_name )[0],
-        'token'      => idibia_create_driver_session( (int) $driver->id ),
-    ] );
+    wp_send_json_success( idibia_driver_verify_response( $driver, 'Already verified.' ) );
 }
 
 if ( ! wp_check_password( $submitted_code, $driver->verify_code ) ) wp_send_json_error( [ 'message' => 'Incorrect code. Double-check and try again.' ] );
@@ -53,14 +53,33 @@ if ( $user ) {
     idibia_finish_wordpress_login( $user );
 }
 
-$token = idibia_create_driver_session( $driver_id );
 unset( $_SESSION['sd_pending_driver_id'], $_SESSION['sd_pending_driver_email'] );
 
-wp_send_json_success( [
-    'message'    => 'Email verified! Continue your driver application.',
-    'first_name' => idibia_split_full_name( $driver->full_name )[0],
-    'token'      => $token,
-] );
+wp_send_json_success( idibia_driver_verify_response( $driver, 'Email verified! Continue your driver application.' ) );
+
+function idibia_driver_verify_response( object $driver, string $message ): array {
+    global $wpdb;
+    $driver_id = (int) $driver->id;
+    $fresh = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ) );
+    $kyc_status = $fresh->kyc_status ?? 'pending';
+    $status = $fresh->status ?? 'pending';
+    return [
+        'message'        => $message,
+        'first_name'     => idibia_split_full_name( $driver->full_name )[0],
+        'driver_id'      => $driver_id,
+        'kyc_status'     => $kyc_status,
+        'status'         => $status,
+        'is_approved'    => $kyc_status === 'approved' && $status === 'active',
+        'is_online'      => ! empty( $fresh->is_online ),
+        'email_verified' => true,
+        'token'          => idibia_create_driver_session( $driver_id ),
+        'nonces'         => [
+            'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
+            'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+            'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
+        ],
+    ];
+}
 
 function idibia_create_driver_session( int $driver_id ): string {
     global $wpdb;
