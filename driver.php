@@ -2411,6 +2411,13 @@ function renderActiveTrip(trip) {
     </div>`;
 }
 
+
+function callTripCustomer(encodedPhone) {
+  const phone = decodeURIComponent(encodedPhone || '').replace(/[^\d+]/g, '');
+  if (!phone) return showToast('Customer phone is not available.');
+  window.location.href = `tel:${phone}`;
+}
+
 async function driverOfferAction(action, offerId) {
   const body = new FormData();
   body.append('action', action);
