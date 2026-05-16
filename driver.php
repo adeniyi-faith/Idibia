@@ -160,6 +160,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   box-shadow: 0 0 0 3px rgba(245,200,66,0.15);
 }
 .form-input::placeholder { color: var(--text-muted); }
+.form-input.error { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(232,72,74,0.12); }
 .section-label {
   font-size: 11px;
   font-weight: 700;
@@ -348,6 +349,29 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   background: rgba(34,196,122,0.04);
 }
 .upload-box.done svg { color: var(--success); }
+.upload-box.error { border-color: var(--danger); background: rgba(232,72,74,0.04); }
+.driver-verify-actions { display:grid; grid-template-columns:1fr 1.25fr; gap:10px; }
+.driver-resend-btn {
+  min-height:52px;
+  border:1.5px solid rgba(245,200,66,0.45);
+  border-radius:var(--radius-sm);
+  background:linear-gradient(135deg, rgba(245,200,66,0.10), rgba(245,200,66,0.03));
+  color:var(--gold-dark);
+  font-family:'Syne',sans-serif;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  transition:transform .15s, box-shadow .2s, border-color .2s;
+}
+.driver-resend-btn:hover { border-color:var(--gold); box-shadow:0 8px 22px rgba(245,200,66,0.16); transform:translateY(-1px); }
+.driver-resend-btn:disabled { opacity:.6; cursor:not-allowed; transform:none; box-shadow:none; }
+.driver-verify-card { border-color:rgba(245,200,66,0.45); box-shadow:0 12px 30px rgba(11,22,40,0.08); }
+.driver-verify-code { text-align:center; font-size:24px; letter-spacing:8px; font-family:'Syne',sans-serif; font-weight:800; }
+@media (max-width:480px){ .driver-verify-actions { grid-template-columns:1fr; } }
 
 /* Info notes */
 .info-note {
@@ -2084,6 +2108,11 @@ async function submitDriverSignup() {
   body.append('email', email);
   body.append('phone', phone);
   body.append('password', password);
+  body.append('middle_name', document.getElementById('driverMiddleName').value.trim());
+  body.append('date_of_birth', document.getElementById('driverDob').value);
+  body.append('gender', document.getElementById('driverGender').value);
+  body.append('state_of_origin', document.getElementById('driverStateOrigin').value);
+  body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
 
   try {
     const json = await driverAuthPost('driver-register-handler.php', body);
@@ -2245,7 +2274,10 @@ async function driverNext() {
     return;
   }
 
+  if (driverStep >= 2 && driverStep <= 3 && !validateDriverStep(driverStep)) return;
+
   if (driverStep === 4) {
+    if (!validateDriverStep(4)) return;
     const kycSubmitted = await submitDriverKyc();
     if (!kycSubmitted) return;
   }
@@ -2282,7 +2314,7 @@ function chooseKycFile(el) {
   const input = document.getElementById('driverKycFileInput');
   input.onchange = function(e) {
     const file = e.target.files[0];
-    if (file) { driverFiles[fieldName] = file; markDone(el, file.name); }
+    if (file) { driverFiles[fieldName] = file; el.classList.remove('error'); markDone(el, file.name); }
     input.value = '';
   };
   input.click();
