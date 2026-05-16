@@ -26,6 +26,12 @@ $table     = $wpdb->prefix . 'sd_drivers';
 
 idibia_ensure_driver_kyc_columns( $table );
 
+$driver_access = $wpdb->get_row( $wpdb->prepare( "SELECT email_verified FROM `$table` WHERE id = %d LIMIT 1", $driver_id ) );
+if ( ! $driver_access || (int) $driver_access->email_verified !== 1 ) {
+    http_response_code( 403 );
+    wp_send_json_error( [ 'message' => 'Please verify your email before submitting KYC.' ] );
+}
+
 $vehicle_type = sanitize_text_field( wp_unslash( $_POST['vehicle_type'] ?? '' ) );
 if ( ! in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ) {
     wp_send_json_error( [ 'message' => 'Select a valid vehicle type.' ] );

@@ -23,6 +23,14 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
 
     $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $current_user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
     $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
+    $email_verified = ! empty( $driver_row['email_verified'] );
+    $driver_nonces = [
+        'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
+        'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+    ];
+    if ( $email_verified ) {
+        $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
+    }
 
     $driver_initial_context = [
         'logged_in'   => true,
@@ -33,11 +41,8 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'status'      => $status,
         'is_approved' => $kyc_status === 'approved' && $status === 'active',
         'is_online'   => ! empty( $driver_row['is_online'] ),
-        'nonces'      => [
-            'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
-            'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
-            'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
-        ],
+        'email_verified' => $email_verified,
+        'nonces'      => $driver_nonces,
     ];
 }
 
@@ -2130,6 +2135,10 @@ function updateDriver() {
 }
 
 async function submitDriverKyc() {
+  if (!driverInitialContext.email_verified || !driverInitialContext.nonces?.driver_kyc) {
+    showToast('Please verify your email before submitting KYC.');
+    return false;
+  }
   const body = new FormData();
   body.append('_nonce', driverInitialContext.nonces?.driver_kyc || '');
   body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
