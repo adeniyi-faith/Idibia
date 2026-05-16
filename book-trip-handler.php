@@ -4,6 +4,7 @@
 if ( ! ob_get_level() ) ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
 require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-dispatch-helpers.php';
 idibia_clean_json_buffer();
 
 
@@ -78,6 +79,7 @@ $trip_id = $wpdb->insert_id;
 idibia_log_event( $trip_id, 'trip_created', [ 'quote_id' => $quote_id, 'fare' => $quote_data['fare_estimate'] ] );
 
 idibia_transaction_commit();
+$dispatch_result = idibia_dispatch_trip( $trip_id );
 
 // Clean up quote so it can't be reused
 delete_transient( 'idibia_quote_' . $quote_id );
@@ -87,4 +89,5 @@ wp_send_json_success( [
     'trip_id'  => $trip_id,
     'trip_ref' => $trip_ref,
     'fare'     => $quote_data['fare_estimate'],
+    'dispatch' => $dispatch_result,
 ] );

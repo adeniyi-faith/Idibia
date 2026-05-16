@@ -33,6 +33,10 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'status'      => $status,
         'is_approved' => $kyc_status === 'approved' && $status === 'active',
         'is_online'   => ! empty( $driver_row['is_online'] ),
+        'nonces'      => [
+            'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
+            'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+        ],
     ];
 }
 
@@ -1498,51 +1502,15 @@ svg { display: block; }
             </div>
 
             <!-- Incoming request -->
-            <div class="trip-request-card">
-              <div class="trq-header">
-                <div class="trq-tag">New Request</div>
-                <div class="trq-timer-wrap">
-                  <div class="trq-timer" id="trqTimer">14</div>
-                  <div class="trq-timer-label">sec</div>
+            <div id="driverOfferContainer">
+              <div class="trip-request-card" id="driverNoOfferCard">
+                <div class="trq-header">
+                  <div class="trq-tag">Dispatch</div>
                 </div>
-              </div>
-              <div class="trq-fee">₦3,400 <span>· 5.2 km away</span></div>
-              <div class="trq-meta">
-                <div class="trq-meta-chip">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  ~12 mins
+                <div class="trq-fee">No live requests <span>· stay online</span></div>
+                <div class="trq-meta">
+                  <div class="trq-meta-chip">Waiting for nearby bookings</div>
                 </div>
-                <div class="trq-meta-chip">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
-                  Package
-                </div>
-                <div class="trq-meta-chip">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  Safe Send
-                </div>
-              </div>
-              <div class="trq-route">
-                <div class="trq-route-line"></div>
-                <div class="trq-point">
-                  <div class="trq-dot from"></div>
-                  <div>
-                    <div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div>
-                    <div class="trq-point-addr">Eagle Island, Port Harcourt</div>
-                  </div>
-                </div>
-                <div class="trq-point">
-                  <div class="trq-dot to"></div>
-                  <div>
-                    <div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div>
-                    <div class="trq-point-addr">Rumuola Road Junction</div>
-                  </div>
-                </div>
-              </div>
-              <div class="trq-actions">
-                <button class="trq-decline" onclick="showToast('Request declined')">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-                <button class="trq-accept" onclick="showToast('✓ Delivery accepted! Navigating to pickup...')">Accept Delivery</button>
               </div>
             </div>
 
@@ -2280,6 +2248,7 @@ async function toggleOnline() {
   const requestedState = !isOnline;
   const body = new FormData();
   body.append('online', requestedState ? '1' : '0');
+  body.append('_nonce', driverInitialContext.nonces?.toggle_online || '');
 
   try {
     const response = await fetch('/driver-toggle-online.php', {
@@ -2301,9 +2270,120 @@ async function toggleOnline() {
     toggle.classList.toggle('offline', !isOnline);
     document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
     showToast(isOnline ? '✓ You are now online' : 'You are now offline');
+    fetchDriverOffers();
   } catch (err) {
     showToast('Could not update online status. Please try again.');
   }
+}
+
+
+async function fetchDriverOffers() {
+  if (!driverAuthenticated || !driverInitialContext.is_approved || !isOnline) {
+    renderDriverOffers([]);
+    return;
+  }
+  try {
+    const response = await fetch('/driver-offers-api.php', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    if (json.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
+  } catch (err) {
+    // Keep the last rendered state; polling should not interrupt the driver UI.
+  }
+}
+
+function renderDriverOffers(offers, activeTrip = null) {
+  const container = document.getElementById('driverOfferContainer');
+  if (!container) return;
+
+  if (activeTrip) {
+    container.innerHTML = renderActiveTrip(activeTrip);
+    return;
+  }
+
+  if (!offers.length) {
+    container.innerHTML = `
+      <div class="trip-request-card" id="driverNoOfferCard">
+        <div class="trq-header"><div class="trq-tag">Dispatch</div></div>
+        <div class="trq-fee">No live requests <span>· stay online</span></div>
+        <div class="trq-meta"><div class="trq-meta-chip">Waiting for nearby bookings</div></div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = offers.map(offer => `
+    <div class="trip-request-card" data-offer-id="${offer.offer_id}">
+      <div class="trq-header">
+        <div class="trq-tag">New Request</div>
+        <div class="trq-timer-wrap"><div class="trq-timer">${Math.max(0, offer.expires_in || 0)}</div><div class="trq-timer-label">sec</div></div>
+      </div>
+      <div class="trq-fee">₦${Number(offer.fare || 0).toLocaleString()} <span>· ${Number(offer.pickup_distance_km || offer.distance_km || 0).toFixed(1)} km away</span></div>
+      <div class="trq-meta">
+        <div class="trq-meta-chip">~${offer.duration_mins || 0} mins</div>
+        <div class="trq-meta-chip">${escapeHtml(offer.service_category || 'Package')}</div>
+        <div class="trq-meta-chip">${escapeHtml(offer.vehicle_type || 'bike')}</div>
+      </div>
+      <div class="trq-route">
+        <div class="trq-route-line"></div>
+        <div class="trq-point"><div class="trq-dot from"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div><div class="trq-point-addr">${escapeHtml(offer.pickup_address)}</div></div></div>
+        <div class="trq-point"><div class="trq-dot to"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div><div class="trq-point-addr">${escapeHtml(offer.dropoff_address)}</div></div></div>
+      </div>
+      <div class="trq-actions">
+        <button class="trq-decline" onclick="driverOfferAction('decline_offer', ${offer.offer_id})">Decline</button>
+        <button class="trq-accept" onclick="driverOfferAction('accept_offer', ${offer.offer_id})">Accept Delivery</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderActiveTrip(trip) {
+  const nextAction = {
+    accepted: ['start_to_pickup', 'Start to pickup'],
+    arriving: ['arrived_pickup', 'Arrived at pickup'],
+    arrived_pickup: ['picked_up', 'Picked up'],
+    picked_up: ['arrived_dropoff', 'Arrived at drop-off'],
+    arrived_dropoff: ['complete', 'Complete trip']
+  }[trip.dispatch_status];
+  return `
+    <div class="trip-request-card">
+      <div class="trq-header"><div class="trq-tag">Active Trip · ${escapeHtml(trip.trip_ref || '')}</div></div>
+      <div class="trq-fee">₦${Number(trip.fare || 0).toLocaleString()} <span>· ${escapeHtml(trip.dispatch_status || '')}</span></div>
+      <div class="trq-route">
+        <div class="trq-route-line"></div>
+        <div class="trq-point"><div class="trq-dot from"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div><div class="trq-point-addr">${escapeHtml(trip.pickup_address)}</div></div></div>
+        <div class="trq-point"><div class="trq-dot to"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div><div class="trq-point-addr">${escapeHtml(trip.dropoff_address)}</div></div></div>
+      </div>
+      ${nextAction ? `<div class="trq-actions"><button class="trq-accept" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button></div>` : ''}
+    </div>`;
+}
+
+async function driverOfferAction(action, offerId) {
+  const body = new FormData();
+  body.append('action', action);
+  body.append('offer_id', offerId);
+  body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
+  await sendDriverTripAction(body);
+}
+
+async function driverTripAction(action, tripId) {
+  const body = new FormData();
+  body.append('action', action);
+  body.append('trip_id', tripId);
+  body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
+  await sendDriverTripAction(body);
+}
+
+async function sendDriverTripAction(body) {
+  try {
+    const response = await fetch('/driver-trip-action-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    showToast(json.data?.message || (json.success ? 'Trip updated.' : 'Could not update trip.'));
+    if (json.success) fetchDriverOffers();
+  } catch (err) {
+    showToast('Could not update trip. Please try again.');
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 }
 
 function switchTab(tab) {
@@ -2360,6 +2440,8 @@ if (driverInitialContext.logged_in) {
     updateDriver();
   } else {
     goToDashboard();
+    fetchDriverOffers();
+    setInterval(fetchDriverOffers, 15000);
   }
 }
 
