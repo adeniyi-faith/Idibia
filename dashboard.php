@@ -1328,11 +1328,11 @@ a { color: inherit; }
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           Call
         </button>
-        <button class="contact-btn" onclick="showToast('Opening masked support chat...')">
+        <button class="contact-btn" onclick="openSupportTicket('general')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Message
         </button>
-        <button class="contact-btn" onclick="showToast('Emergency alert sent')">
+        <button class="contact-btn" onclick="sendSafetyReport()">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           SOS
         </button>
@@ -1449,8 +1449,8 @@ a { color: inherit; }
       <button class="feedback-chip" onclick="toggleChip(this)">Professional</button>
     </div>
     <!-- Actions reordered -->
-    <button type="button" class="btn-primary" onclick="closeModalAndGoHome()" style="flex-shrink:0;">Done — Back to Home</button>
-    <button type="button" class="report-issue" onclick="showToast('Support ticket opened. We will investigate promptly.')">Report an issue with this trip</button>
+    <button type="button" class="btn-primary" onclick="submitCustomerRatingAndClose()" style="flex-shrink:0;">Done — Back to Home</button>
+    <button type="button" class="report-issue" onclick="openSupportTicket('trip_issue')">Report an issue with this trip</button>
   </div>
 </div>
 
@@ -1835,6 +1835,73 @@ function closeModal(e, id) {
 
 function closeAllModals() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
+}
+
+
+async function submitCustomerRatingAndClose() {
+  if (currentActiveTripId) {
+    const activeChips = Array.from(document.querySelectorAll('#feedbackChips .feedback-chip.active')).map(chip => chip.textContent.trim());
+    const body = new FormData();
+    body.append('trip_id', currentActiveTripId);
+    body.append('rating', currentRating || 5);
+    body.append('comment', activeChips.join(', '));
+    body.append('_nonce', IDIBIA_SUPPORT_NONCE);
+    try {
+      const json = await idibiaPost('rating-api.php', body);
+      if (!json.success) showToast(json.data?.message || 'Could not save rating.');
+    } catch (err) {
+      showToast('Connection error saving rating.');
+    }
+  }
+  closeModalAndGoHome();
+}
+
+
+function chooseOptionalEvidence() {
+  return new Promise(resolve => {
+    if (!confirm('Do you want to attach a photo/PDF as evidence?')) return resolve(null);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,application/pdf';
+    input.onchange = () => resolve(input.files?.[0] || null);
+    input.click();
+  });
+}
+
+async function openSupportTicket(category = 'general') {
+  const message = prompt('Tell support what happened:');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'create_ticket');
+  if (currentActiveTripId) body.append('trip_id', currentActiveTripId);
+  body.append('category', category);
+  body.append('message', message.trim());
+  const evidence = await chooseOptionalEvidence();
+  if (evidence) body.append('evidence', evidence);
+  body.append('_nonce', IDIBIA_SUPPORT_NONCE);
+  try {
+    const json = await idibiaPost('support-api.php', body);
+    showToast(json.success ? (json.data?.message || 'Support ticket opened.') : (json.data?.message || 'Could not open support ticket.'));
+  } catch (err) {
+    showToast('Connection error opening support ticket.');
+  }
+}
+
+async function sendSafetyReport() {
+  const message = prompt('Safety emergency: tell us what is happening right now.');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'safety_report');
+  if (currentActiveTripId) body.append('trip_id', currentActiveTripId);
+  body.append('category', 'emergency_safety');
+  body.append('message', message.trim());
+  body.append('_nonce', IDIBIA_SUPPORT_NONCE);
+  try {
+    const json = await idibiaPost('support-api.php', body);
+    showToast(json.success ? (json.data?.message || 'Safety report sent.') : (json.data?.message || 'Could not send safety report.'));
+  } catch (err) {
+    showToast('Connection error sending safety report.');
+  }
 }
 
 function closeModalAndGoHome() {

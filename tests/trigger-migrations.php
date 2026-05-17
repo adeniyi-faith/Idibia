@@ -52,7 +52,8 @@ $expected_tables = [
     'wp_sd_notifications',
     'wp_sd_support_tickets',
     'wp_sd_support_messages',
-    'wp_sd_uploaded_evidence'
+    'wp_sd_uploaded_evidence',
+    'wp_sd_admin_audit_logs'
 ];
 
 $tables_created = 0;

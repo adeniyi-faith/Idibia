@@ -30,6 +30,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $driver_nonces = [
         'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
         'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+        'support_action' => wp_create_nonce( 'idibia_support_action' ),
     ];
     if ( $email_verified ) {
         $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
@@ -2550,7 +2551,7 @@ function renderActiveTrip(trip) {
       <div class="trq-actions">
         <button class="trq-decline" onclick="window.open('${navUrl}', '_blank')">Navigate</button>
         <button class="trq-decline" onclick="showToast('Opening masked customer contact...')">Contact</button>
-        <button class="trq-decline" onclick="showToast('Safety/support alerted for this active trip')">Safety</button>
+        <button class="trq-decline" onclick="driverSafetyReport(${trip.trip_id})">Safety</button>
         ${nextAction ? `<button class="trq-accept" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button>` : ''}
       </div>
       ${trip.delivery_pin_required ? '<div class="info-note" style="margin-top:12px">Delivery PIN required before completing handoff. Ask the customer for the PIN only at delivery.</div>' : ''}
@@ -2562,6 +2563,63 @@ function callTripCustomer(encodedPhone) {
   const phone = decodeURIComponent(encodedPhone || '').replace(/[^\d+]/g, '');
   if (!phone) return showToast('Customer phone is not available.');
   window.location.href = `tel:${phone}`;
+}
+
+
+async function driverSupportRequest(tripId, category = 'driver_support') {
+  const message = prompt('Tell support what happened:');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'create_ticket');
+  body.append('trip_id', tripId);
+  body.append('category', category);
+  body.append('message', message.trim());
+  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
+  try {
+    const response = await fetch('/support-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    showToast(json.data?.message || (json.success ? 'Support ticket opened.' : 'Could not open support ticket.'));
+  } catch (err) {
+    showToast('Could not open support ticket.');
+  }
+}
+
+async function driverSafetyReport(tripId) {
+  const message = prompt('Safety issue: tell us what is happening right now.');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'safety_report');
+  body.append('trip_id', tripId);
+  body.append('category', 'emergency_safety');
+  body.append('message', message.trim());
+  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
+  try {
+    const response = await fetch('/support-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    showToast(json.data?.message || (json.success ? 'Safety report sent.' : 'Could not send safety report.'));
+  } catch (err) {
+    showToast('Could not send safety report.');
+  }
+}
+
+async function submitDriverCustomerRating(tripId) {
+  const rating = prompt('Rate the customer from 1 to 5 stars:', '5');
+  if (!rating) return;
+  const numeric = Number(rating);
+  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 5) return showToast('Choose a rating from 1 to 5.');
+  const comment = prompt('Optional note about this customer:') || '';
+  const body = new FormData();
+  body.append('trip_id', tripId);
+  body.append('rating', numeric);
+  body.append('comment', comment.trim());
+  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
+  try {
+    const response = await fetch('/rating-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    showToast(json.data?.message || (json.success ? 'Rating saved.' : 'Could not save rating.'));
+  } catch (err) {
+    showToast('Could not save rating.');
+  }
 }
 
 async function driverOfferAction(action, offerId) {
@@ -2587,10 +2645,15 @@ async function driverTripAction(action, tripId) {
 
 async function sendDriverTripAction(body) {
   try {
+    const action = body.get('action');
+    const tripId = body.get('trip_id');
     const response = await fetch('/driver-trip-action-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
     const json = await parseDriverJson(response);
     showToast(json.data?.message || (json.success ? 'Trip updated.' : 'Could not update trip.'));
-    if (json.success) fetchDriverOffers();
+    if (json.success) {
+      fetchDriverOffers();
+      if (action === 'complete' && tripId) submitDriverCustomerRating(Number(tripId));
+    }
   } catch (err) {
     showToast('Could not update trip. Please try again.');
   }

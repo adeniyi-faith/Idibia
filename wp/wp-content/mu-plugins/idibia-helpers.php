@@ -147,7 +147,10 @@ function idibia_notify_trip_participants( int $trip_id, string $event_type, arra
         'payment_approved'        => [ 'Payment approved', 'Manual transfer for trip #' . $trip['trip_ref'] . ' has been approved.' ],
         'payment_rejected'        => [ 'Payment needs attention', 'Manual transfer proof for trip #' . $trip['trip_ref'] . ' was rejected. Please upload a clearer proof.' ],
         'payment_refunded'        => [ 'Refund updated', 'A refund update is available for trip #' . $trip['trip_ref'] . '.' ],
+        'support_ticket_created'  => [ 'Support ticket opened', 'Support is reviewing your ticket for trip #' . $trip['trip_ref'] . '.' ],
         'support_reply'           => [ 'Support replied', 'Support has replied about trip #' . $trip['trip_ref'] . '.' ],
+        'safety_report_created'   => [ 'Safety report received', 'Safety support has been alerted for trip #' . $trip['trip_ref'] . '.' ],
+        'rating_submitted'        => [ 'Rating submitted', 'Thanks for rating trip #' . $trip['trip_ref'] . '.' ],
     ];
 
     if ( ! isset( $labels[ $event_type ] ) ) {

@@ -297,6 +297,7 @@ function idibia_admin_resolve_dispute(): void {
     $notes = sanitize_textarea_field( wp_unslash( $_POST['admin_notes'] ?? '' ) );
     $updated = $wpdb->update( $wpdb->prefix . 'sd_disputes', [ 'status' => 'resolved', 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes, 'resolved_at' => gmdate( 'Y-m-d H:i:s' ) ], [ 'id' => $dispute_id ], [ '%s', '%s', '%f', '%s', '%s' ], [ '%d' ] );
     if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not resolve dispute.' ] );
+    idibia_admin_audit_log( 'resolve_dispute', 'dispute', $dispute_id, [ 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes ] );
     wp_send_json_success( [ 'message' => 'Dispute resolved.' ] );
 }
 
