@@ -2,6 +2,7 @@
 /** Idibia — Admin API Router */
 
 require_once __DIR__ . '/../wp-auth-config.php';
+require_once __DIR__ . '/../wp/wp-content/mu-plugins/idibia-helpers.php';
 idibia_clean_json_buffer();
 
 if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
@@ -77,7 +78,17 @@ try {
             $rows = $wpdb->get_results( "SELECT setting_key, setting_value FROM `{$wpdb->prefix}sd_settings`", ARRAY_A );
             $settings = [];
             foreach ( $rows as $row ) $settings[ $row['setting_key'] ] = $row['setting_value'];
-            wp_send_json_success( [ 'settings' => $settings ] );
+            wp_send_json_success( [ 'settings' => $settings, 'payment' => idibia_payment_settings() ] );
+
+        case 'get_manual_payments':
+            idibia_require_method( 'GET' );
+            idibia_admin_manual_payments();
+            break;
+
+        case 'review_manual_payment':
+            idibia_require_method( 'POST' );
+            idibia_admin_review_manual_payment();
+            break;
 
         case 'save_settings':
             idibia_require_method( 'POST' );
@@ -286,6 +297,7 @@ function idibia_admin_resolve_dispute(): void {
     $notes = sanitize_textarea_field( wp_unslash( $_POST['admin_notes'] ?? '' ) );
     $updated = $wpdb->update( $wpdb->prefix . 'sd_disputes', [ 'status' => 'resolved', 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes, 'resolved_at' => gmdate( 'Y-m-d H:i:s' ) ], [ 'id' => $dispute_id ], [ '%s', '%s', '%f', '%s', '%s' ], [ '%d' ] );
     if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not resolve dispute.' ] );
+    idibia_admin_audit_log( 'resolve_dispute', 'dispute', $dispute_id, [ 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes ] );
     wp_send_json_success( [ 'message' => 'Dispute resolved.' ] );
 }
 
@@ -311,4 +323,85 @@ function idibia_admin_save_settings(): void {
     }
 
     wp_send_json_success( [ 'message' => 'Settings saved.' ] );
+}
+
+function idibia_admin_manual_payments(): void {
+    global $wpdb;
+    idibia_ensure_manual_payment_columns();
+    [ $page, $per_page, $offset ] = idibia_page_args();
+    $status = sanitize_text_field( wp_unslash( $_GET['status'] ?? 'pending' ) );
+    $where = [ "p.provider = 'manual_transfer'" ];
+    $args = [];
+    if ( $status && $status !== 'all' ) { $where[] = 'p.status = %s'; $args[] = $status; }
+    $sql_where = implode( ' AND ', $where );
+    $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payments` p WHERE $sql_where", $args ) );
+    $sql = "SELECT p.*, t.trip_ref, t.status AS trip_status, t.dispatch_status, c.full_name AS customer_name, c.phone AS customer_phone
+            FROM `{$wpdb->prefix}sd_payments` p
+            INNER JOIN `{$wpdb->prefix}sd_trips` t ON t.id = p.trip_id
+            LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = p.customer_id
+            WHERE $sql_where
+            ORDER BY p.updated_at DESC, p.created_at DESC
+            LIMIT %d OFFSET %d";
+    $rows = $wpdb->get_results( idibia_sql( $sql, array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A ) ?: [];
+    $upload = wp_upload_dir();
+    $baseurl = empty( $upload['error'] ) ? trailingslashit( $upload['baseurl'] ) : '';
+    foreach ( $rows as &$row ) {
+        $row['id'] = (int) $row['id'];
+        $row['trip_id'] = (int) $row['trip_id'];
+        $row['customer_id'] = (int) $row['customer_id'];
+        $row['amount'] = (float) $row['amount'];
+        $row['proof_url'] = ! empty( $row['proof_path'] ) && $baseurl ? $baseurl . ltrim( $row['proof_path'], '/' ) : '';
+    }
+    unset( $row );
+    wp_send_json_success( [ 'payments' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+}
+
+function idibia_admin_review_manual_payment(): void {
+    global $wpdb;
+    idibia_ensure_manual_payment_columns();
+    $payment_id = absint( $_POST['payment_id'] ?? 0 );
+    $decision = sanitize_key( $_POST['decision'] ?? '' );
+    $notes = sanitize_textarea_field( wp_unslash( $_POST['admin_notes'] ?? '' ) );
+    if ( $payment_id <= 0 || ! in_array( $decision, [ 'approve', 'reject' ], true ) ) {
+        wp_send_json_error( [ 'message' => 'Select a valid payment review action.' ] );
+    }
+
+    $payment = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_payments` WHERE id = %d AND provider = 'manual_transfer' LIMIT 1", $payment_id ), ARRAY_A );
+    if ( ! $payment ) {
+        wp_send_json_error( [ 'message' => 'Payment record not found.' ] );
+    }
+    if ( $decision === 'approve' && empty( $payment['proof_path'] ) ) {
+        wp_send_json_error( [ 'message' => 'A receipt/proof file is required before approval.' ] );
+    }
+
+    $new_status = $decision === 'approve' ? 'captured' : 'failed';
+    idibia_transaction_start();
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'sd_payments',
+        [
+            'status'      => $new_status,
+            'admin_notes' => $notes,
+            'reviewed_by' => get_current_user_id(),
+            'reviewed_at' => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ 'id' => $payment_id ],
+        [ '%s', '%s', '%d', '%s' ],
+        [ '%d' ]
+    );
+    if ( false === $updated ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Could not review payment.' ] );
+    }
+
+    $wpdb->update( $wpdb->prefix . 'sd_trips', [ 'payment_status' => $new_status ], [ 'id' => (int) $payment['trip_id'] ], [ '%s' ], [ '%d' ] );
+    idibia_log_event( (int) $payment['trip_id'], $decision === 'approve' ? 'payment_approved' : 'payment_rejected', [ 'payment_id' => $payment_id, 'admin_id' => get_current_user_id() ] );
+    idibia_notify_trip_participants( (int) $payment['trip_id'], $decision === 'approve' ? 'payment_approved' : 'payment_rejected', [ 'body' => $notes ?: null ] );
+    if ( $decision === 'approve' ) {
+        idibia_notify_trip_participants( (int) $payment['trip_id'], 'payment_captured' );
+        idibia_credit_driver_for_trip( (int) $payment['trip_id'] );
+    }
+    idibia_admin_audit_log( $decision === 'approve' ? 'approve_manual_payment' : 'reject_manual_payment', 'payment', $payment_id, [ 'trip_id' => (int) $payment['trip_id'], 'notes' => $notes ] );
+    idibia_transaction_commit();
+
+    wp_send_json_success( [ 'message' => $decision === 'approve' ? 'Payment approved.' : 'Payment rejected.', 'payment' => idibia_payment_public_payload( (int) $payment['trip_id'], 'admin' ) ] );
 }

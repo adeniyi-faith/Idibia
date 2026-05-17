@@ -851,6 +851,28 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
         <div class="form-group"><label class="form-label">Max. delivery radius (km)</label><input class="form-input" type="number" value="50"></div>
       </div>
     </div>
+
+    <div class="settings-section">
+      <h4>Manual Transfer Payments</h4>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Active provider</label><select class="form-input" data-setting="payment_active_provider"><option value="manual_transfer">Manual transfer</option><option value="paystack">Paystack (future)</option><option value="flutterwave">Flutterwave (future)</option></select></div>
+        <div class="form-group"><label class="form-label">Bank name</label><input class="form-input" data-setting="manual_bank_name" placeholder="e.g. GTBank"></div>
+        <div class="form-group"><label class="form-label">Account name</label><input class="form-input" data-setting="manual_account_name" placeholder="Idibia Logistics Ltd"></div>
+        <div class="form-group"><label class="form-label">Account number</label><input class="form-input" data-setting="manual_account_number" placeholder="0123456789"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Customer payment instructions</label><textarea class="form-input" data-setting="manual_payment_instructions" rows="3" placeholder="Transfer exact fare and upload receipt."></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Paystack public key</label><input class="form-input" data-setting="paystack_public_key" placeholder="Future use"></div>
+        <div class="form-group"><label class="form-label">Paystack secret key</label><input class="form-input" data-setting="paystack_secret_key" placeholder="Future use"></div>
+        <div class="form-group"><label class="form-label">Flutterwave public key</label><input class="form-input" data-setting="flutterwave_public_key" placeholder="Future use"></div>
+        <div class="form-group"><label class="form-label">Flutterwave secret key</label><input class="form-input" data-setting="flutterwave_secret_key" placeholder="Future use"></div>
+      </div>
+      <button class="btn-primary" style="font-size:12px;padding:8px 14px;width:auto" onclick="savePaymentSettings()">Save payment settings</button>
+    </div>
+    <div class="settings-section">
+      <div class="scard-header"><h4 style="border:0;margin:0;padding:0">Manual Payment Reviews</h4><button class="scard-action" onclick="loadManualPayments()">Refresh</button></div>
+      <div id="manualPaymentsList"><div class="list-item"><div class="item-info"><div class="item-name">Loading payment proofs…</div></div></div></div>
+    </div>
     <div class="settings-section">
       <h4>KYC Policy</h4>
       <div class="toggle-row"><div><div class="toggle-label">Auto-flag blurry ID photos</div><div class="toggle-sub">AI-assisted photo quality check</div></div><button class="toggle on" onclick="this.classList.toggle('on')"></button></div>
@@ -930,6 +952,7 @@ function nav(name,btn){
 
   // Close sidebar on mobile after navigation
   if(name === 'ops') loadLiveOps();
+  if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
 
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
@@ -1064,6 +1087,79 @@ async function kycAction(btn, action){
     toast(e.message);
   }
 }
+
+async function loadPaymentSettings(){
+  try {
+    const data = await adminApi('get_settings');
+    const settings = data.settings || {};
+    document.querySelectorAll('[data-setting]').forEach(input => {
+      const key = input.getAttribute('data-setting');
+      if(settings[key] !== undefined) input.value = settings[key];
+    });
+  } catch (e) {
+    toast('Could not load payment settings');
+  }
+}
+
+async function savePaymentSettings(){
+  const payload = {};
+  document.querySelectorAll('[data-setting]').forEach(input => {
+    payload[input.getAttribute('data-setting')] = input.value;
+  });
+  try {
+    const response = await fetch(ADMIN_API_URL + '?action=save_settings', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const json = await response.json();
+    toast(json.success ? 'Payment settings saved' : (json.data?.message || 'Could not save settings'));
+  } catch (e) {
+    toast('Could not save payment settings');
+  }
+}
+
+async function loadManualPayments(){
+  const list = document.getElementById('manualPaymentsList');
+  if(!list) return;
+  try {
+    const data = await adminApi('get_manual_payments', {status:'pending', per_page:20});
+    const payments = data.payments || [];
+    if(!payments.length){
+      list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No manual transfers waiting for review</div><div class="item-meta">Customer uploads will appear here.</div></div></div>';
+      return;
+    }
+    list.innerHTML = payments.map(p => `
+      <div class="list-item" data-payment-id="${p.id}">
+        <div class="avatar" style="background:rgba(245,200,66,0.1);color:var(--gold-dark)">₦</div>
+        <div class="item-info">
+          <div class="item-name">${escapeHtml(p.trip_ref || ('Trip #' + p.trip_id))} · ₦${Number(p.amount || 0).toLocaleString()}</div>
+          <div class="item-meta">${escapeHtml(p.customer_name || 'Customer')} · ${escapeHtml(p.provider_ref || 'No reference')} · ${escapeHtml(p.status)}</div>
+          ${p.proof_url ? `<a href="${escapeHtml(p.proof_url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--info);font-weight:700">View proof</a>` : '<span style="font-size:12px;color:var(--danger)">No proof uploaded</span>'}
+        </div>
+        <div class="item-actions">
+          <button class="btn-sm btn-approve" onclick="reviewManualPayment(${p.id}, 'approve')">Approve</button>
+          <button class="btn-sm btn-reject" onclick="reviewManualPayment(${p.id}, 'reject')">Reject</button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">Could not load manual payments</div><div class="item-meta">'+escapeHtml(e.message)+'</div></div></div>';
+  }
+}
+
+async function reviewManualPayment(paymentId, decision){
+  const notes = decision === 'reject' ? prompt('Why are you rejecting this proof?') : prompt('Approval note (optional)');
+  if(decision === 'reject' && !notes) return;
+  try {
+    const data = await adminApi('review_manual_payment', {payment_id: paymentId, decision, admin_notes: notes || ''}, 'POST');
+    toast(data.message || (decision === 'approve' ? 'Payment approved' : 'Payment rejected'));
+    loadManualPayments();
+  } catch (e) {
+    toast(e.message || 'Could not review payment');
+  }
+}
+
 function updateKycBadge(){
   document.getElementById('kyc-badge').textContent = kycCount;
   document.getElementById('kyc-pending-count').textContent = '(' + kycCount + ')';
@@ -1120,6 +1216,8 @@ async function kycDetailAction(action){
   closeKycDetail();
 }
 loadKycQueue('under_review');
+loadPaymentSettings();
+loadManualPayments();
 
 async function loadLiveOps(){
   try {

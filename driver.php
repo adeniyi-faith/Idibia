@@ -1,8 +1,11 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 
 
 
+
+$pusher_config = idibia_pusher_public_config();
 
 $driver_initial_context = [
     'logged_in'   => false,
@@ -27,6 +30,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $driver_nonces = [
         'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
         'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+        'support_action' => wp_create_nonce( 'idibia_support_action' ),
     ];
     if ( $email_verified ) {
         $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
@@ -1992,9 +1996,45 @@ svg { display: block; }
   <div class="toast" id="toast"></div>
 </div>
 
+<?php if ( ! empty( $pusher_config['enabled'] ) ) : ?>
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+<?php endif; ?>
 <script>
 // ===== ONBOARDING =====
 const driverInitialContext = <?php echo wp_json_encode( $driver_initial_context ); ?>;
+const IDIBIA_PUSHER_CONFIG = <?php echo wp_json_encode( $pusher_config ); ?>;
+
+let idibiaDriverPusher = null;
+let idibiaDriverChannelName = null;
+
+function initDriverPusher() {
+  if (!IDIBIA_PUSHER_CONFIG?.enabled || typeof Pusher === 'undefined') return null;
+  if (idibiaDriverPusher) return idibiaDriverPusher;
+  idibiaDriverPusher = new Pusher(IDIBIA_PUSHER_CONFIG.key, {
+    cluster: IDIBIA_PUSHER_CONFIG.cluster,
+    channelAuthorization: {
+      endpoint: IDIBIA_PUSHER_CONFIG.authEndpoint,
+      transport: 'ajax',
+      params: { _nonce: IDIBIA_PUSHER_CONFIG.authNonce }
+    }
+  });
+  return idibiaDriverPusher;
+}
+
+function subscribeToDriverRealtime() {
+  const pusher = initDriverPusher();
+  const driverId = Number(driverInitialContext.driver_id || 0);
+  if (!pusher || !driverId || !driverInitialContext.is_approved) return;
+  const channelName = `private-driver-${driverId}`;
+  if (idibiaDriverChannelName === channelName) return;
+  if (idibiaDriverChannelName) pusher.unsubscribe(idibiaDriverChannelName);
+  idibiaDriverChannelName = channelName;
+  const channel = pusher.subscribe(channelName);
+  channel.bind('driver.offers.updated', data => {
+    if (data?.event_type === 'dispatch_offers_created') showToast('New delivery request available');
+    fetchDriverOffers();
+  });
+}
 
 function setAppHeight() {
   document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
@@ -2349,6 +2389,7 @@ function goToDashboard() {
   }
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
+  subscribeToDriverRealtime();
 }
 
 // ===== DASHBOARD =====
@@ -2386,6 +2427,7 @@ async function toggleOnline() {
     toggle.classList.toggle('offline', !isOnline);
     document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
     showToast(isOnline ? '✓ You are now online' : 'You are now offline');
+    subscribeToDriverRealtime();
     fetchDriverOffers();
   } catch (err) {
     showToast('Could not update online status. Please try again.');
@@ -2509,7 +2551,7 @@ function renderActiveTrip(trip) {
       <div class="trq-actions">
         <button class="trq-decline" onclick="window.open('${navUrl}', '_blank')">Navigate</button>
         <button class="trq-decline" onclick="showToast('Opening masked customer contact...')">Contact</button>
-        <button class="trq-decline" onclick="showToast('Safety/support alerted for this active trip')">Safety</button>
+        <button class="trq-decline" onclick="driverSafetyReport(${trip.trip_id})">Safety</button>
         ${nextAction ? `<button class="trq-accept" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button>` : ''}
       </div>
       ${trip.delivery_pin_required ? '<div class="info-note" style="margin-top:12px">Delivery PIN required before completing handoff. Ask the customer for the PIN only at delivery.</div>' : ''}
@@ -2521,6 +2563,63 @@ function callTripCustomer(encodedPhone) {
   const phone = decodeURIComponent(encodedPhone || '').replace(/[^\d+]/g, '');
   if (!phone) return showToast('Customer phone is not available.');
   window.location.href = `tel:${phone}`;
+}
+
+
+async function driverSupportRequest(tripId, category = 'driver_support') {
+  const message = prompt('Tell support what happened:');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'create_ticket');
+  body.append('trip_id', tripId);
+  body.append('category', category);
+  body.append('message', message.trim());
+  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
+  try {
+    const response = await fetch('/support-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    showToast(json.data?.message || (json.success ? 'Support ticket opened.' : 'Could not open support ticket.'));
+  } catch (err) {
+    showToast('Could not open support ticket.');
+  }
+}
+
+async function driverSafetyReport(tripId) {
+  const message = prompt('Safety issue: tell us what is happening right now.');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'safety_report');
+  body.append('trip_id', tripId);
+  body.append('category', 'emergency_safety');
+  body.append('message', message.trim());
+  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
+  try {
+    const response = await fetch('/support-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    showToast(json.data?.message || (json.success ? 'Safety report sent.' : 'Could not send safety report.'));
+  } catch (err) {
+    showToast('Could not send safety report.');
+  }
+}
+
+async function submitDriverCustomerRating(tripId) {
+  const rating = prompt('Rate the customer from 1 to 5 stars:', '5');
+  if (!rating) return;
+  const numeric = Number(rating);
+  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 5) return showToast('Choose a rating from 1 to 5.');
+  const comment = prompt('Optional note about this customer:') || '';
+  const body = new FormData();
+  body.append('trip_id', tripId);
+  body.append('rating', numeric);
+  body.append('comment', comment.trim());
+  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
+  try {
+    const response = await fetch('/rating-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await parseDriverJson(response);
+    showToast(json.data?.message || (json.success ? 'Rating saved.' : 'Could not save rating.'));
+  } catch (err) {
+    showToast('Could not save rating.');
+  }
 }
 
 async function driverOfferAction(action, offerId) {
@@ -2546,10 +2645,15 @@ async function driverTripAction(action, tripId) {
 
 async function sendDriverTripAction(body) {
   try {
+    const action = body.get('action');
+    const tripId = body.get('trip_id');
     const response = await fetch('/driver-trip-action-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
     const json = await parseDriverJson(response);
     showToast(json.data?.message || (json.success ? 'Trip updated.' : 'Could not update trip.'));
-    if (json.success) fetchDriverOffers();
+    if (json.success) {
+      fetchDriverOffers();
+      if (action === 'complete' && tripId) submitDriverCustomerRating(Number(tripId));
+    }
   } catch (err) {
     showToast('Could not update trip. Please try again.');
   }
@@ -2613,8 +2717,9 @@ if (driverInitialContext.logged_in) {
     updateDriver();
   } else {
     goToDashboard();
+    subscribeToDriverRealtime();
     fetchDriverOffers();
-    setInterval(fetchDriverOffers, 15000);
+    setInterval(fetchDriverOffers, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 15000);
   }
 }
 

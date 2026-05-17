@@ -1,11 +1,15 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 if ( ! is_user_logged_in() || get_user_meta( get_current_user_id(), 'idibia_account_type', true ) !== 'customer' ) {
     header( 'Location: index.php' );
     exit;
 }
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
+$payment_nonce  = wp_create_nonce( 'idibia_payment_proof' );
+$support_nonce  = wp_create_nonce( 'idibia_support_action' );
+$pusher_config  = idibia_pusher_public_config();
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
@@ -1326,11 +1330,11 @@ a { color: inherit; }
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.21h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           Call
         </button>
-        <button class="contact-btn" onclick="showToast('Opening masked support chat...')">
+        <button class="contact-btn" onclick="openSupportTicket('general')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           Message
         </button>
-        <button class="contact-btn" onclick="showToast('Emergency alert sent')">
+        <button class="contact-btn" onclick="sendSafetyReport()">
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
           SOS
         </button>
@@ -1352,6 +1356,20 @@ a { color: inherit; }
           <div class="eta-label">Trip Fare</div>
           <div class="eta-value" id="trackingFareValue" style="font-size:18px">₦--</div>
           <div class="eta-unit">fixed price</div>
+        </div>
+      </div>
+      <div class="receipt-box" id="manualPaymentPanel" style="display:none;margin-top:14px;">
+        <div class="receipt-label">Manual Bank Transfer</div>
+        <div class="receipt-row total"><span>Amount to pay</span><span id="manualPaymentAmount">₦--</span></div>
+        <div class="receipt-row"><span>Bank</span><span id="manualPaymentBank">Set by admin</span></div>
+        <div class="receipt-row"><span>Account Name</span><span id="manualPaymentAccountName">Set by admin</span></div>
+        <div class="receipt-row"><span>Account No.</span><span id="manualPaymentAccountNumber">Set by admin</span></div>
+        <div class="receipt-payment" style="align-items:flex-start;flex-direction:column;gap:8px;">
+          <div id="manualPaymentInstructions">Transfer the exact fare, then upload your receipt for review.</div>
+          <input class="loc-input" id="manualPaymentRef" placeholder="Bank reference / sender name (optional)" style="width:100%;font-size:13px;">
+          <input class="loc-input" id="manualPaymentProof" type="file" accept="image/jpeg,image/png,application/pdf" style="width:100%;font-size:13px;">
+          <button class="btn-primary" type="button" onclick="uploadManualPaymentProof()" style="height:42px;font-size:13px;">Upload Payment Proof</button>
+          <div id="manualPaymentStatus" style="font-size:12px;color:var(--text-muted);"></div>
         </div>
       </div>
       <div class="tracking-steps">
@@ -1407,7 +1425,7 @@ a { color: inherit; }
       <div class="receipt-row total"><span>Total Paid</span><span>₦2,800</span></div>
       <div class="receipt-payment">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        Paid via Card ending in ••4091
+        Paid by manual transfer after admin approval
         <button type="button" onclick="showToast('Receipt emailed!')" style="margin-left:auto;background:none;border:none;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;text-decoration:underline;text-underline-offset:2px;padding:4px">Email Receipt</button>
       </div>
     </div>
@@ -1433,8 +1451,8 @@ a { color: inherit; }
       <button class="feedback-chip" onclick="toggleChip(this)">Professional</button>
     </div>
     <!-- Actions reordered -->
-    <button type="button" class="btn-primary" onclick="closeModalAndGoHome()" style="flex-shrink:0;">Done — Back to Home</button>
-    <button type="button" class="report-issue" onclick="showToast('Support ticket opened. We will investigate promptly.')">Report an issue with this trip</button>
+    <button type="button" class="btn-primary" onclick="submitCustomerRatingAndClose()" style="flex-shrink:0;">Done — Back to Home</button>
+    <button type="button" class="report-issue" onclick="openSupportTicket('trip_issue')">Report an issue with this trip</button>
   </div>
 </div>
 
@@ -1491,6 +1509,9 @@ a { color: inherit; }
 <!-- ══════════ TOAST ══════════ -->
 <div class="toast" id="toast"></div>
 
+<?php if ( ! empty( $pusher_config['enabled'] ) ) : ?>
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+<?php endif; ?>
 <script>
 // ═══════════ STATE ═══════════
 let currentScreen = 'screen-main';
@@ -1501,6 +1522,59 @@ let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
 const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
+const IDIBIA_PAYMENT_NONCE = '<?php echo esc_js( $payment_nonce ?? '' ); ?>';
+const IDIBIA_SUPPORT_NONCE = '<?php echo esc_js( $support_nonce ?? '' ); ?>';
+const IDIBIA_PUSHER_CONFIG = <?php echo wp_json_encode( $pusher_config ); ?>;
+
+let idibiaPusher = null;
+let idibiaTripChannel = null;
+let idibiaTripChannelName = null;
+let idibiaRealtimePollTimer = null;
+
+function initIdibiaPusher() {
+  if (!IDIBIA_PUSHER_CONFIG?.enabled || typeof Pusher === 'undefined') return null;
+  if (idibiaPusher) return idibiaPusher;
+  idibiaPusher = new Pusher(IDIBIA_PUSHER_CONFIG.key, {
+    cluster: IDIBIA_PUSHER_CONFIG.cluster,
+    channelAuthorization: {
+      endpoint: IDIBIA_PUSHER_CONFIG.authEndpoint,
+      transport: 'ajax',
+      params: { _nonce: IDIBIA_PUSHER_CONFIG.authNonce }
+    }
+  });
+  return idibiaPusher;
+}
+
+function scheduleRealtimeTrackingRefresh() {
+  if (idibiaRealtimePollTimer) return;
+  idibiaRealtimePollTimer = setTimeout(() => {
+    idibiaRealtimePollTimer = null;
+    pollTracking();
+  }, 300);
+}
+
+function subscribeToTripRealtime(tripId) {
+  const pusher = initIdibiaPusher();
+  if (!pusher || !tripId) return;
+  const channelName = `private-trip-${tripId}`;
+  if (idibiaTripChannelName === channelName) return;
+  if (idibiaTripChannelName) pusher.unsubscribe(idibiaTripChannelName);
+  idibiaTripChannelName = channelName;
+  idibiaTripChannel = pusher.subscribe(channelName);
+  idibiaTripChannel.bind('trip.updated', data => {
+    if (data?.title) showToast(data.title);
+    scheduleRealtimeTrackingRefresh();
+  });
+  idibiaTripChannel.bind('driver.location.updated', () => scheduleRealtimeTrackingRefresh());
+}
+
+function unsubscribeFromTripRealtime() {
+  if (idibiaPusher && idibiaTripChannelName) {
+    idibiaPusher.unsubscribe(idibiaTripChannelName);
+  }
+  idibiaTripChannel = null;
+  idibiaTripChannelName = null;
+}
 
 async function idibiaPost(endpoint, body = null) {
   const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
@@ -1767,6 +1841,73 @@ function closeAllModals() {
   document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
 }
 
+
+async function submitCustomerRatingAndClose() {
+  if (currentActiveTripId) {
+    const activeChips = Array.from(document.querySelectorAll('#feedbackChips .feedback-chip.active')).map(chip => chip.textContent.trim());
+    const body = new FormData();
+    body.append('trip_id', currentActiveTripId);
+    body.append('rating', currentRating || 5);
+    body.append('comment', activeChips.join(', '));
+    body.append('_nonce', IDIBIA_SUPPORT_NONCE);
+    try {
+      const json = await idibiaPost('rating-api.php', body);
+      if (!json.success) showToast(json.data?.message || 'Could not save rating.');
+    } catch (err) {
+      showToast('Connection error saving rating.');
+    }
+  }
+  closeModalAndGoHome();
+}
+
+
+function chooseOptionalEvidence() {
+  return new Promise(resolve => {
+    if (!confirm('Do you want to attach a photo/PDF as evidence?')) return resolve(null);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,application/pdf';
+    input.onchange = () => resolve(input.files?.[0] || null);
+    input.click();
+  });
+}
+
+async function openSupportTicket(category = 'general') {
+  const message = prompt('Tell support what happened:');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'create_ticket');
+  if (currentActiveTripId) body.append('trip_id', currentActiveTripId);
+  body.append('category', category);
+  body.append('message', message.trim());
+  const evidence = await chooseOptionalEvidence();
+  if (evidence) body.append('evidence', evidence);
+  body.append('_nonce', IDIBIA_SUPPORT_NONCE);
+  try {
+    const json = await idibiaPost('support-api.php', body);
+    showToast(json.success ? (json.data?.message || 'Support ticket opened.') : (json.data?.message || 'Could not open support ticket.'));
+  } catch (err) {
+    showToast('Connection error opening support ticket.');
+  }
+}
+
+async function sendSafetyReport() {
+  const message = prompt('Safety emergency: tell us what is happening right now.');
+  if (!message) return;
+  const body = new FormData();
+  body.append('action', 'safety_report');
+  if (currentActiveTripId) body.append('trip_id', currentActiveTripId);
+  body.append('category', 'emergency_safety');
+  body.append('message', message.trim());
+  body.append('_nonce', IDIBIA_SUPPORT_NONCE);
+  try {
+    const json = await idibiaPost('support-api.php', body);
+    showToast(json.success ? (json.data?.message || 'Safety report sent.') : (json.data?.message || 'Could not send safety report.'));
+  } catch (err) {
+    showToast('Connection error sending safety report.');
+  }
+}
+
 function closeModalAndGoHome() {
   closeAllModals();
   goBack();
@@ -1841,9 +1982,10 @@ function startLiveTracking(tripId) {
   if (!tripId) return;
   currentActiveTripId = tripId;
   goTo('screen-tracking');
+  subscribeToTripRealtime(tripId);
   pollTracking();
   if (trackingInterval) clearInterval(trackingInterval);
-  trackingInterval = setInterval(pollTracking, 5000);
+  trackingInterval = setInterval(pollTracking, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 5000);
 }
 
 function stopLiveTracking() {
@@ -1851,6 +1993,7 @@ function stopLiveTracking() {
     clearInterval(trackingInterval);
     trackingInterval = null;
   }
+  unsubscribeFromTripRealtime();
 }
 
 async function pollTracking() {
@@ -1869,6 +2012,67 @@ async function pollTracking() {
     }
   } catch (err) {
     console.error('Tracking error:', err);
+  }
+}
+
+
+function renderManualPaymentPanel(trip) {
+  const panel = document.getElementById('manualPaymentPanel');
+  if (!panel) return;
+  const payment = trip?.payment || {};
+  const record = payment.record || null;
+  const settings = payment.settings || {};
+  const manual = settings.manual_transfer || {};
+  const status = record?.status || trip?.payment_status || 'pending';
+  const show = settings.active_provider === 'manual_transfer' && status !== 'captured' && status !== 'refunded';
+  panel.style.display = show ? 'block' : 'none';
+  if (!show) return;
+
+  const amount = record?.amount || trip?.fare || 0;
+  document.getElementById('manualPaymentAmount').textContent = `₦${Number(amount).toLocaleString()}`;
+  document.getElementById('manualPaymentBank').textContent = manual.bank_name || 'Bank details not set yet';
+  document.getElementById('manualPaymentAccountName').textContent = manual.account_name || 'Account name pending';
+  document.getElementById('manualPaymentAccountNumber').textContent = manual.account_number || 'Account number pending';
+  document.getElementById('manualPaymentInstructions').textContent = manual.instructions || 'Transfer the exact fare, then upload your receipt for admin approval.';
+
+  const statusEl = document.getElementById('manualPaymentStatus');
+  const uploadBtn = panel.querySelector('button');
+  const hasProof = !!record?.proof_path;
+  if (status === 'failed') {
+    statusEl.textContent = record?.admin_notes ? `Rejected: ${record.admin_notes}` : 'Payment proof was rejected. Please upload a clearer proof.';
+    uploadBtn.disabled = false;
+  } else if (hasProof) {
+    statusEl.textContent = 'Proof uploaded. Waiting for admin approval.';
+    uploadBtn.disabled = false;
+  } else {
+    statusEl.textContent = 'Upload your receipt or transfer screenshot after paying.';
+    uploadBtn.disabled = false;
+  }
+}
+
+async function uploadManualPaymentProof() {
+  if (!currentActiveTripId) return showToast('No active trip selected.');
+  const fileInput = document.getElementById('manualPaymentProof');
+  const file = fileInput?.files?.[0];
+  if (!file) return showToast('Choose your transfer receipt or screenshot first.');
+
+  const body = new FormData();
+  body.append('trip_id', currentActiveTripId);
+  body.append('_nonce', IDIBIA_PAYMENT_NONCE);
+  body.append('bank_ref', document.getElementById('manualPaymentRef')?.value || '');
+  body.append('payment_proof', file);
+
+  try {
+    const json = await idibiaPost('payment-proof-handler.php', body);
+    if (json.success) {
+      showToast(json.data?.message || 'Payment proof uploaded.');
+      if (fileInput) fileInput.value = '';
+      pollTracking();
+    } else {
+      showToast(json.data?.message || 'Could not upload payment proof.');
+    }
+  } catch (err) {
+    showToast('Connection error uploading payment proof.');
   }
 }
 
@@ -1913,6 +2117,7 @@ function updateTrackingUI(trip) {
 
   const fareValue = document.getElementById('trackingFareValue');
   if (fareValue) fareValue.textContent = `₦${Number(trip.fare || 0).toLocaleString()}`;
+  renderManualPaymentPanel(trip);
 
   const pinText = document.getElementById('trackingPinText');
   if (pinText) pinText.textContent = trip.delivery_pin ? `Delivery PIN: ${trip.delivery_pin} · only share with your assigned driver at handoff.` : 'PIN pending. Support and cancellation actions remain available.';
