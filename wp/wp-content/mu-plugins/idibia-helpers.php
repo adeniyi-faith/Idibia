@@ -165,4 +165,173 @@ function idibia_notify_trip_participants( int $trip_id, string $event_type, arra
     foreach ( $admins as $admin ) {
         idibia_notify_user( (int) $admin->ID, 'admin', $title, $body );
     }
+
+    idibia_pusher_broadcast_trip( $trip_id, $event_type, [ 'title' => $title, 'body' => $body ] );
+}
+
+/**
+ * Returns public Pusher settings for browser clients.
+ */
+function idibia_pusher_public_config(): array {
+    require_once __DIR__ . '/idibia-config.php';
+
+    $key     = (string) ( defined( 'IDIBIA_PUSHER_KEY' ) ? IDIBIA_PUSHER_KEY : '' );
+    $cluster = (string) ( defined( 'IDIBIA_PUSHER_CLUSTER' ) ? IDIBIA_PUSHER_CLUSTER : '' );
+
+    return [
+        'enabled'      => idibia_pusher_is_configured(),
+        'key'          => $key,
+        'cluster'      => $cluster,
+        'authEndpoint' => '/pusher-auth-api.php',
+        'authNonce'    => wp_create_nonce( 'idibia_pusher_auth' ),
+    ];
+}
+
+/**
+ * Returns true once all server-side Pusher credentials have been replaced.
+ */
+function idibia_pusher_is_configured(): bool {
+    require_once __DIR__ . '/idibia-config.php';
+
+    $values = [
+        defined( 'IDIBIA_PUSHER_APP_ID' ) ? IDIBIA_PUSHER_APP_ID : '',
+        defined( 'IDIBIA_PUSHER_KEY' ) ? IDIBIA_PUSHER_KEY : '',
+        defined( 'IDIBIA_PUSHER_SECRET' ) ? IDIBIA_PUSHER_SECRET : '',
+        defined( 'IDIBIA_PUSHER_CLUSTER' ) ? IDIBIA_PUSHER_CLUSTER : '',
+    ];
+
+    foreach ( $values as $value ) {
+        if ( $value === '' || strpos( (string) $value, 'REPLACE_ME' ) !== false ) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function idibia_pusher_trip_channel( int $trip_id ): string {
+    return 'private-trip-' . $trip_id;
+}
+
+function idibia_pusher_driver_channel( int $driver_id ): string {
+    return 'private-driver-' . $driver_id;
+}
+
+/**
+ * Broadcasts an event through Pusher's HTTP API. No-ops while placeholders are configured.
+ */
+function idibia_pusher_trigger( $channels, string $event_name, array $payload ): bool {
+    if ( ! idibia_pusher_is_configured() ) {
+        return false;
+    }
+
+    require_once __DIR__ . '/idibia-config.php';
+
+    $channels = array_values( array_unique( array_filter( (array) $channels ) ) );
+    if ( empty( $channels ) ) {
+        return false;
+    }
+
+    $body = wp_json_encode( [
+        'name'     => $event_name,
+        'channels' => $channels,
+        'data'     => wp_json_encode( $payload ),
+    ] );
+
+    $path = '/apps/' . rawurlencode( IDIBIA_PUSHER_APP_ID ) . '/events';
+    $query = [
+        'auth_key'       => IDIBIA_PUSHER_KEY,
+        'auth_timestamp' => time(),
+        'auth_version'   => '1.0',
+        'body_md5'       => md5( $body ),
+    ];
+    ksort( $query );
+
+    $query_string = http_build_query( $query, '', '&', PHP_QUERY_RFC3986 );
+    $signature = hash_hmac( 'sha256', "POST\n{$path}\n{$query_string}", IDIBIA_PUSHER_SECRET );
+    $url = sprintf(
+        'https://api-%s.pusher.com%s?%s&auth_signature=%s',
+        rawurlencode( IDIBIA_PUSHER_CLUSTER ),
+        $path,
+        $query_string,
+        $signature
+    );
+
+    $response = wp_remote_post( $url, [
+        'headers' => [ 'Content-Type' => 'application/json' ],
+        'body'    => $body,
+        'timeout' => 3,
+    ] );
+
+    return ! is_wp_error( $response ) && (int) wp_remote_retrieve_response_code( $response ) < 300;
+}
+
+/**
+ * Broadcasts trip lifecycle changes to customers, assigned drivers, and admins watching the trip.
+ */
+function idibia_pusher_broadcast_trip( int $trip_id, string $event_type, array $context = [] ): bool {
+    global $wpdb;
+
+    if ( $trip_id <= 0 ) {
+        return false;
+    }
+
+    $trip = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, trip_ref, customer_id, driver_id, status, dispatch_status, payment_status FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1",
+        $trip_id
+    ), ARRAY_A );
+
+    if ( ! $trip ) {
+        return false;
+    }
+
+    $payload = array_merge( [
+        'event_type'      => $event_type,
+        'trip_id'         => (int) $trip['id'],
+        'trip_ref'        => $trip['trip_ref'],
+        'customer_id'     => (int) $trip['customer_id'],
+        'driver_id'       => ! empty( $trip['driver_id'] ) ? (int) $trip['driver_id'] : null,
+        'status'          => $trip['status'],
+        'dispatch_status' => $trip['dispatch_status'],
+        'payment_status'  => $trip['payment_status'],
+        'sent_at'         => gmdate( 'c' ),
+    ], $context );
+
+    return idibia_pusher_trigger( [ idibia_pusher_trip_channel( $trip_id ) ], 'trip.updated', $payload );
+}
+
+/**
+ * Broadcasts to drivers when their offer list or active trip may have changed.
+ */
+function idibia_pusher_broadcast_driver_offers( array $driver_ids, string $event_type, array $context = [] ): void {
+    $channels = [];
+    foreach ( $driver_ids as $driver_id ) {
+        $driver_id = (int) $driver_id;
+        if ( $driver_id > 0 ) {
+            $channels[] = idibia_pusher_driver_channel( $driver_id );
+        }
+    }
+
+    if ( empty( $channels ) ) {
+        return;
+    }
+
+    idibia_pusher_trigger( $channels, 'driver.offers.updated', array_merge( [
+        'event_type' => $event_type,
+        'sent_at'    => gmdate( 'c' ),
+    ], $context ) );
+}
+
+/**
+ * Broadcasts a driver's latest location to the active trip channel.
+ */
+function idibia_pusher_broadcast_driver_location( int $trip_id, int $driver_id, float $lat, float $lng, ?float $heading = null ): bool {
+    return idibia_pusher_trigger( [ idibia_pusher_trip_channel( $trip_id ) ], 'driver.location.updated', [
+        'trip_id'   => $trip_id,
+        'driver_id' => $driver_id,
+        'lat'       => $lat,
+        'lng'       => $lng,
+        'heading'   => $heading,
+        'sent_at'   => gmdate( 'c' ),
+    ] );
 }

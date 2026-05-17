@@ -40,6 +40,7 @@ if ( $action === 'decline_offer' ) {
     if ( ! $offer || $offer['status'] !== 'pending' ) idibia_driver_action_fail( 'Offer is no longer available.', 409 );
     $wpdb->update( $wpdb->prefix . 'sd_dispatch_offers', [ 'status' => 'declined' ], [ 'id' => $offer_id ], [ '%s' ], [ '%d' ] );
     idibia_log_event( (int) $offer['trip_id'], 'offer_declined', [ 'driver_id' => $driver_id ] );
+    idibia_pusher_broadcast_driver_offers( [ $driver_id ], 'offer_declined', [ 'trip_id' => (int) $offer['trip_id'] ] );
     idibia_transaction_commit();
     wp_send_json_success( [ 'message' => 'Offer declined.', 'offers' => idibia_get_driver_offers( $driver_id ) ] );
 }
@@ -69,8 +70,10 @@ if ( $action === 'accept_offer' ) {
     ) );
     if ( $updated !== 1 ) idibia_driver_action_fail( 'Trip has already been assigned.', 409 );
 
+    $pending_driver_ids = $wpdb->get_col( $wpdb->prepare( "SELECT driver_id FROM `{$wpdb->prefix}sd_dispatch_offers` WHERE trip_id = %d AND id <> %d AND status = 'pending'", (int) $offer['trip_id'], $offer_id ) );
     $wpdb->update( $wpdb->prefix . 'sd_dispatch_offers', [ 'status' => 'accepted' ], [ 'id' => $offer_id ], [ '%s' ], [ '%d' ] );
     $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->prefix}sd_dispatch_offers` SET status = 'expired' WHERE trip_id = %d AND id <> %d AND status = 'pending'", (int) $offer['trip_id'], $offer_id ) );
+    idibia_pusher_broadcast_driver_offers( array_merge( [ $driver_id ], array_map( 'intval', $pending_driver_ids ?: [] ) ), 'offer_accepted', [ 'trip_id' => (int) $offer['trip_id'] ] );
     idibia_log_event( (int) $offer['trip_id'], 'offer_accepted', [ 'driver_id' => $driver_id ] );
     idibia_notify_trip_participants( (int) $offer['trip_id'], 'offer_accepted' );
     idibia_transaction_commit();

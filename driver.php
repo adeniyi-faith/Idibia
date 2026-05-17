@@ -1,8 +1,11 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 
 
 
+
+$pusher_config = idibia_pusher_public_config();
 
 $driver_initial_context = [
     'logged_in'   => false,
@@ -1992,9 +1995,45 @@ svg { display: block; }
   <div class="toast" id="toast"></div>
 </div>
 
+<?php if ( ! empty( $pusher_config['enabled'] ) ) : ?>
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+<?php endif; ?>
 <script>
 // ===== ONBOARDING =====
 const driverInitialContext = <?php echo wp_json_encode( $driver_initial_context ); ?>;
+const IDIBIA_PUSHER_CONFIG = <?php echo wp_json_encode( $pusher_config ); ?>;
+
+let idibiaDriverPusher = null;
+let idibiaDriverChannelName = null;
+
+function initDriverPusher() {
+  if (!IDIBIA_PUSHER_CONFIG?.enabled || typeof Pusher === 'undefined') return null;
+  if (idibiaDriverPusher) return idibiaDriverPusher;
+  idibiaDriverPusher = new Pusher(IDIBIA_PUSHER_CONFIG.key, {
+    cluster: IDIBIA_PUSHER_CONFIG.cluster,
+    channelAuthorization: {
+      endpoint: IDIBIA_PUSHER_CONFIG.authEndpoint,
+      transport: 'ajax',
+      params: { _nonce: IDIBIA_PUSHER_CONFIG.authNonce }
+    }
+  });
+  return idibiaDriverPusher;
+}
+
+function subscribeToDriverRealtime() {
+  const pusher = initDriverPusher();
+  const driverId = Number(driverInitialContext.driver_id || 0);
+  if (!pusher || !driverId || !driverInitialContext.is_approved) return;
+  const channelName = `private-driver-${driverId}`;
+  if (idibiaDriverChannelName === channelName) return;
+  if (idibiaDriverChannelName) pusher.unsubscribe(idibiaDriverChannelName);
+  idibiaDriverChannelName = channelName;
+  const channel = pusher.subscribe(channelName);
+  channel.bind('driver.offers.updated', data => {
+    if (data?.event_type === 'dispatch_offers_created') showToast('New delivery request available');
+    fetchDriverOffers();
+  });
+}
 
 function setAppHeight() {
   document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
@@ -2349,6 +2388,7 @@ function goToDashboard() {
   }
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
+  subscribeToDriverRealtime();
 }
 
 // ===== DASHBOARD =====
@@ -2386,6 +2426,7 @@ async function toggleOnline() {
     toggle.classList.toggle('offline', !isOnline);
     document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
     showToast(isOnline ? '✓ You are now online' : 'You are now offline');
+    subscribeToDriverRealtime();
     fetchDriverOffers();
   } catch (err) {
     showToast('Could not update online status. Please try again.');
@@ -2613,8 +2654,9 @@ if (driverInitialContext.logged_in) {
     updateDriver();
   } else {
     goToDashboard();
+    subscribeToDriverRealtime();
     fetchDriverOffers();
-    setInterval(fetchDriverOffers, 15000);
+    setInterval(fetchDriverOffers, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 15000);
   }
 }
 

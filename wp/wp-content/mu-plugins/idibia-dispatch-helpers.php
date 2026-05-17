@@ -173,6 +173,7 @@ function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
     ), ARRAY_A );
 
     $created = 0;
+    $offered_driver_ids = [];
     foreach ( $drivers ?: [] as $driver ) {
         $inserted = $wpdb->insert(
             $wpdb->prefix . 'sd_dispatch_offers',
@@ -186,6 +187,7 @@ function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
         );
         if ( false !== $inserted ) {
             $created++;
+            $offered_driver_ids[] = (int) $driver['id'];
         }
     }
 
@@ -199,6 +201,7 @@ function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
         );
         idibia_log_event( $trip_id, 'dispatch_offers_created', [ 'count' => $created ] );
         idibia_notify_trip_participants( $trip_id, 'dispatch_offers_created' );
+        idibia_pusher_broadcast_driver_offers( $offered_driver_ids, 'dispatch_offers_created', [ 'trip_id' => $trip_id, 'count' => $created ] );
     } else {
         $wpdb->update(
             $wpdb->prefix . 'sd_trips',
