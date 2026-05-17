@@ -105,20 +105,16 @@ if ( $action === 'complete' ) {
     }
 
     $fare = (float) ( $trip['final_fare'] ?: $trip['fare_estimate'] ?: $trip['fare'] );
-    $driver_share = round( $fare * ( 100 - (int) $trip['platform_pct'] ) / 100, 2 );
     $data['final_fare'] = $fare;
-    $data['payment_status'] = 'captured';
     $data['completed_at'] = idibia_dispatch_now();
-    $formats = array_merge( $formats, [ '%f', '%s', '%s' ] );
-    $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->prefix}sd_drivers` SET total_trips = total_trips + 1, wallet_balance = wallet_balance + %f WHERE id = %d", $driver_share, $driver_id ) );
-    $wpdb->insert( $wpdb->prefix . 'sd_wallet_ledger', [ 'driver_id' => $driver_id, 'amount' => $driver_share, 'entry_type' => 'earning', 'reference_id' => $trip_id, 'description' => 'Trip ' . $trip['trip_ref'] . ' earning' ], [ '%d', '%f', '%s', '%d', '%s' ] );
+    $formats = array_merge( $formats, [ '%f', '%s' ] );
 }
 
 $wpdb->update( $wpdb->prefix . 'sd_trips', $data, [ 'id' => $trip_id ], $formats, [ '%d' ] );
 idibia_log_event( $trip_id, $transition['event'], [ 'driver_id' => $driver_id ] );
 idibia_notify_trip_participants( $trip_id, $transition['event'] );
-if ( $action === 'complete' ) {
-    idibia_notify_trip_participants( $trip_id, 'payment_captured' );
+if ( $action === 'complete' && $trip['payment_status'] === 'captured' ) {
+    idibia_credit_driver_for_trip( $trip_id );
 }
 idibia_transaction_commit();
 wp_send_json_success( [ 'message' => 'Trip updated.', 'active_trip' => idibia_get_driver_active_trip( $driver_id ) ] );

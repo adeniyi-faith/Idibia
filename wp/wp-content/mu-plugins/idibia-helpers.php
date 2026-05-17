@@ -143,6 +143,9 @@ function idibia_notify_trip_participants( int $trip_id, string $event_type, arra
         'trip_completed'          => [ 'Delivered', 'Trip #' . $trip['trip_ref'] . ' has been completed.' ],
         'trip_cancelled'          => [ 'Trip cancelled', 'Trip #' . $trip['trip_ref'] . ' was cancelled.' ],
         'payment_captured'        => [ 'Payment captured', 'Payment for trip #' . $trip['trip_ref'] . ' has been captured.' ],
+        'payment_proof_uploaded'  => [ 'Payment proof uploaded', 'Payment proof for trip #' . $trip['trip_ref'] . ' is waiting for admin review.' ],
+        'payment_approved'        => [ 'Payment approved', 'Manual transfer for trip #' . $trip['trip_ref'] . ' has been approved.' ],
+        'payment_rejected'        => [ 'Payment needs attention', 'Manual transfer proof for trip #' . $trip['trip_ref'] . ' was rejected. Please upload a clearer proof.' ],
         'payment_refunded'        => [ 'Refund updated', 'A refund update is available for trip #' . $trip['trip_ref'] . '.' ],
         'support_reply'           => [ 'Support replied', 'Support has replied about trip #' . $trip['trip_ref'] . '.' ],
     ];

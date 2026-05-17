@@ -1356,6 +1356,20 @@ a { color: inherit; }
           <div class="eta-unit">fixed price</div>
         </div>
       </div>
+      <div class="receipt-box" id="manualPaymentPanel" style="display:none;margin-top:14px;">
+        <div class="receipt-label">Manual Bank Transfer</div>
+        <div class="receipt-row total"><span>Amount to pay</span><span id="manualPaymentAmount">₦--</span></div>
+        <div class="receipt-row"><span>Bank</span><span id="manualPaymentBank">Set by admin</span></div>
+        <div class="receipt-row"><span>Account Name</span><span id="manualPaymentAccountName">Set by admin</span></div>
+        <div class="receipt-row"><span>Account No.</span><span id="manualPaymentAccountNumber">Set by admin</span></div>
+        <div class="receipt-payment" style="align-items:flex-start;flex-direction:column;gap:8px;">
+          <div id="manualPaymentInstructions">Transfer the exact fare, then upload your receipt for review.</div>
+          <input class="loc-input" id="manualPaymentRef" placeholder="Bank reference / sender name (optional)" style="width:100%;font-size:13px;">
+          <input class="loc-input" id="manualPaymentProof" type="file" accept="image/jpeg,image/png,application/pdf" style="width:100%;font-size:13px;">
+          <button class="btn-primary" type="button" onclick="uploadManualPaymentProof()" style="height:42px;font-size:13px;">Upload Payment Proof</button>
+          <div id="manualPaymentStatus" style="font-size:12px;color:var(--text-muted);"></div>
+        </div>
+      </div>
       <div class="tracking-steps">
         <div class="t-step">
           <div class="t-step-dot done"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="11" height="11"><polyline points="20 6 9 17 4 12"/></svg></div>
@@ -1409,7 +1423,7 @@ a { color: inherit; }
       <div class="receipt-row total"><span>Total Paid</span><span>₦2,800</span></div>
       <div class="receipt-payment">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        Paid via Card ending in ••4091
+        Paid by manual transfer after admin approval
         <button type="button" onclick="showToast('Receipt emailed!')" style="margin-left:auto;background:none;border:none;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;text-decoration:underline;text-underline-offset:2px;padding:4px">Email Receipt</button>
       </div>
     </div>
@@ -1930,6 +1944,67 @@ async function pollTracking() {
   }
 }
 
+
+function renderManualPaymentPanel(trip) {
+  const panel = document.getElementById('manualPaymentPanel');
+  if (!panel) return;
+  const payment = trip?.payment || {};
+  const record = payment.record || null;
+  const settings = payment.settings || {};
+  const manual = settings.manual_transfer || {};
+  const status = record?.status || trip?.payment_status || 'pending';
+  const show = settings.active_provider === 'manual_transfer' && status !== 'captured' && status !== 'refunded';
+  panel.style.display = show ? 'block' : 'none';
+  if (!show) return;
+
+  const amount = record?.amount || trip?.fare || 0;
+  document.getElementById('manualPaymentAmount').textContent = `₦${Number(amount).toLocaleString()}`;
+  document.getElementById('manualPaymentBank').textContent = manual.bank_name || 'Bank details not set yet';
+  document.getElementById('manualPaymentAccountName').textContent = manual.account_name || 'Account name pending';
+  document.getElementById('manualPaymentAccountNumber').textContent = manual.account_number || 'Account number pending';
+  document.getElementById('manualPaymentInstructions').textContent = manual.instructions || 'Transfer the exact fare, then upload your receipt for admin approval.';
+
+  const statusEl = document.getElementById('manualPaymentStatus');
+  const uploadBtn = panel.querySelector('button');
+  const hasProof = !!record?.proof_path;
+  if (status === 'failed') {
+    statusEl.textContent = record?.admin_notes ? `Rejected: ${record.admin_notes}` : 'Payment proof was rejected. Please upload a clearer proof.';
+    uploadBtn.disabled = false;
+  } else if (hasProof) {
+    statusEl.textContent = 'Proof uploaded. Waiting for admin approval.';
+    uploadBtn.disabled = false;
+  } else {
+    statusEl.textContent = 'Upload your receipt or transfer screenshot after paying.';
+    uploadBtn.disabled = false;
+  }
+}
+
+async function uploadManualPaymentProof() {
+  if (!currentActiveTripId) return showToast('No active trip selected.');
+  const fileInput = document.getElementById('manualPaymentProof');
+  const file = fileInput?.files?.[0];
+  if (!file) return showToast('Choose your transfer receipt or screenshot first.');
+
+  const body = new FormData();
+  body.append('trip_id', currentActiveTripId);
+  body.append('_nonce', IDIBIA_PAYMENT_NONCE);
+  body.append('bank_ref', document.getElementById('manualPaymentRef')?.value || '');
+  body.append('payment_proof', file);
+
+  try {
+    const json = await idibiaPost('payment-proof-handler.php', body);
+    if (json.success) {
+      showToast(json.data?.message || 'Payment proof uploaded.');
+      if (fileInput) fileInput.value = '';
+      pollTracking();
+    } else {
+      showToast(json.data?.message || 'Could not upload payment proof.');
+    }
+  } catch (err) {
+    showToast('Connection error uploading payment proof.');
+  }
+}
+
 function updateTrackingUI(trip) {
   if (!trip) return;
 
@@ -1971,6 +2046,7 @@ function updateTrackingUI(trip) {
 
   const fareValue = document.getElementById('trackingFareValue');
   if (fareValue) fareValue.textContent = `₦${Number(trip.fare || 0).toLocaleString()}`;
+  renderManualPaymentPanel(trip);
 
   const pinText = document.getElementById('trackingPinText');
   if (pinText) pinText.textContent = trip.delivery_pin ? `Delivery PIN: ${trip.delivery_pin} · only share with your assigned driver at handoff.` : 'PIN pending. Support and cancellation actions remain available.';
