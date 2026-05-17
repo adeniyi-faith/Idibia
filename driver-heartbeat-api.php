@@ -53,7 +53,12 @@ if ( isset( $_POST['online'] ) ) {
     $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'is_online' => ! empty( $_POST['online'] ) ? 1 : 0 ], [ 'id' => $driver_id ], [ '%d' ], [ '%d' ] );
 }
 
+$active_trip = idibia_get_driver_active_trip( $driver_id );
+if ( $active_trip && $lat !== null && $lng !== null ) {
+    idibia_pusher_broadcast_driver_location( (int) $active_trip['trip_id'], $driver_id, $lat, $lng, $heading );
+}
+
 wp_send_json_success( [
     'offers'      => idibia_get_driver_offers( $driver_id ),
-    'active_trip' => idibia_get_driver_active_trip( $driver_id ),
+    'active_trip' => $active_trip,
 ] );

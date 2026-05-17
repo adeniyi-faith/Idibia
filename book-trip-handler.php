@@ -78,6 +78,23 @@ if ( ! $inserted ) {
 }
 
 $trip_id = $wpdb->insert_id;
+idibia_ensure_manual_payment_columns();
+$payment_inserted = $wpdb->insert(
+    $wpdb->prefix . 'sd_payments',
+    [
+        'trip_id'     => $trip_id,
+        'customer_id' => $customer_id,
+        'amount'      => $quote_data['fare_estimate'],
+        'provider'    => 'manual_transfer',
+        'status'      => 'pending',
+    ],
+    [ '%d', '%d', '%f', '%s', '%s' ]
+);
+if ( false === $payment_inserted ) {
+    idibia_transaction_rollback();
+    wp_send_json_error( [ 'message' => 'Could not create the payment record. Please try again.' ] );
+}
+
 idibia_log_event( $trip_id, 'trip_created', [ 'quote_id' => $quote_id, 'fare' => $quote_data['fare_estimate'] ] );
 idibia_notify_trip_participants( $trip_id, 'trip_created' );
 
