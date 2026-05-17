@@ -1,11 +1,13 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
+require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 if ( ! is_user_logged_in() || get_user_meta( get_current_user_id(), 'idibia_account_type', true ) !== 'customer' ) {
     header( 'Location: index.php' );
     exit;
 }
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
+$pusher_config  = idibia_pusher_public_config();
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
@@ -1491,6 +1493,9 @@ a { color: inherit; }
 <!-- ══════════ TOAST ══════════ -->
 <div class="toast" id="toast"></div>
 
+<?php if ( ! empty( $pusher_config['enabled'] ) ) : ?>
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+<?php endif; ?>
 <script>
 // ═══════════ STATE ═══════════
 let currentScreen = 'screen-main';
@@ -1501,6 +1506,57 @@ let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
 const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
+const IDIBIA_PUSHER_CONFIG = <?php echo wp_json_encode( $pusher_config ); ?>;
+
+let idibiaPusher = null;
+let idibiaTripChannel = null;
+let idibiaTripChannelName = null;
+let idibiaRealtimePollTimer = null;
+
+function initIdibiaPusher() {
+  if (!IDIBIA_PUSHER_CONFIG?.enabled || typeof Pusher === 'undefined') return null;
+  if (idibiaPusher) return idibiaPusher;
+  idibiaPusher = new Pusher(IDIBIA_PUSHER_CONFIG.key, {
+    cluster: IDIBIA_PUSHER_CONFIG.cluster,
+    channelAuthorization: {
+      endpoint: IDIBIA_PUSHER_CONFIG.authEndpoint,
+      transport: 'ajax',
+      params: { _nonce: IDIBIA_PUSHER_CONFIG.authNonce }
+    }
+  });
+  return idibiaPusher;
+}
+
+function scheduleRealtimeTrackingRefresh() {
+  if (idibiaRealtimePollTimer) return;
+  idibiaRealtimePollTimer = setTimeout(() => {
+    idibiaRealtimePollTimer = null;
+    pollTracking();
+  }, 300);
+}
+
+function subscribeToTripRealtime(tripId) {
+  const pusher = initIdibiaPusher();
+  if (!pusher || !tripId) return;
+  const channelName = `private-trip-${tripId}`;
+  if (idibiaTripChannelName === channelName) return;
+  if (idibiaTripChannelName) pusher.unsubscribe(idibiaTripChannelName);
+  idibiaTripChannelName = channelName;
+  idibiaTripChannel = pusher.subscribe(channelName);
+  idibiaTripChannel.bind('trip.updated', data => {
+    if (data?.title) showToast(data.title);
+    scheduleRealtimeTrackingRefresh();
+  });
+  idibiaTripChannel.bind('driver.location.updated', () => scheduleRealtimeTrackingRefresh());
+}
+
+function unsubscribeFromTripRealtime() {
+  if (idibiaPusher && idibiaTripChannelName) {
+    idibiaPusher.unsubscribe(idibiaTripChannelName);
+  }
+  idibiaTripChannel = null;
+  idibiaTripChannelName = null;
+}
 
 async function idibiaPost(endpoint, body = null) {
   const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
@@ -1841,9 +1897,10 @@ function startLiveTracking(tripId) {
   if (!tripId) return;
   currentActiveTripId = tripId;
   goTo('screen-tracking');
+  subscribeToTripRealtime(tripId);
   pollTracking();
   if (trackingInterval) clearInterval(trackingInterval);
-  trackingInterval = setInterval(pollTracking, 5000);
+  trackingInterval = setInterval(pollTracking, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 5000);
 }
 
 function stopLiveTracking() {
@@ -1851,6 +1908,7 @@ function stopLiveTracking() {
     clearInterval(trackingInterval);
     trackingInterval = null;
   }
+  unsubscribeFromTripRealtime();
 }
 
 async function pollTracking() {
