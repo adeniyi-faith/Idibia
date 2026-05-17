@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 4;
+    $target_version = 5;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -100,7 +100,11 @@ function idibia_maybe_create_tables() {
             `amount` DECIMAL(10,2) NOT NULL,
             `provider` VARCHAR(50) NOT NULL,
             `provider_ref` VARCHAR(100) NULL,
+            `proof_path` VARCHAR(255) NULL,
             `status` ENUM('pending','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending',
+            `admin_notes` TEXT NULL,
+            `reviewed_by` BIGINT UNSIGNED NULL,
+            `reviewed_at` DATETIME NULL,
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
@@ -199,7 +203,23 @@ function idibia_maybe_create_tables() {
     if ( $current_version < 4 ) {
         idibia_widen_driver_verify_code_column();
         update_option( 'idibia_db_version', 4 );
+        $current_version = 4;
     }
+
+    if ( $current_version < 5 ) {
+        idibia_add_manual_payment_columns();
+        update_option( 'idibia_db_version', 5 );
+    }
+}
+
+
+function idibia_add_manual_payment_columns(): void {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sd_payments';
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `proof_path` VARCHAR(255) NULL AFTER `provider_ref`" );
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `admin_notes` TEXT NULL AFTER `status`" );
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `reviewed_by` BIGINT UNSIGNED NULL AFTER `admin_notes`" );
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `reviewed_at` DATETIME NULL AFTER `reviewed_by`" );
 }
 
 function idibia_widen_driver_verify_code_column(): void {
@@ -371,5 +391,16 @@ function idibia_create_tables() {
         ('notif_kyc_queue', '1'),
         ('notif_dispute_escalation', '1'),
         ('notif_daily_revenue', '1'),
-        ('notif_failed_payout', '1');" );
+        ('notif_failed_payout', '1'),
+        ('payment_active_provider', 'manual_transfer'),
+        ('manual_bank_name', ''),
+        ('manual_account_name', ''),
+        ('manual_account_number', ''),
+        ('manual_payment_instructions', 'Transfer the exact fare, then upload your receipt for admin approval.'),
+        ('paystack_enabled', '0'),
+        ('paystack_public_key', ''),
+        ('paystack_secret_key', ''),
+        ('flutterwave_enabled', '0'),
+        ('flutterwave_public_key', ''),
+        ('flutterwave_secret_key', '');" );
 }
