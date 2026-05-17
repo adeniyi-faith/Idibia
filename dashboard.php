@@ -7,8 +7,6 @@ if ( ! is_user_logged_in() || get_user_meta( get_current_user_id(), 'idibia_acco
 }
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
-$payment_nonce  = wp_create_nonce( 'idibia_payment_proof' );
-$support_nonce  = wp_create_nonce( 'idibia_support_action' );
 $pusher_config  = idibia_pusher_public_config();
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
@@ -1522,8 +1520,6 @@ let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
 const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
-const IDIBIA_PAYMENT_NONCE = '<?php echo esc_js( $payment_nonce ?? '' ); ?>';
-const IDIBIA_SUPPORT_NONCE = '<?php echo esc_js( $support_nonce ?? '' ); ?>';
 const IDIBIA_PUSHER_CONFIG = <?php echo wp_json_encode( $pusher_config ); ?>;
 
 let idibiaPusher = null;
