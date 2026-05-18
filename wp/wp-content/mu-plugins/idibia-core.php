@@ -135,6 +135,23 @@ function idibia_maybe_create_tables() {
             KEY `driver_id` (`driver_id`)
         ) $charset;" );
 
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_admin_audit_logs` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `admin_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            `action` VARCHAR(80) NOT NULL,
+            `entity_type` VARCHAR(80) NOT NULL,
+            `entity_id` BIGINT UNSIGNED NULL,
+            `metadata` LONGTEXT NULL,
+            `ip` VARCHAR(45) NULL,
+            `user_agent` VARCHAR(255) NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `action` (`action`),
+            KEY `entity` (`entity_type`, `entity_id`),
+            KEY `created_at` (`created_at`)
+        ) $charset;" );
+
         $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_ratings` (
             `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             `trip_id` BIGINT UNSIGNED NOT NULL,
