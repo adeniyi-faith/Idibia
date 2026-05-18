@@ -56,17 +56,25 @@ $duration_mins = $route['duration_mins'];
 
 // 3. Calculate fare
 // Get platform settings or use defaults
-$min_fare = (float) get_option( 'sd_min_fare', 800 );
-$base_fare = 500;
-$per_km_rates = [
+$min_fare = (float) idibia_get_setting( 'min_fare', 800 );
+$max_radius = (float) idibia_get_setting( 'max_delivery_radius_km', 50 );
+
+if ( $distance_km > $max_radius ) {
+    wp_send_json_error( [ 'message' => "The destination is too far. Our maximum delivery radius is {$max_radius}km." ] );
+}
+
+$base_fare = (float) idibia_get_setting( 'base_fare', 500 );
+$rate_per_km = (float) idibia_get_setting( 'rate_per_km_' . $vehicle, [
     'bike' => 100,
     'keke' => 150,
     'car'  => 200,
     'van'  => 400
-];
+][$vehicle] ?? 100 );
 
-$rate_per_km = $per_km_rates[$vehicle] ?? 100;
 $calculated_fare = $base_fare + ( $distance_km * $rate_per_km );
+
+// Get the commission, we might pass it as a parameter, or maybe we don't need to add it to the quote if the quote represents total fare that includes commission anyway.
+$commission_pct = (int) idibia_get_setting( 'platform_commission_pct', 20 );
 $final_fare = max( $min_fare, $calculated_fare );
 
 // 4. Generate quote token and store data
@@ -83,6 +91,7 @@ $quote_data = [
     'distance_km'    => $distance_km,
     'duration_mins'  => $duration_mins,
     'fare_estimate'  => $final_fare,
+    'platform_pct'   => $commission_pct,
     'created_at'     => time()
 ];
 

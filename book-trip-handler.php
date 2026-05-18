@@ -36,7 +36,7 @@ if ( ! $quote_data ) {
 
 $trip_ref = strtoupper( substr( md5( uniqid( '', true ) ), 0, 8 ) );
 $delivery_pin = (string) random_int( 1000, 9999 );
-$platform_pct = (int) get_option( 'sd_platform_commission_pct', 20 );
+$platform_pct = (int) ( $quote['platform_pct'] ?? idibia_get_setting('platform_commission_pct', 20) );
 
 idibia_transaction_start();
 
