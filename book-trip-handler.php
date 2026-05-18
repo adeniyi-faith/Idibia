@@ -65,9 +65,10 @@ $inserted = $wpdb->insert(
         'dispatch_status'=> 'searching',
         'delivery_pin'   => $delivery_pin,
         'platform_pct'   => $platform_pct,
+        'scheduled_time' => $quote_data['scheduled_time'] ?? null,
     ],
     [
-        '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%f', '%d', '%f', '%f', '%s', '%s', '%s', '%d'
+        '%s', '%d', '%s', '%s', '%s', '%s', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%f', '%d', '%f', '%f', '%s', '%s', '%s', '%d', '%s'
     ]
 );
 
@@ -99,13 +100,20 @@ idibia_log_event( $trip_id, 'trip_created', [ 'quote_id' => $quote_id, 'fare' =>
 idibia_notify_trip_participants( $trip_id, 'trip_created' );
 
 idibia_transaction_commit();
-$dispatch_result = idibia_dispatch_trip( $trip_id );
+
+$is_scheduled = ! empty( $quote_data['scheduled_time'] ) && strtotime( $quote_data['scheduled_time'] ) > time();
+$dispatch_result = [];
+if ( ! $is_scheduled ) {
+    $dispatch_result = idibia_dispatch_trip( $trip_id );
+} else {
+    $dispatch_result = [ 'message' => 'Trip scheduled. Dispatch delayed.' ];
+}
 
 // Clean up quote so it can't be reused
 delete_transient( 'idibia_quote_' . $quote_id );
 
 wp_send_json_success( [
-    'message'  => 'Trip created successfully. Searching for a driver.',
+    'message'  => $is_scheduled ? 'Trip scheduled successfully.' : 'Trip created successfully. Searching for a driver.',
     'trip_id'  => $trip_id,
     'trip_ref' => $trip_ref,
     'fare'     => $quote_data['fare_estimate'],

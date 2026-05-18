@@ -24,6 +24,7 @@ $pickup      = sanitize_text_field( wp_unslash( $_POST['pickup'] ?? '' ) );
 $dropoff     = sanitize_text_field( wp_unslash( $_POST['dropoff'] ?? '' ) );
 $category    = sanitize_text_field( wp_unslash( $_POST['category'] ?? 'package' ) );
 $vehicle     = sanitize_text_field( wp_unslash( $_POST['vehicle_type'] ?? 'bike' ) );
+$scheduled_time = sanitize_text_field( wp_unslash( $_POST['scheduled_time'] ?? '' ) );
 $allowed_vehicles = [ 'bike', 'car', 'van', 'keke' ];
 
 if ( ! $pickup || ! $dropoff ) {
@@ -92,6 +93,7 @@ $quote_data = [
     'duration_mins'  => $duration_mins,
     'fare_estimate'  => $final_fare,
     'platform_pct'   => $commission_pct,
+    'scheduled_time' => $scheduled_time ?: null,
     'created_at'     => time()
 ];
 
