@@ -81,7 +81,13 @@ try {
             idibia_require_method( 'GET' );
             $rows = $wpdb->get_results( "SELECT setting_key, setting_value FROM `{$wpdb->prefix}sd_settings`", ARRAY_A );
             $settings = [];
-            foreach ( $rows as $row ) $settings[ $row['setting_key'] ] = $row['setting_value'];
+            foreach ( $rows as $row ) {
+                if ( in_array( $row['setting_key'], ['paystack_secret_key', 'flutterwave_secret_key'] ) ) {
+                    $settings[ $row['setting_key'] ] = !empty($row['setting_value']) ? '********' : '';
+                } else {
+                    $settings[ $row['setting_key'] ] = $row['setting_value'];
+                }
+            }
             wp_send_json_success( [ 'settings' => $settings, 'payment' => idibia_payment_settings() ] );
 
         case 'get_manual_payments':
@@ -471,12 +477,35 @@ function idibia_admin_save_settings(): void {
         $values       = [];
         $placeholders = [];
         foreach ( $settings as $key => $value ) {
+            $sanitized_key = sanitize_key( $key );
+            $sanitized_value = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : wp_json_encode( $value );
+
+            // Field-level validation
+            if ( in_array( $sanitized_key, ['platform_commission_pct', 'surge_multiplier_cap', 'min_fare', 'max_delivery_radius_km'] ) ) {
+                if ( ! is_numeric( $sanitized_value ) || (float) $sanitized_value < 0 ) {
+                    wp_send_json_error( [ 'message' => "Invalid value for {$sanitized_key}. Must be a positive number." ] );
+                }
+            }
+
+            // Do not overwrite secrets if they are blank or masked
+            if ( in_array( $sanitized_key, ['paystack_secret_key', 'flutterwave_secret_key'] ) ) {
+                if ( $sanitized_value === '' || $sanitized_value === '********' ) {
+                    continue; // Skip updating this secret
+                }
+            }
+
             $placeholders[] = '(%s, %s)';
-            $values[]       = sanitize_key( $key );
-            $values[]       = is_scalar( $value ) ? sanitize_text_field( (string) $value ) : wp_json_encode( $value );
+            $values[]       = $sanitized_key;
+            $values[]       = $sanitized_value;
         }
-        $query = "REPLACE INTO `{$wpdb->prefix}sd_settings` (`setting_key`, `setting_value`) VALUES " . implode( ', ', $placeholders );
-        $wpdb->query( $wpdb->prepare( $query, $values ) );
+
+        if ( ! empty( $placeholders ) ) {
+            $query = "REPLACE INTO `{$wpdb->prefix}sd_settings` (`setting_key`, `setting_value`) VALUES " . implode( ', ', $placeholders );
+            $wpdb->query( $wpdb->prepare( $query, $values ) );
+
+            // Log the action
+            idibia_admin_audit_log( 'save_settings', 'settings', 0, array_keys($settings) );
+        }
     }
 
     wp_send_json_success( [ 'message' => 'Settings saved.' ] );
