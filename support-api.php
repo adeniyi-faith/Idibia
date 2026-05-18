@@ -46,6 +46,10 @@ if ( $action === 'create_ticket' || $action === 'safety_report' ) {
         wp_send_json_error( [ 'message' => 'You cannot open support for this trip.' ] );
     }
 
+    $has_evidence = idibia_has_upload( 'evidence' );
+    idibia_validate_evidence_upload( 'evidence' );
+
+    idibia_transaction_start();
     $wpdb->insert( $wpdb->prefix . 'sd_support_tickets', [
         'creator_id'   => $actor_id,
         'creator_type' => $actor_type,
@@ -55,17 +59,28 @@ if ( $action === 'create_ticket' || $action === 'safety_report' ) {
     ], [ '%d', '%s', '%d', '%s', '%s' ] );
     $ticket_id = (int) $wpdb->insert_id;
     if ( $ticket_id <= 0 ) {
+        idibia_transaction_rollback();
         wp_send_json_error( [ 'message' => 'Could not open support ticket.' ] );
     }
 
-    $wpdb->insert( $wpdb->prefix . 'sd_support_messages', [
+    $message_inserted = $wpdb->insert( $wpdb->prefix . 'sd_support_messages', [
         'ticket_id'   => $ticket_id,
         'sender_id'   => $actor_id,
         'sender_type' => $actor_type,
         'message'     => $message,
     ], [ '%d', '%d', '%s', '%s' ] );
+    if ( false === $message_inserted ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Could not save the support message.' ] );
+    }
 
     $evidence_path = idibia_save_evidence_upload( 'evidence', $actor_id, $actor_type, 'ticket', $ticket_id );
+    if ( $has_evidence && ! $evidence_path ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Could not save evidence. Please try again.' ] );
+    }
+    idibia_transaction_commit();
+
     if ( $trip_id > 0 ) {
         idibia_log_event( $trip_id, $action === 'safety_report' ? 'safety_report_created' : 'support_ticket_created', [ 'ticket_id' => $ticket_id, 'category' => $category ] );
         idibia_notify_trip_participants( $trip_id, $action === 'safety_report' ? 'safety_report_created' : 'support_ticket_created' );
@@ -100,17 +115,30 @@ if ( $action === 'add_message' || $action === 'upload_evidence' ) {
     if ( $action === 'add_message' && $message === '' ) {
         wp_send_json_error( [ 'message' => 'Write a message first.' ] );
     }
+    $has_evidence = idibia_has_upload( 'evidence' );
+    idibia_validate_evidence_upload( 'evidence' );
+
+    idibia_transaction_start();
     if ( $message !== '' ) {
-        $wpdb->insert( $wpdb->prefix . 'sd_support_messages', [
+        $message_inserted = $wpdb->insert( $wpdb->prefix . 'sd_support_messages', [
             'ticket_id'   => $ticket_id,
             'sender_id'   => $actor_id,
             'sender_type' => $actor_type,
             'message'     => $message,
         ], [ '%d', '%d', '%s', '%s' ] );
+        if ( false === $message_inserted ) {
+            idibia_transaction_rollback();
+            wp_send_json_error( [ 'message' => 'Could not save the support message.' ] );
+        }
         $wpdb->update( $wpdb->prefix . 'sd_support_tickets', [ 'status' => 'in_progress' ], [ 'id' => $ticket_id ], [ '%s' ], [ '%d' ] );
     }
 
     $evidence_path = idibia_save_evidence_upload( 'evidence', $actor_id, $actor_type, 'ticket', $ticket_id );
+    if ( $has_evidence && ! $evidence_path ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Could not save evidence. Please try again.' ] );
+    }
+    idibia_transaction_commit();
     wp_send_json_success( [ 'message' => 'Support ticket updated.', 'ticket_id' => $ticket_id, 'evidence_path' => $evidence_path ] );
 }
 

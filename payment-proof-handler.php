@@ -31,7 +31,7 @@ if ( empty( $_FILES['payment_proof'] ) || ! empty( $_FILES['payment_proof']['err
 
 global $wpdb;
 $customer_id = (int) $GLOBALS['auth_customer_id'];
-$trip = $wpdb->get_row( $wpdb->prepare( "SELECT id, customer_id FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1", $trip_id ), ARRAY_A );
+$trip = $wpdb->get_row( $wpdb->prepare( "SELECT id, customer_id, COALESCE(NULLIF(final_fare, 0), NULLIF(fare_estimate, 0), fare, 0) AS payment_amount FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1", $trip_id ), ARRAY_A );
 if ( ! $trip || (int) $trip['customer_id'] !== $customer_id ) {
     http_response_code( 403 );
     wp_send_json_error( [ 'message' => 'You cannot upload proof for this trip.' ] );
@@ -40,7 +40,21 @@ if ( ! $trip || (int) $trip['customer_id'] !== $customer_id ) {
 idibia_ensure_manual_payment_columns();
 $payment = $wpdb->get_row( $wpdb->prepare( "SELECT id, status FROM `{$wpdb->prefix}sd_payments` WHERE trip_id = %d AND customer_id = %d ORDER BY id DESC LIMIT 1", $trip_id, $customer_id ), ARRAY_A );
 if ( ! $payment ) {
-    wp_send_json_error( [ 'message' => 'Payment record not found for this trip.' ] );
+    $payment_inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_payments',
+        [
+            'trip_id'     => $trip_id,
+            'customer_id' => $customer_id,
+            'amount'      => max( 0, (float) $trip['payment_amount'] ),
+            'provider'    => 'manual_transfer',
+            'status'      => 'pending',
+        ],
+        [ '%d', '%d', '%f', '%s', '%s' ]
+    );
+    if ( false === $payment_inserted ) {
+        wp_send_json_error( [ 'message' => 'Could not create a payment record for this trip.' ] );
+    }
+    $payment = [ 'id' => (int) $wpdb->insert_id, 'status' => 'pending' ];
 }
 if ( $payment['status'] === 'captured' ) {
     wp_send_json_error( [ 'message' => 'This payment is already approved.' ] );

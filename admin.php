@@ -892,7 +892,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <div id="modalDesc" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></div>
       <div class="form-group"><label class="form-label">Resolution action</label><select class="form-input" id="resolutionType"><option>Issue full refund to customer</option><option>Issue partial refund</option><option>Warn driver (first offence)</option><option>Suspend driver temporarily</option><option>Suspend driver permanently</option><option>No action — complaint invalid</option></select></div>
       <div class="form-group"><label class="form-label">Refund amount (₦)</label><input class="form-input" type="number" placeholder="0" id="refundAmt"></div>
-      <div class="form-group"><label class="form-label">Admin notes</label><textarea class="form-input" rows="3" placeholder="Add resolution notes…" style="resize:none"></textarea></div>
+      <div class="form-group"><label class="form-label">Admin notes</label><textarea class="form-input" id="resolutionNotes" rows="3" placeholder="Add resolution notes…" style="resize:none"></textarea></div>
     </div>
     <div class="modal-footer">
       <button onclick="closeModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Cancel</button>

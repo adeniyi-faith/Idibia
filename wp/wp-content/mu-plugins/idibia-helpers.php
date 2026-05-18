@@ -164,6 +164,63 @@ function idibia_credit_driver_for_trip( int $trip_id ): bool {
 }
 
 /**
+ * Credits a driver's wallet once for a captured/completed trip.
+ */
+function idibia_credit_driver_for_trip( int $trip_id ): bool {
+    global $wpdb;
+
+    $trip = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, driver_id, trip_ref, status, dispatch_status, payment_status, platform_pct, COALESCE(NULLIF(final_fare, 0), NULLIF(fare_estimate, 0), fare, 0) AS fare_amount FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1",
+        $trip_id
+    ), ARRAY_A );
+
+    $is_completed = $trip && ( $trip['status'] === 'completed' || $trip['dispatch_status'] === 'completed' );
+    if ( ! $trip || ! $is_completed || empty( $trip['driver_id'] ) || $trip['payment_status'] !== 'captured' ) {
+        return false;
+    }
+
+    $existing = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_wallet_ledger` WHERE entry_type = 'earning' AND reference_id = %d",
+        $trip_id
+    ) );
+    if ( $existing > 0 ) {
+        return true;
+    }
+
+    $fare = max( 0, (float) $trip['fare_amount'] );
+    $platform_pct = min( 100, max( 0, (float) $trip['platform_pct'] ) );
+    $driver_amount = round( $fare * ( 100 - $platform_pct ) / 100, 2 );
+    if ( $driver_amount <= 0 ) {
+        return false;
+    }
+
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_wallet_ledger',
+        [
+            'driver_id'    => (int) $trip['driver_id'],
+            'amount'       => $driver_amount,
+            'entry_type'   => 'earning',
+            'reference_id' => $trip_id,
+            'description'  => 'Driver earning for trip #' . $trip['trip_ref'],
+            'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%d', '%f', '%s', '%d', '%s', '%s' ]
+    );
+
+    if ( false === $inserted ) {
+        return false;
+    }
+
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_drivers` SET wallet_balance = wallet_balance + %f, total_trips = total_trips + 1 WHERE id = %d",
+        $driver_amount,
+        (int) $trip['driver_id']
+    ) );
+
+    return true;
+}
+
+/**
  * Rate limiting helper using WordPress Transients API.
  * Returns true if allowed, false if rate limited.
  */
@@ -177,6 +234,77 @@ function idibia_check_rate_limit( string $action, string $ip, int $max_attempts 
 
     set_transient( $transient_name, $attempts + 1, $timeout );
     return true;
+}
+
+
+function idibia_has_upload( string $field ): bool {
+    return isset( $_FILES[ $field ] ) && (int) ( $_FILES[ $field ]['error'] ?? UPLOAD_ERR_NO_FILE ) !== UPLOAD_ERR_NO_FILE;
+}
+
+function idibia_validate_evidence_upload( string $field ): ?array {
+    if ( ! idibia_has_upload( $field ) ) {
+        return null;
+    }
+
+    $file = $_FILES[ $field ];
+    if ( ! empty( $file['error'] ) ) {
+        wp_send_json_error( [ 'message' => 'Evidence upload failed. Please choose the file again.' ] );
+    }
+    if ( ! is_uploaded_file( $file['tmp_name'] ) ) {
+        wp_send_json_error( [ 'message' => 'Evidence upload was not valid.' ] );
+    }
+    if ( (int) $file['size'] > 10 * 1024 * 1024 ) {
+        wp_send_json_error( [ 'message' => 'Evidence must be 10MB or smaller.' ] );
+    }
+
+    $allowed_mimes = [ 'image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'video/mp4' ];
+    $filetype = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'] );
+    if ( empty( $filetype['type'] ) || ! in_array( $filetype['type'], $allowed_mimes, true ) ) {
+        wp_send_json_error( [ 'message' => 'Upload JPG, PNG, WEBP, PDF, or MP4 evidence only.' ] );
+    }
+
+    return $file;
+}
+
+function idibia_save_evidence_upload( string $field, int $uploader_id, string $uploader_type, string $reference_type, int $reference_id ): ?string {
+    global $wpdb;
+    $file = idibia_validate_evidence_upload( $field );
+    if ( ! $file ) {
+        return null;
+    }
+
+    $upload = wp_upload_dir();
+    if ( ! empty( $upload['error'] ) ) {
+        return null;
+    }
+
+    $target_dir = trailingslashit( $upload['basedir'] ) . 'idibia-evidence/' . $reference_type . '/' . $reference_id;
+    if ( ! wp_mkdir_p( $target_dir ) ) {
+        return null;
+    }
+
+    $original = sanitize_file_name( wp_unslash( $file['name'] ) );
+    $filename = wp_unique_filename( $target_dir, $reference_type . '-' . $reference_id . '-' . $original );
+    $target = trailingslashit( $target_dir ) . $filename;
+    if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) {
+        return null;
+    }
+
+    $relative = 'idibia-evidence/' . $reference_type . '/' . $reference_id . '/' . $filename;
+    $wpdb->insert(
+        $wpdb->prefix . 'sd_uploaded_evidence',
+        [
+            'reference_id'   => $reference_id,
+            'reference_type' => $reference_type,
+            'uploader_id'    => $uploader_id,
+            'uploader_type'  => $uploader_type,
+            'file_path'      => $relative,
+            'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%d', '%s', '%d', '%s', '%s', '%s' ]
+    );
+
+    return $relative;
 }
 /**
  * Creates an in-app notification for a customer, driver, or admin actor.
