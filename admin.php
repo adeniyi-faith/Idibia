@@ -805,7 +805,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   <div class="panel" id="panel-disputes">
     <div class="page-header"><h2 class="page-title">Disputes</h2><div class="page-sub">Customer complaints and escalations</div></div>
     <div class="metrics-grid three">
-      <div class="metric-card"><div class="metric-label">OPEN DISPUTES</div><div class="metric-value" style="color:var(--warn)" id="overviewOpenDisputes">--</div><div class="metric-delta down" id="overviewEscalatedDisputes">-- escalated</div></div>
+      <div class="metric-card"><div class="metric-label">OPEN DISPUTES</div><div class="metric-value" style="color:var(--warn)" id="disputeOpenCount">--</div><div class="metric-delta down" id="disputeEscalatedCount">-- escalated</div></div>
       <div class="metric-card"><div class="metric-label">TOTAL MATCHES</div><div class="metric-value" id="disputeTotalCount">--</div><div class="metric-delta neutral">Current filter</div></div>
       <div class="metric-card"><div class="metric-label">REFUNDS ISSUED</div><div class="metric-value" id="disputeRefundAmount">--</div><div class="metric-delta neutral">Visible page</div></div>
     </div>
