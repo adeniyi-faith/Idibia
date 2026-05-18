@@ -81,7 +81,7 @@ function idibia_trip_timeline( array $events ): array {
     }, $events );
 }
 
-function idibia_build_trip_feed_payload( int $trip_id ): array {
+function idibia_build_trip_feed_payload( int $trip_id, string $payment_viewer_type = 'customer' ): array {
     global $wpdb;
 
     $trip = $wpdb->get_row( $wpdb->prepare(
@@ -162,6 +162,7 @@ function idibia_build_trip_feed_payload( int $trip_id ): array {
 
 $user_id = get_current_user_id();
 $account_type = get_user_meta( $user_id, 'idibia_account_type', true );
+$payment_viewer_type = current_user_can( 'manage_options' ) ? 'admin' : ( in_array( $account_type, [ 'customer', 'driver' ], true ) ? $account_type : 'customer' );
 
 global $wpdb;
 $trip = $wpdb->get_row( $wpdb->prepare( "SELECT id, customer_id, driver_id FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1", $trip_id ), ARRAY_A );
@@ -188,7 +189,7 @@ if ( $account_type === 'customer' ) {
     wp_send_json_error( [ 'message' => 'Forbidden.' ] );
 }
 
-$payload = idibia_build_trip_feed_payload( $trip_id );
+$payload = idibia_build_trip_feed_payload( $trip_id, $payment_viewer_type );
 if ( isset( $_GET['stream'] ) && $_GET['stream'] === '1' ) {
     while ( ob_get_level() > 0 ) ob_end_clean();
     header( 'Content-Type: text/event-stream; charset=utf-8' );

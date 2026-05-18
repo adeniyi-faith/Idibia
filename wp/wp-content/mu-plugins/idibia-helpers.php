@@ -62,18 +62,49 @@ function idibia_log_event( int $trip_id, string $event_type, array $event_data =
  * Transaction helpers.
  */
 function idibia_transaction_start() {
-    global $wpdb;
-    $wpdb->query( 'START TRANSACTION' );
+    global $wpdb, $idibia_transaction_depth;
+    $idibia_transaction_depth = (int) ( $idibia_transaction_depth ?? 0 );
+    if ( $idibia_transaction_depth === 0 ) {
+        $wpdb->query( 'START TRANSACTION' );
+    }
+    $idibia_transaction_depth++;
 }
 
 function idibia_transaction_commit() {
-    global $wpdb;
-    $wpdb->query( 'COMMIT' );
+    global $wpdb, $idibia_transaction_depth, $idibia_after_commit_pusher_events;
+    $idibia_transaction_depth = max( 0, (int) ( $idibia_transaction_depth ?? 0 ) - 1 );
+    if ( $idibia_transaction_depth === 0 ) {
+        $wpdb->query( 'COMMIT' );
+        $events = $idibia_after_commit_pusher_events ?? [];
+        $idibia_after_commit_pusher_events = [];
+        foreach ( $events as $event ) {
+            idibia_pusher_trigger_now( $event['channels'], $event['event_name'], $event['payload'] );
+        }
+    }
 }
 
 function idibia_transaction_rollback() {
-    global $wpdb;
+    global $wpdb, $idibia_transaction_depth, $idibia_after_commit_pusher_events;
+    $idibia_transaction_depth = 0;
+    $idibia_after_commit_pusher_events = [];
     $wpdb->query( 'ROLLBACK' );
+}
+
+function idibia_transaction_is_active(): bool {
+    global $idibia_transaction_depth;
+    return (int) ( $idibia_transaction_depth ?? 0 ) > 0;
+}
+
+function idibia_queue_pusher_after_commit( $channels, string $event_name, array $payload ): void {
+    global $idibia_after_commit_pusher_events;
+    if ( ! is_array( $idibia_after_commit_pusher_events ?? null ) ) {
+        $idibia_after_commit_pusher_events = [];
+    }
+    $idibia_after_commit_pusher_events[] = [
+        'channels'   => $channels,
+        'event_name' => $event_name,
+        'payload'    => $payload,
+    ];
 }
 
 /**
