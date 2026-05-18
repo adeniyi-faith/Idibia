@@ -857,14 +857,26 @@ a { color: inherit; }
                 <div class="loc-dot pickup">
                   <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" style="color:var(--info)"><circle cx="12" cy="12" r="6"/></svg>
                 </div>
-                <input class="loc-input" type="text" id="pickupInput" placeholder="Pickup location" value="Agip Junction, Port Harcourt">
+                <div style="position:relative; display:flex; flex-direction:column; flex:1;">
+                  <div style="display:flex;">
+                    <input class="loc-input" type="text" id="pickupInput" placeholder="Pickup location" value="Agip Junction, Port Harcourt">
+                    <button type="button" onclick="saveAddress('pickupInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                  </div>
+                  <div id="pickupChips" style="display:flex;gap:8px;margin-top:8px;overflow-x:auto;"></div>
+                </div>
               </div>
               <div class="loc-divider"></div>
               <div class="loc-row">
                 <div class="loc-dot dropoff">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" style="color:var(--gold-dark)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 </div>
-                <input class="loc-input" type="text" id="dropoffInput" placeholder="Where to deliver?">
+                <div style="position:relative;flex:1; display:flex; flex-direction:column;">
+                  <div style="display:flex;">
+                    <input class="loc-input" type="text" id="dropoffInput" placeholder="Where to deliver?">
+                    <button type="button" onclick="saveAddress('dropoffInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                  </div>
+                  <div id="dropoffChips" style="display:flex;gap:8px;margin-top:8px;overflow-x:auto;"></div>
+                </div>
               </div>
               <button class="loc-swap" onclick="swapLocations()" title="Swap locations">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
@@ -1946,8 +1958,10 @@ function buildDateGrid() {
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
+    const dateStr = d.toISOString().split('T')[0];
     const el = document.createElement('div');
     el.className = 'date-day' + (i === 0 ? ' today active' : '');
+    el.dataset.date = dateStr;
     el.innerHTML = `<div class="date-day-name">${days[d.getDay()]}</div><div class="date-day-num">${d.getDate()}</div>`;
     el.onclick = () => {
       document.querySelectorAll('.date-day').forEach(d => d.classList.remove('active'));
@@ -1957,10 +1971,33 @@ function buildDateGrid() {
   }
 }
 
+let selectedScheduleTime = null;
+
+function convertAmPmTo24(timeStr) {
+  const [time, modifier] = timeStr.split(' ');
+  let [hours, minutes] = time.split(':');
+  if (hours === '12') hours = '00';
+  if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
+  return `${hours.toString().padStart(2, '0')}:${minutes}:00`;
+}
+
 function confirmSchedule() {
+  const selectedDateEl = document.querySelector('#dateGrid .date-day.active');
+  const selectedTimeEl = document.querySelector('.time-select');
+
+  if (selectedDateEl && selectedTimeEl) {
+    const dateStr = selectedDateEl.dataset.date;
+    const timeStr = selectedTimeEl.value;
+    const time24 = convertAmPmTo24(timeStr);
+    selectedScheduleTime = `${dateStr} ${time24}`;
+  }
+
   closeAllModals();
   const schedBtn = document.getElementById('schedLater');
-  if (schedBtn) schedBtn.classList.add('active');
+  if (schedBtn) {
+    schedBtn.classList.add('active');
+    schedBtn.textContent = 'Scheduled';
+  }
   const immBtn = document.getElementById('schedImmediate');
   if (immBtn) immBtn.classList.remove('active');
   showToast('Pickup scheduled successfully!');
@@ -1970,6 +2007,30 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 }
 
+// ═══════════ LIVE TRACKING (Phase 5) ═══════════
+
+async function cancelTrip() {
+  if (!currentActiveTripId) return;
+  if (!confirm('Are you sure you want to cancel this trip?')) return;
+
+  try {
+    const body = new FormData();
+    body.append('trip_id', currentActiveTripId);
+
+    const json = await idibiaPost('customer-cancel-api.php', body);
+
+    if (json.success) {
+      showToast(json.data.message);
+      stopLiveTracking();
+      goTo('screen-home');
+      fetchRecentActivity();
+    } else {
+      showToast(json.data?.message || 'Could not cancel trip.');
+    }
+  } catch(err) {
+     showToast('Connection error cancelling trip.');
+  }
+}
 // ═══════════ LIVE TRACKING (Phase 5) ═══════════
 let currentActiveTripId = null;
 let trackingInterval = null;
@@ -2110,6 +2171,17 @@ function updateTrackingUI(trip) {
 
   const distanceValue = document.getElementById('trackingDistanceValue');
   if (distanceValue) distanceValue.textContent = eta.distance_km != null ? eta.distance_km : '--';
+
+  // Cancel button logic
+  const cancelBtnCont = document.getElementById('cancelBtnContainer');
+  if (cancelBtnCont) {
+    const cancellableStatuses = ['pending', 'searching', 'offered', 'accepted', 'no_driver'];
+    if (cancellableStatuses.includes(trip.dispatch_status) && !['completed', 'cancelled'].includes(trip.status)) {
+        cancelBtnCont.style.display = 'block';
+    } else {
+        cancelBtnCont.style.display = 'none';
+    }
+  }
 
   const fareValue = document.getElementById('trackingFareValue');
   if (fareValue) fareValue.textContent = `₦${Number(trip.fare || 0).toLocaleString()}`;
@@ -2286,8 +2358,8 @@ async function doVerify() {
 let currentQuoteId = null;
 
 async function requestQuote() {
-  const pickup = document.getElementById('pickupLoc').value.trim();
-  const dropoff = document.getElementById('dropoffLoc').value.trim();
+  const pickup = document.getElementById('pickupInput').value.trim();
+  const dropoff = document.getElementById('dropoffInput').value.trim();
   const cat = selectedCategory.toLowerCase(); // Package, Food, etc.
 
   // Hardcode vehicle type for now or pick based on cat
@@ -2310,6 +2382,9 @@ async function requestQuote() {
     body.append('dropoff', dropoff);
     body.append('category', cat);
     body.append('vehicle_type', vehicle);
+    if (typeof selectedScheduleTime !== 'undefined' && selectedScheduleTime !== null) {
+      body.append('scheduled_time', selectedScheduleTime);
+    }
 
     const json = await idibiaPost('quote-api.php', body);
 
@@ -2345,9 +2420,15 @@ async function confirmBooking() {
       showToast(json.data.message);
       startLiveTracking(json.data.trip_id || 1);
 
-      document.getElementById('pickupLoc').value = '';
-      document.getElementById('dropoffLoc').value = '';
+      document.getElementById('pickupInput').value = '';
+      document.getElementById('dropoffInput').value = '';
       currentQuoteId = null;
+      selectedScheduleTime = null;
+      const schedBtn = document.getElementById('schedLater');
+      if (schedBtn) {
+        schedBtn.classList.remove('active');
+        schedBtn.textContent = 'Schedule';
+      }
 
       const btn = document.querySelector('button[onclick="requestQuote()"]');
       if(btn) {
@@ -2355,13 +2436,163 @@ async function confirmBooking() {
         btn.textContent = 'Find Rider';
       }
     } else {
+      if (json.data?.message && json.data.message.toLowerCase().includes('expired')) {
+        const requote = confirm('Your quote has expired. Would you like to recalculate and try again?');
+        if (requote) {
+            currentQuoteId = null;
+            requestQuote();
+            return;
+        }
+      }
       showToast(json.data?.message || 'Could not book trip.');
+      const btn = document.querySelector('button[onclick="requestQuote()"]');
+      if(btn) {
+        btn.disabled = false;
+        btn.textContent = 'Find Rider';
+      }
     }
   } catch(err) {
      showToast('Connection error booking trip.');
+     const btn = document.querySelector('button[onclick="requestQuote()"]');
+     if(btn) {
+       btn.disabled = false;
+       btn.textContent = 'Find Rider';
+     }
   }
 }
 
+
+// ═══════════ TRIP DETAILS AND REORDER ═══════════
+async function showTripDetails(tripId) {
+  try {
+    const res = await fetch(`${IDIBIA_API_BASE}/trip-feed-api.php?trip_id=${tripId}`, {
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return showToast('Could not fetch trip details');
+    const json = await res.json();
+    if (json.success) {
+      const trip = json.data;
+      currentActiveTripId = trip.id;
+
+      document.getElementById('td-status').textContent = trip.status;
+      document.getElementById('td-pickup').textContent = trip.pickup;
+      document.getElementById('td-dropoff').textContent = trip.dropoff;
+      document.getElementById('td-fare').textContent = '₦' + parseFloat(trip.fare).toLocaleString();
+
+      const reorderBtn = document.getElementById('td-reorder-btn');
+      if (reorderBtn) reorderBtn.onclick = () => reorderTrip(trip.pickup, trip.dropoff, trip.category || 'package');
+
+      openModal('trip-details');
+    }
+  } catch (err) {
+    showToast('Connection error fetching trip details');
+  }
+}
+
+function reorderTrip(pickup, dropoff, category) {
+  closeModal(null, 'trip-details');
+  document.getElementById('pickupInput').value = pickup;
+  document.getElementById('dropoffInput').value = dropoff;
+
+  // Set category
+  const tabs = document.querySelectorAll('.cat-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  for (let t of tabs) {
+    if (t.textContent.trim().toLowerCase() === category.toLowerCase()) {
+      t.classList.add('active');
+      selectedCategory = t.textContent.trim();
+      break;
+    }
+  }
+
+  goTo('screen-main');
+  requestQuote();
+}
+
+// ═══════════ SAVED ADDRESSES ═══════════
+async function fetchSavedAddresses() {
+  try {
+    const res = await fetch(`${IDIBIA_API_BASE}/get-addresses-api.php`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const json = await res.json();
+    if (json.success && json.data.addresses) {
+      renderAddressChips(json.data.addresses);
+    }
+  } catch (err) {
+    console.error("Failed to load saved addresses", err);
+  }
+}
+
+function renderAddressChips(addresses) {
+  const pickupCont = document.getElementById('pickupChips');
+  const dropoffCont = document.getElementById('dropoffChips');
+  if (!pickupCont || !dropoffCont) return;
+
+  let html = '';
+  addresses.forEach(addr => {
+    // Only display first part of address for brevity
+    const shortAddr = escapeHtml(addr.address.split(',')[0]);
+    html += `<div class="filter-pill" style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px;font-size:11px;" title="${escapeHtml(addr.address)}">
+      <span onclick="fillAddress(this, '${escapeHtml(addr.address)}')">${escapeHtml(addr.label)}: ${shortAddr}</span>
+      <span style="cursor:pointer; color:var(--danger);" onclick="deleteAddress('${escapeHtml(addr.label)}')">&times;</span>
+    </div>`;
+  });
+
+  pickupCont.innerHTML = html;
+  dropoffCont.innerHTML = html;
+}
+
+function fillAddress(el, address) {
+  const inputId = el.parentElement.parentElement.parentElement.querySelector('input').id;
+  document.getElementById(inputId).value = address;
+}
+
+async function saveAddress(inputId) {
+  const address = document.getElementById(inputId).value.trim();
+  if (!address) {
+    showToast('Please enter an address to save.');
+    return;
+  }
+  const label = prompt('Enter a label for this address (e.g. Home, Work):');
+  if (!label) return;
+
+  try {
+    const body = new FormData();
+    body.append('label', label);
+    body.append('address', address);
+
+    const json = await idibiaPost('save-address-api.php', body);
+
+    if (json.success) {
+      showToast(json.data.message);
+      renderAddressChips(json.data.addresses);
+    } else {
+      showToast(json.data?.message || 'Could not save address.');
+    }
+  } catch(err) {
+     showToast('Connection error saving address.');
+  }
+}
+
+async function deleteAddress(label) {
+  if (!confirm(`Delete saved address '${label}'?`)) return;
+  try {
+    const body = new FormData();
+    body.append('label', label);
+    const json = await idibiaPost('delete-address-api.php', body);
+    if (json.success) {
+      showToast(json.data.message);
+      renderAddressChips(json.data.addresses);
+    } else {
+      showToast(json.data?.message || 'Could not delete address.');
+    }
+  } catch(err) {
+     showToast('Connection error deleting address.');
+  }
+}
 
 // ═══════════ RECENT ACTIVITY ═══════════
 async function fetchRecentActivity() {
@@ -2385,8 +2616,10 @@ async function fetchRecentActivity() {
 
         let iconHtml = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>';
 
+        const isTerm = trip.status === 'completed' || trip.status === 'cancelled';
+        const clickAction = isTerm ? `showTripDetails(${trip.id})` : `startLiveTracking(${trip.id})`;
         container.innerHTML += `
-        <div class="activity-card" onclick="startLiveTracking(${trip.id})">
+        <div class="activity-card" onclick="${clickAction}">
           <div class="ac-icon">${iconHtml}</div>
           <div class="ac-details">
             <strong>${trip.dropoff_address || trip.dropoff || 'Delivery'}</strong>
@@ -2408,6 +2641,7 @@ const origEnter = window.enterCustomerApp;
 window.enterCustomerApp = function(msg) {
     if(origEnter) origEnter(msg);
     fetchRecentActivity();
+    fetchSavedAddresses();
 };
 </script>
 </body>

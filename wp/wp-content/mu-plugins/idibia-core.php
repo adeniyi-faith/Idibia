@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 5;
+    $target_version = 6;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -223,11 +223,26 @@ function idibia_maybe_create_tables() {
         $current_version = 4;
     }
 
+
     if ( $current_version < 5 ) {
         idibia_add_manual_payment_columns();
         update_option( 'idibia_db_version', 5 );
+        $current_version = 5;
+    }
+
+    if ( $current_version < 6 ) {
+        idibia_add_saved_addresses_column();
+        update_option( 'idibia_db_version', 6 );
+        $current_version = 6;
     }
 }
+
+function idibia_add_saved_addresses_column(): void {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sd_customers';
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `saved_addresses` TEXT NULL AFTER `phone`" );
+}
+
 
 
 function idibia_add_manual_payment_columns(): void {
@@ -254,6 +269,7 @@ function idibia_create_tables() {
         `full_name`      VARCHAR(120)     NOT NULL,
         `email`          VARCHAR(180)     NOT NULL,
         `phone`          VARCHAR(30)      NOT NULL DEFAULT '',
+        `saved_addresses` TEXT            NULL,
         `password_hash`  VARCHAR(255)     NOT NULL,
         `email_verified` TINYINT(1)       NOT NULL DEFAULT 0,
         `verify_code`    VARCHAR(10)      NULL,
