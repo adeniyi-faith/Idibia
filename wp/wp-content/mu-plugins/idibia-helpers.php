@@ -108,6 +108,62 @@ function idibia_queue_pusher_after_commit( $channels, string $event_name, array 
 }
 
 /**
+ * Credits a driver's wallet once for a captured/completed trip.
+ */
+function idibia_credit_driver_for_trip( int $trip_id ): bool {
+    global $wpdb;
+
+    $trip = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, driver_id, trip_ref, status, payment_status, platform_pct, COALESCE(NULLIF(final_fare, 0), NULLIF(fare_estimate, 0), fare, 0) AS fare_amount FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1",
+        $trip_id
+    ), ARRAY_A );
+
+    if ( ! $trip || empty( $trip['driver_id'] ) || $trip['payment_status'] !== 'captured' ) {
+        return false;
+    }
+
+    $existing = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_wallet_ledger` WHERE entry_type = 'earning' AND reference_id = %d",
+        $trip_id
+    ) );
+    if ( $existing > 0 ) {
+        return true;
+    }
+
+    $fare = max( 0, (float) $trip['fare_amount'] );
+    $platform_pct = min( 100, max( 0, (float) $trip['platform_pct'] ) );
+    $driver_amount = round( $fare * ( 100 - $platform_pct ) / 100, 2 );
+    if ( $driver_amount <= 0 ) {
+        return false;
+    }
+
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_wallet_ledger',
+        [
+            'driver_id'    => (int) $trip['driver_id'],
+            'amount'       => $driver_amount,
+            'entry_type'   => 'earning',
+            'reference_id' => $trip_id,
+            'description'  => 'Driver earning for trip #' . $trip['trip_ref'],
+            'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%d', '%f', '%s', '%d', '%s', '%s' ]
+    );
+
+    if ( false === $inserted ) {
+        return false;
+    }
+
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_drivers` SET wallet_balance = wallet_balance + %f, total_trips = total_trips + 1 WHERE id = %d",
+        $driver_amount,
+        (int) $trip['driver_id']
+    ) );
+
+    return true;
+}
+
+/**
  * Rate limiting helper using WordPress Transients API.
  * Returns true if allowed, false if rate limited.
  */

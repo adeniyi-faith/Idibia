@@ -17,14 +17,8 @@ try {
     switch ( $action ) {
         case 'get_dashboard_stats':
             idibia_require_method( 'GET' );
-            $today = gmdate( 'Y-m-d' );
-            $stats = [
-                'total_customers' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_customers`" ),
-                'active_drivers'  => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE status = 'active'" ),
-                'trips_today'     => (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE DATE(created_at) = %s", $today ) ),
-                'revenue_today'   => (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(fare * platform_pct / 100), 0) FROM `{$wpdb->prefix}sd_trips` WHERE status = 'completed' AND DATE(completed_at) = %s", $today ) ),
-            ];
-            wp_send_json_success( $stats );
+            idibia_admin_dashboard_stats();
+            break;
 
         case 'get_drivers':
             idibia_require_method( 'GET' );
@@ -68,6 +62,16 @@ try {
             idibia_admin_paginated_disputes();
             break;
 
+        case 'get_payouts':
+            idibia_require_method( 'GET' );
+            idibia_admin_paginated_payouts();
+            break;
+
+        case 'process_payout':
+            idibia_require_method( 'POST' );
+            idibia_admin_process_payout();
+            break;
+
         case 'resolve_dispute':
             idibia_require_method( 'POST' );
             idibia_admin_resolve_dispute();
@@ -101,6 +105,66 @@ try {
 } catch ( Exception $e ) {
     http_response_code( 500 );
     wp_send_json_error( [ 'message' => 'Server error.' ] );
+}
+
+
+function idibia_admin_audit_log( string $action, string $entity_type, int $entity_id, array $metadata = [] ): void {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sd_admin_audit_logs';
+    $wpdb->query( "CREATE TABLE IF NOT EXISTS `$table` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        `admin_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+        `action` VARCHAR(80) NOT NULL,
+        `entity_type` VARCHAR(80) NOT NULL,
+        `entity_id` BIGINT UNSIGNED NULL,
+        `metadata` LONGTEXT NULL,
+        `ip` VARCHAR(45) NULL,
+        `user_agent` VARCHAR(255) NULL,
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        KEY `action` (`action`),
+        KEY `entity` (`entity_type`, `entity_id`),
+        KEY `created_at` (`created_at`)
+    ) " . $wpdb->get_charset_collate() );
+    $wpdb->insert( $table, [
+        'admin_id'    => get_current_user_id(),
+        'action'      => $action,
+        'entity_type' => $entity_type,
+        'entity_id'   => $entity_id,
+        'metadata'    => wp_json_encode( $metadata ),
+        'ip'          => sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) ),
+        'user_agent'  => substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ?? '' ) ), 0, 255 ),
+        'created_at'  => gmdate( 'Y-m-d H:i:s' ),
+    ], [ '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%s' ] );
+}
+
+function idibia_admin_dashboard_stats(): void {
+    global $wpdb;
+    $today = gmdate( 'Y-m-d' );
+    $yesterday = gmdate( 'Y-m-d', strtotime( '-1 day' ) );
+    $completed_expr = "COALESCE(NULLIF(final_fare, 0), NULLIF(fare_estimate, 0), fare, 0)";
+    $trips_today = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE DATE(created_at) = %s", $today ) );
+    $trips_yesterday = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE DATE(created_at) = %s", $yesterday ) );
+    $revenue_today = (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM($completed_expr * platform_pct / 100), 0) FROM `{$wpdb->prefix}sd_trips` WHERE status = 'completed' AND DATE(COALESCE(completed_at, created_at)) = %s", $today ) );
+    $completed_24h = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE status = 'completed' AND COALESCE(completed_at, created_at) >= UTC_TIMESTAMP() - INTERVAL 1 DAY" );
+    $finished_24h = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE status IN ('completed','cancelled') AND COALESCE(completed_at, created_at) >= UTC_TIMESTAMP() - INTERVAL 1 DAY" );
+    $avg_pickup = (float) $wpdb->get_var( "SELECT COALESCE(AVG(TIMESTAMPDIFF(MINUTE, created_at, accepted_at)), 0) FROM `{$wpdb->prefix}sd_trips` WHERE accepted_at IS NOT NULL AND created_at >= UTC_TIMESTAMP() - INTERVAL 1 DAY" );
+    $recent = $wpdb->get_results( "SELECT t.id, t.trip_ref, t.category, t.service_category, t.status, t.dispatch_status, t.pickup, t.dropoff, t.pickup_address, t.dropoff_address, $completed_expr AS fare_amount, t.created_at, t.completed_at, c.full_name AS customer_name, d.full_name AS driver_name FROM `{$wpdb->prefix}sd_trips` t LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id ORDER BY t.created_at DESC LIMIT 5", ARRAY_A ) ?: [];
+    wp_send_json_success( [
+        'total_customers' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_customers`" ),
+        'active_drivers'  => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE status = 'active'" ),
+        'online_drivers'  => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE is_online = 1 AND status = 'active'" ),
+        'kyc_pending'     => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE kyc_status = 'under_review'" ),
+        'trips_today'     => $trips_today,
+        'trips_yesterday' => $trips_yesterday,
+        'revenue_today'   => $revenue_today,
+        'completion_rate' => $finished_24h > 0 ? round( ( $completed_24h / $finished_24h ) * 100, 1 ) : 0,
+        'avg_pickup_time' => round( $avg_pickup, 1 ),
+        'open_disputes'   => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_disputes` WHERE status IN ('open','escalated')" ),
+        'escalated_disputes' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_disputes` WHERE status = 'escalated'" ),
+        'suspended_drivers' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE status = 'suspended'" ),
+        'recent_trips' => $recent,
+    ] );
 }
 
 function idibia_require_method( string $method ): void {
@@ -182,6 +246,7 @@ function idibia_admin_kyc_action(): void {
         }
         wp_mail( $driver->email, '[Idibia] Driver application update', "Hi {$driver->full_name},\n\nYour KYC application was $decision.\n\n$notes", [ 'Content-Type: text/plain; charset=UTF-8' ] );
     }
+    idibia_admin_audit_log( $decision === 'approved' ? 'approve_kyc' : 'reject_kyc', 'driver', $driver_id, [ 'decision' => $decision, 'notes' => $notes ] );
     wp_send_json_success( [ 'message' => 'KYC updated.' ] );
 }
 
@@ -199,6 +264,7 @@ function idibia_admin_suspend_driver(): void {
         }
         wp_mail( $driver->email, '[Idibia] Driver account suspended', "Hi {$driver->full_name},\n\nYour driver account has been suspended.\n\nReason: $reason", [ 'Content-Type: text/plain; charset=UTF-8' ] );
     }
+    idibia_admin_audit_log( 'suspend_driver', 'driver', $driver_id, [ 'reason' => $reason ] );
     wp_send_json_success( [ 'message' => 'Driver suspended.' ] );
 }
 
@@ -222,13 +288,21 @@ function idibia_admin_paginated_trips(): void {
     $where = [ '1=1' ]; $args = [];
     $status = sanitize_text_field( wp_unslash( $_GET['status'] ?? '' ) );
     $category = sanitize_text_field( wp_unslash( $_GET['category'] ?? '' ) );
-    if ( $status ) { $where[] = 't.status = %s'; $args[] = $status; }
-    if ( $category ) { $where[] = 't.category = %s'; $args[] = $category; }
+    $search = sanitize_text_field( wp_unslash( $_GET['search'] ?? '' ) );
+    if ( $status ) {
+        if ( $status === 'in-transit' ) { $where[] = "(t.status IN ('accepted','in_progress') OR t.dispatch_status IN ('accepted','arriving','arrived_pickup','picked_up','arrived_dropoff'))"; }
+        elseif ( $status === 'delivered' ) { $where[] = "t.status = 'completed'"; }
+        elseif ( $status === 'cancelled' ) { $where[] = "t.status = 'cancelled'"; }
+        elseif ( $status === 'delayed' ) { $where[] = "t.status NOT IN ('completed','cancelled') AND t.created_at < UTC_TIMESTAMP() - INTERVAL 2 HOUR"; }
+        else { $where[] = 't.status = %s'; $args[] = $status; }
+    }
+    if ( $category ) { $like = '%' . $wpdb->esc_like( $category ) . '%'; $where[] = '(t.category = %s OR t.service_category LIKE %s)'; array_push( $args, $category, $like ); }
+    if ( $search ) { $like = '%' . $wpdb->esc_like( $search ) . '%'; $where[] = '(t.trip_ref LIKE %s OR t.pickup LIKE %s OR t.dropoff LIKE %s OR t.pickup_address LIKE %s OR t.dropoff_address LIKE %s OR c.full_name LIKE %s OR d.full_name LIKE %s)'; array_push( $args, $like, $like, $like, $like, $like, $like, $like ); }
     $sql_where = implode( ' AND ', $where );
-    $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` t WHERE $sql_where", $args ) );
-    $sql = "SELECT t.*, c.full_name AS customer_name, d.full_name AS driver_name FROM `{$wpdb->prefix}sd_trips` t LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id WHERE $sql_where ORDER BY t.created_at DESC LIMIT %d OFFSET %d";
+    $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` t LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id WHERE $sql_where", $args ) );
+    $sql = "SELECT t.*, COALESCE(NULLIF(t.final_fare, 0), NULLIF(t.fare_estimate, 0), t.fare, 0) AS fare_amount, c.full_name AS customer_name, d.full_name AS driver_name FROM `{$wpdb->prefix}sd_trips` t LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id WHERE $sql_where ORDER BY t.created_at DESC LIMIT %d OFFSET %d";
     $rows = $wpdb->get_results( idibia_sql( $sql, array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
-    wp_send_json_success( [ 'trips' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+    wp_send_json_success( [ 'trips' => $rows ?: [], 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
 }
 
 
@@ -281,12 +355,94 @@ function idibia_admin_live_ops(): void {
 function idibia_admin_paginated_disputes(): void {
     global $wpdb;
     [ $page, $per_page, $offset ] = idibia_page_args();
+    $where = [ '1=1' ]; $args = [];
     $status = sanitize_text_field( wp_unslash( $_GET['status'] ?? '' ) );
-    $where = $status ? 'WHERE status = %s' : '';
-    $args = $status ? [ $status ] : [];
-    $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_disputes` $where", $args ) );
-    $rows = $wpdb->get_results( idibia_sql( "SELECT * FROM `{$wpdb->prefix}sd_disputes` $where ORDER BY created_at DESC LIMIT %d OFFSET %d", array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
-    wp_send_json_success( [ 'disputes' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+    $search = sanitize_text_field( wp_unslash( $_GET['search'] ?? '' ) );
+    if ( $status && $status !== 'all' ) { $where[] = 'di.status = %s'; $args[] = $status; }
+    if ( $search ) { $like = '%' . $wpdb->esc_like( $search ) . '%'; $where[] = '(di.category LIKE %s OR di.description LIKE %s OR t.trip_ref LIKE %s OR c.full_name LIKE %s OR d.full_name LIKE %s)'; array_push( $args, $like, $like, $like, $like, $like ); }
+    $sql_where = implode( ' AND ', $where );
+    $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_disputes` di LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = di.trip_id LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = di.customer_id LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = di.driver_id WHERE $sql_where", $args ) );
+    $rows = $wpdb->get_results( idibia_sql( "SELECT di.*, t.trip_ref, c.full_name AS customer_name, d.full_name AS driver_name FROM `{$wpdb->prefix}sd_disputes` di LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = di.trip_id LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = di.customer_id LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = di.driver_id WHERE $sql_where ORDER BY di.created_at DESC LIMIT %d OFFSET %d", array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
+    wp_send_json_success( [ 'disputes' => $rows ?: [], 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+}
+
+function idibia_admin_sync_pending_payouts(): void {
+    global $wpdb;
+    $drivers = $wpdb->get_results(
+        "SELECT d.id, d.wallet_balance
+         FROM `{$wpdb->prefix}sd_drivers` d
+         LEFT JOIN `{$wpdb->prefix}sd_payouts` p ON p.driver_id = d.id AND p.status IN ('pending','processing')
+         WHERE d.wallet_balance > 0 AND p.id IS NULL",
+        ARRAY_A
+    ) ?: [];
+
+    foreach ( $drivers as $driver ) {
+        $wpdb->insert(
+            $wpdb->prefix . 'sd_payouts',
+            [
+                'driver_id'    => (int) $driver['id'],
+                'amount'       => (float) $driver['wallet_balance'],
+                'status'       => 'pending',
+                'provider_ref' => 'wallet-' . (int) $driver['id'] . '-' . gmdate( 'YmdHis' ),
+                'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+                'updated_at'   => gmdate( 'Y-m-d H:i:s' ),
+            ],
+            [ '%d', '%f', '%s', '%s', '%s', '%s' ]
+        );
+    }
+}
+
+function idibia_admin_paginated_payouts(): void {
+    global $wpdb;
+    idibia_admin_sync_pending_payouts();
+    [ $page, $per_page, $offset ] = idibia_page_args();
+    $status = sanitize_text_field( wp_unslash( $_GET['status'] ?? 'pending' ) );
+    $search = sanitize_text_field( wp_unslash( $_GET['search'] ?? '' ) );
+    $where = [ '1=1' ]; $args = [];
+    if ( $status && $status !== 'all' ) { $where[] = 'p.status = %s'; $args[] = $status; }
+    if ( $search ) { $like = '%' . $wpdb->esc_like( $search ) . '%'; $where[] = '(d.full_name LIKE %s OR d.email LIKE %s OR d.bank_name LIKE %s OR p.provider_ref LIKE %s)'; array_push( $args, $like, $like, $like, $like ); }
+    $sql_where = implode( ' AND ', $where );
+    $metrics = [
+        'pending_amount' => (float) $wpdb->get_var( "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_payouts` WHERE status IN ('pending','processing')" ),
+        'pending_count' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payouts` WHERE status IN ('pending','processing')" ),
+        'processed_today_amount' => (float) $wpdb->get_var( "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_payouts` WHERE status = 'paid' AND DATE(updated_at) = UTC_DATE()" ),
+        'processed_today_count' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payouts` WHERE status = 'paid' AND DATE(updated_at) = UTC_DATE()" ),
+        'failed_count' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payouts` WHERE status = 'failed'" ),
+        'avg_payout' => (float) $wpdb->get_var( "SELECT COALESCE(AVG(amount), 0) FROM `{$wpdb->prefix}sd_payouts` WHERE created_at >= UTC_TIMESTAMP() - INTERVAL 7 DAY" ),
+        'wallet_balance' => (float) $wpdb->get_var( "SELECT COALESCE(SUM(wallet_balance), 0) FROM `{$wpdb->prefix}sd_drivers`" ),
+    ];
+    $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payouts` p LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = p.driver_id WHERE $sql_where", $args ) );
+    $rows = $wpdb->get_results( idibia_sql( "SELECT p.*, d.full_name AS driver_name, d.bank_name, d.account_number, d.wallet_balance, d.total_trips FROM `{$wpdb->prefix}sd_payouts` p LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = p.driver_id WHERE $sql_where ORDER BY p.updated_at DESC, p.created_at DESC LIMIT %d OFFSET %d", array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A ) ?: [];
+    wp_send_json_success( [ 'payouts' => $rows, 'metrics' => $metrics, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+}
+
+function idibia_admin_process_payout(): void {
+    global $wpdb;
+    $payout_id = absint( $_POST['payout_id'] ?? 0 );
+    $status = sanitize_key( $_POST['status'] ?? 'paid' );
+    if ( ! in_array( $status, [ 'processing', 'paid', 'failed' ], true ) ) wp_send_json_error( [ 'message' => 'Invalid payout status.' ] );
+    $payout = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_payouts` WHERE id = %d LIMIT 1", $payout_id ), ARRAY_A );
+    if ( ! $payout ) wp_send_json_error( [ 'message' => 'Payout not found.' ] );
+    if ( $payout['status'] === 'paid' && $status === 'paid' ) {
+        wp_send_json_error( [ 'message' => 'This payout has already been released.' ] );
+    }
+
+    idibia_transaction_start();
+    $updated = $wpdb->update( $wpdb->prefix . 'sd_payouts', [ 'status' => $status, 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ], [ 'id' => $payout_id ], [ '%s', '%s' ], [ '%d' ] );
+    if ( false === $updated ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Could not update payout.' ] );
+    }
+    if ( $status === 'paid' ) {
+        $ledger_exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_wallet_ledger` WHERE entry_type = 'payout' AND reference_id = %d", $payout_id ) );
+        if ( $ledger_exists === 0 ) {
+            $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->prefix}sd_drivers` SET wallet_balance = GREATEST(wallet_balance - %f, 0) WHERE id = %d", (float) $payout['amount'], (int) $payout['driver_id'] ) );
+            $wpdb->insert( $wpdb->prefix . 'sd_wallet_ledger', [ 'driver_id' => (int) $payout['driver_id'], 'amount' => -abs( (float) $payout['amount'] ), 'entry_type' => 'payout', 'reference_id' => $payout_id, 'description' => 'Admin payout released', 'created_at' => gmdate( 'Y-m-d H:i:s' ) ], [ '%d', '%f', '%s', '%d', '%s', '%s' ] );
+        }
+    }
+    idibia_transaction_commit();
+    idibia_admin_audit_log( 'payout', 'payout', $payout_id, [ 'status' => $status, 'driver_id' => (int) $payout['driver_id'], 'amount' => (float) $payout['amount'] ] );
+    wp_send_json_success( [ 'message' => 'Payout updated.' ] );
 }
 
 function idibia_admin_resolve_dispute(): void {
@@ -298,6 +454,7 @@ function idibia_admin_resolve_dispute(): void {
     $updated = $wpdb->update( $wpdb->prefix . 'sd_disputes', [ 'status' => 'resolved', 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes, 'resolved_at' => gmdate( 'Y-m-d H:i:s' ) ], [ 'id' => $dispute_id ], [ '%s', '%s', '%f', '%s', '%s' ], [ '%d' ] );
     if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not resolve dispute.' ] );
     idibia_admin_audit_log( 'resolve_dispute', 'dispute', $dispute_id, [ 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes ] );
+    if ( $refund > 0 ) idibia_admin_audit_log( 'refund', 'dispute', $dispute_id, [ 'refund_amount' => $refund, 'resolution' => $resolution ] );
     wp_send_json_success( [ 'message' => 'Dispute resolved.' ] );
 }
 
@@ -401,6 +558,7 @@ function idibia_admin_review_manual_payment(): void {
         idibia_credit_driver_for_trip( (int) $payment['trip_id'] );
     }
     idibia_transaction_commit();
+    idibia_admin_audit_log( $decision === 'approve' ? 'approve_manual_payment' : 'reject_manual_payment', 'payment', $payment_id, [ 'decision' => $decision, 'trip_id' => (int) $payment['trip_id'], 'notes' => $notes ] );
 
     wp_send_json_success( [ 'message' => $decision === 'approve' ? 'Payment approved.' : 'Payment rejected.', 'payment' => idibia_payment_public_payload( (int) $payment['trip_id'] ) ] );
 }
