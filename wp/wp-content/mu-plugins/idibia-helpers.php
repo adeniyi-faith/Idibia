@@ -62,18 +62,105 @@ function idibia_log_event( int $trip_id, string $event_type, array $event_data =
  * Transaction helpers.
  */
 function idibia_transaction_start() {
-    global $wpdb;
-    $wpdb->query( 'START TRANSACTION' );
+    global $wpdb, $idibia_transaction_depth;
+    $idibia_transaction_depth = (int) ( $idibia_transaction_depth ?? 0 );
+    if ( $idibia_transaction_depth === 0 ) {
+        $wpdb->query( 'START TRANSACTION' );
+    }
+    $idibia_transaction_depth++;
 }
 
 function idibia_transaction_commit() {
-    global $wpdb;
-    $wpdb->query( 'COMMIT' );
+    global $wpdb, $idibia_transaction_depth, $idibia_after_commit_pusher_events;
+    $idibia_transaction_depth = max( 0, (int) ( $idibia_transaction_depth ?? 0 ) - 1 );
+    if ( $idibia_transaction_depth === 0 ) {
+        $wpdb->query( 'COMMIT' );
+        $events = $idibia_after_commit_pusher_events ?? [];
+        $idibia_after_commit_pusher_events = [];
+        foreach ( $events as $event ) {
+            idibia_pusher_trigger_now( $event['channels'], $event['event_name'], $event['payload'] );
+        }
+    }
 }
 
 function idibia_transaction_rollback() {
-    global $wpdb;
+    global $wpdb, $idibia_transaction_depth, $idibia_after_commit_pusher_events;
+    $idibia_transaction_depth = 0;
+    $idibia_after_commit_pusher_events = [];
     $wpdb->query( 'ROLLBACK' );
+}
+
+function idibia_transaction_is_active(): bool {
+    global $idibia_transaction_depth;
+    return (int) ( $idibia_transaction_depth ?? 0 ) > 0;
+}
+
+function idibia_queue_pusher_after_commit( $channels, string $event_name, array $payload ): void {
+    global $idibia_after_commit_pusher_events;
+    if ( ! is_array( $idibia_after_commit_pusher_events ?? null ) ) {
+        $idibia_after_commit_pusher_events = [];
+    }
+    $idibia_after_commit_pusher_events[] = [
+        'channels'   => $channels,
+        'event_name' => $event_name,
+        'payload'    => $payload,
+    ];
+}
+
+/**
+ * Credits a driver's wallet once for a captured/completed trip.
+ */
+function idibia_credit_driver_for_trip( int $trip_id ): bool {
+    global $wpdb;
+
+    $trip = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, driver_id, trip_ref, status, payment_status, platform_pct, COALESCE(NULLIF(final_fare, 0), NULLIF(fare_estimate, 0), fare, 0) AS fare_amount FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1",
+        $trip_id
+    ), ARRAY_A );
+
+    if ( ! $trip || empty( $trip['driver_id'] ) || $trip['payment_status'] !== 'captured' ) {
+        return false;
+    }
+
+    $existing = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_wallet_ledger` WHERE entry_type = 'earning' AND reference_id = %d",
+        $trip_id
+    ) );
+    if ( $existing > 0 ) {
+        return true;
+    }
+
+    $fare = max( 0, (float) $trip['fare_amount'] );
+    $platform_pct = min( 100, max( 0, (float) $trip['platform_pct'] ) );
+    $driver_amount = round( $fare * ( 100 - $platform_pct ) / 100, 2 );
+    if ( $driver_amount <= 0 ) {
+        return false;
+    }
+
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_wallet_ledger',
+        [
+            'driver_id'    => (int) $trip['driver_id'],
+            'amount'       => $driver_amount,
+            'entry_type'   => 'earning',
+            'reference_id' => $trip_id,
+            'description'  => 'Driver earning for trip #' . $trip['trip_ref'],
+            'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%d', '%f', '%s', '%d', '%s', '%s' ]
+    );
+
+    if ( false === $inserted ) {
+        return false;
+    }
+
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_drivers` SET wallet_balance = wallet_balance + %f, total_trips = total_trips + 1 WHERE id = %d",
+        $driver_amount,
+        (int) $trip['driver_id']
+    ) );
+
+    return true;
 }
 
 /**

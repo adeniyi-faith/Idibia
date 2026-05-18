@@ -1346,7 +1346,7 @@ async function resolveDispute(){
   if(!currentDisputeId){ toast('Select a real dispute first.'); return; }
   const action=document.getElementById('resolutionType').value;
   const refund=document.getElementById('refundAmt').value;
-  const notes=document.getElementById('resolutionNotes')?.value || '';
+  const notes=document.getElementById('resolutionNotes').value;
   try{ const data=await adminApi('resolve_dispute',{dispute_id:currentDisputeId,resolution_action:action,refund_amount:refund||0,admin_notes:notes||''},'POST'); closeModal(); toast(data.message||'Dispute resolved'); loadDisputes(); loadDashboard(); }
   catch(e){ toast(e.message||'Could not resolve dispute'); }
 }

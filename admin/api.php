@@ -423,24 +423,13 @@ function idibia_admin_process_payout(): void {
     if ( ! in_array( $status, [ 'processing', 'paid', 'failed' ], true ) ) wp_send_json_error( [ 'message' => 'Invalid payout status.' ] );
     $payout = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_payouts` WHERE id = %d LIMIT 1", $payout_id ), ARRAY_A );
     if ( ! $payout ) wp_send_json_error( [ 'message' => 'Payout not found.' ] );
-    if ( $status === 'paid' ) {
-        if ( $payout['status'] === 'paid' ) {
-            wp_send_json_success( [ 'message' => 'Payout already released.' ] );
-        }
-        if ( ! in_array( $payout['status'], [ 'pending', 'processing' ], true ) ) {
-            wp_send_json_error( [ 'message' => 'Only pending or processing payouts can be released.' ] );
-        }
+    if ( $payout['status'] === 'paid' && $status === 'paid' ) {
+        wp_send_json_error( [ 'message' => 'This payout has already been released.' ] );
     }
 
     idibia_transaction_start();
-    $where = [ 'id' => $payout_id ];
-    $where_formats = [ '%d' ];
-    if ( $status === 'paid' ) {
-        $where['status'] = $payout['status'];
-        $where_formats[] = '%s';
-    }
-    $updated = $wpdb->update( $wpdb->prefix . 'sd_payouts', [ 'status' => $status, 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ], $where, [ '%s', '%s' ], $where_formats );
-    if ( false === $updated || ( $status === 'paid' && (int) $updated === 0 ) ) {
+    $updated = $wpdb->update( $wpdb->prefix . 'sd_payouts', [ 'status' => $status, 'updated_at' => gmdate( 'Y-m-d H:i:s' ) ], [ 'id' => $payout_id ], [ '%s', '%s' ], [ '%d' ] );
+    if ( false === $updated ) {
         idibia_transaction_rollback();
         wp_send_json_error( [ 'message' => 'Could not update payout.' ] );
     }
