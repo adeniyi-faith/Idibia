@@ -312,6 +312,10 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 .panel-search input, .panel-search select {flex:1 1 100%; background:var(--white);border:1.5px solid var(--surface-2);border-radius:10px;padding:8px 12px;font-size:13px;color:var(--text-primary);outline:none;}
 .panel-search input:focus{border-color:var(--info);}
 .panel-search button{flex:1 1 100%; padding:9px 14px; border-radius:10px;border:none;background:var(--navy);color:var(--white);font-size:12px;font-weight:600;}
+.loading-state,.empty-state{padding:28px 18px;text-align:center;color:var(--text-muted);font-size:13px;}
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:12px 16px;border-top:1px solid var(--surface);font-size:12px;color:var(--text-secondary);}
+.pagination button{height:30px;padding:0 12px;border:1px solid var(--surface-2);border-radius:8px;background:var(--white);color:var(--text-primary);font-weight:700;}
+.pagination button:disabled{opacity:.45;cursor:not-allowed;}
 @media(min-width:600px){
   .panel-search{flex-wrap:nowrap;}
   .panel-search input {flex:1;}
@@ -521,26 +525,20 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <div class="page-sub">Live snapshot · Port Harcourt metro</div>
     </div>
     <div class="metrics-grid four">
-      <div class="metric-card"><div class="metric-label">ACTIVE RIDERS</div><div class="metric-value">284</div><div class="metric-delta up">↑ +12 since morning</div></div>
-      <div class="metric-card"><div class="metric-label">TRIPS TODAY</div><div class="metric-value">1,423</div><div class="metric-delta up">↑ +8.2% vs yesterday</div></div>
-      <div class="metric-card"><div class="metric-label">REVENUE TODAY</div><div class="metric-value">₦2.1M</div><div class="metric-delta up">↑ +14.5%</div></div>
-      <div class="metric-card"><div class="metric-label">KYC PENDING</div><div class="metric-value" style="color:var(--danger)">7</div><div class="metric-delta down">⚠ Needs attention</div></div>
+      <div class="metric-card"><div class="metric-label">ACTIVE RIDERS</div><div class="metric-value" id="overviewActiveDrivers">--</div><div class="metric-delta neutral" id="overviewOnlineDrivers">Loading…</div></div>
+      <div class="metric-card"><div class="metric-label">TRIPS TODAY</div><div class="metric-value" id="overviewTripsToday">--</div><div class="metric-delta neutral" id="overviewTripsDelta">Loading…</div></div>
+      <div class="metric-card"><div class="metric-label">REVENUE TODAY</div><div class="metric-value" id="overviewRevenueToday">--</div><div class="metric-delta neutral">Platform commission</div></div>
+      <div class="metric-card"><div class="metric-label">KYC PENDING</div><div class="metric-value" style="color:var(--danger)" id="overviewKycPending">--</div><div class="metric-delta down">Needs attention</div></div>
     </div>
     <div class="metrics-grid four">
-      <div class="metric-card"><div class="metric-label">COMPLETION RATE</div><div class="metric-value">96.4%</div><div class="metric-delta neutral">Last 24h</div></div>
-      <div class="metric-card"><div class="metric-label">AVG PICKUP TIME</div><div class="metric-value">4.2m</div><div class="metric-delta up">↑ vs 5.1m avg</div></div>
-      <div class="metric-card"><div class="metric-label">OPEN DISPUTES</div><div class="metric-value" style="color:var(--warn)">5</div><div class="metric-delta down">2 escalated</div></div>
-      <div class="metric-card"><div class="metric-label">SUSPENDED</div><div class="metric-value" style="color:var(--danger)">14</div><div class="metric-delta neutral">Accounts</div></div>
+      <div class="metric-card"><div class="metric-label">COMPLETION RATE</div><div class="metric-value" id="overviewCompletionRate">--</div><div class="metric-delta neutral">Last 24h</div></div>
+      <div class="metric-card"><div class="metric-label">AVG PICKUP TIME</div><div class="metric-value" id="overviewAvgPickup">--</div><div class="metric-delta neutral">Last 24h</div></div>
+      <div class="metric-card"><div class="metric-label">OPEN DISPUTES</div><div class="metric-value" style="color:var(--warn)" id="overviewOpenDisputes">--</div><div class="metric-delta down" id="overviewEscalatedDisputes">-- escalated</div></div>
+      <div class="metric-card"><div class="metric-label">SUSPENDED</div><div class="metric-value" style="color:var(--danger)" id="overviewSuspended">--</div><div class="metric-delta neutral">Driver accounts</div></div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Recent Deliveries</h3><button class="scard-action" onclick="nav('trips',document.querySelectorAll('.nav-btn')[3])">View all →</button></div>
-      <div>
-        <div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">JO</div><div class="item-info"><div class="item-name">#SD-00928 · Package</div><div class="item-meta">Agip Jctn → D-Line · ₦2,800</div></div><span class="badge badge-info">In Transit</span></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">AM</div><div class="item-info"><div class="item-name">#SD-00927 · Gift</div><div class="item-meta">GRA Phase 2 → Woji · ₦4,200</div></div><span class="badge badge-success">Delivered</span></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">TN</div><div class="item-info"><div class="item-name">#SD-00926 · Documents</div><div class="item-meta">Trans Amadi → Rumuola · ₦1,500</div></div><span class="badge badge-success">Delivered</span></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(245,166,35,0.1);color:var(--warn)">KA</div><div class="item-info"><div class="item-name">#SD-00925 · Groceries</div><div class="item-meta">Elelenwo → Rumuigbo · ₦3,100</div></div><span class="badge badge-warn">Delayed</span></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger)">OB</div><div class="item-info"><div class="item-name">#SD-00924 · Laundry</div><div class="item-meta">Rumuola → Stadium Rd · ₦1,800</div></div><span class="badge badge-danger">Cancelled</span></div>
-      </div>
+      <div id="overviewRecentTrips"><div class="loading-state">Loading recent deliveries…</div></div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Activity Trend (7 days)</h3></div>
@@ -681,13 +679,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <button class="filter-btn" onclick="filterTripStatus('cancelled',this)">Cancelled</button>
     </div>
     <div class="scard">
-      <div id="tripList">
-        <div class="list-item" data-status="in-transit"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">JO</div><div class="item-info"><div class="item-name">#SD-00928 · Package</div><div class="item-meta">Agip Jctn → D-Line · ₦2,800 · Driver: Amina K.</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge badge-info">In Transit</span><button class="btn-sm btn-view" style="width:100%" onclick="openTripDetail('#SD-00928','Package','Agip Jctn','D-Line','₦2,800','Amina Kalu','In Transit')">Details</button></div></div>
-        <div class="list-item" data-status="delivered"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">AM</div><div class="item-info"><div class="item-name">#SD-00927 · Gift</div><div class="item-meta">GRA Phase 2 → Woji · ₦4,200 · Driver: Bayo E.</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge badge-success">Delivered</span><button class="btn-sm btn-view" style="width:100%" onclick="openTripDetail('#SD-00927','Gift','GRA Phase 2','Woji','₦4,200','Bayo Eze','Delivered')">Details</button></div></div>
-        <div class="list-item" data-status="delivered"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">TN</div><div class="item-info"><div class="item-name">#SD-00926 · Documents</div><div class="item-meta">Trans Amadi → Rumuola · ₦1,500 · Driver: Chuks I.</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge badge-success">Delivered</span><button class="btn-sm btn-view" style="width:100%" onclick="openTripDetail('#SD-00926','Documents','Trans Amadi','Rumuola','₦1,500','Chuks Ikenna','Delivered')">Details</button></div></div>
-        <div class="list-item" data-status="delayed"><div class="avatar" style="background:rgba(245,166,35,0.1);color:var(--warn)">KA</div><div class="item-info"><div class="item-name">#SD-00925 · Groceries</div><div class="item-meta">Elelenwo → Rumuigbo · ₦3,100 · Driver: Dayo O.</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge badge-warn">Delayed</span><button class="btn-sm btn-view" style="width:100%" onclick="openTripDetail('#SD-00925','Groceries','Elelenwo','Rumuigbo','₦3,100','Dayo Okon','Delayed')">Details</button></div></div>
-        <div class="list-item" data-status="cancelled"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger)">OB</div><div class="item-info"><div class="item-name">#SD-00924 · Laundry</div><div class="item-meta">Rumuola → Stadium Rd · ₦1,800 · Driver: Emeka M.</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge badge-danger">Cancelled</span><button class="btn-sm btn-view" style="width:100%" onclick="openTripDetail('#SD-00924','Laundry','Rumuola','Stadium Rd','₦1,800','Emeka Mba','Cancelled')">Details</button></div></div>
-      </div>
+      <div id="tripList"><div class="loading-state">Loading deliveries…</div></div><div class="pagination" id="tripPagination"></div>
     </div>
   </div>
 
@@ -731,19 +723,14 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   <div class="panel" id="panel-payouts">
     <div class="page-header"><h2 class="page-title">Driver Payouts</h2><div class="page-sub">Manage and release driver earnings</div></div>
     <div class="metrics-grid four">
-      <div class="metric-card"><div class="metric-label">TOTAL PENDING</div><div class="metric-value">₦4.2M</div><div class="metric-delta down">42 drivers</div></div>
-      <div class="metric-card"><div class="metric-label">PROCESSED TODAY</div><div class="metric-value">₦2.8M</div><div class="metric-delta up">28 processed</div></div>
-      <div class="metric-card"><div class="metric-label">FAILED PAYOUTS</div><div class="metric-value" style="color:var(--danger)">3</div><div class="metric-delta down">Review needed</div></div>
-      <div class="metric-card"><div class="metric-label">AVG PAYOUT</div><div class="metric-value">₦102K</div><div class="metric-delta neutral">Per driver/wk</div></div>
+      <div class="metric-card"><div class="metric-label">TOTAL PENDING</div><div class="metric-value" id="payoutPendingAmount">--</div><div class="metric-delta down" id="payoutPendingCount">Loading…</div></div>
+      <div class="metric-card"><div class="metric-label">PROCESSED TODAY</div><div class="metric-value" id="payoutProcessedAmount">--</div><div class="metric-delta up" id="payoutProcessedCount">Loading…</div></div>
+      <div class="metric-card"><div class="metric-label">FAILED PAYOUTS</div><div class="metric-value" style="color:var(--danger)" id="payoutFailedCount">--</div><div class="metric-delta down">Review needed</div></div>
+      <div class="metric-card"><div class="metric-label">AVG PAYOUT</div><div class="metric-value" id="payoutAvgAmount">--</div><div class="metric-delta neutral">Per payout/wk</div></div>
     </div>
     <div class="scard">
-      <div class="scard-header"><h3>Pending Payouts</h3><button class="btn-primary" style="font-size:11px;padding:6px 12px;width:auto;" onclick="toast('Batch payout initiated for 42 drivers')">Release All (₦4.2M)</button></div>
-      <div>
-        <div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">AK</div><div class="item-info"><div class="item-name">Amina Kalu</div><div class="item-meta">UBA ****4821 · 24 trips this week</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-weight:700;font-size:14px">₦138,400</div><button class="btn-sm btn-approve" onclick="toast('₦138,400 released to Amina Kalu')">Release</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">BE</div><div class="item-info"><div class="item-name">Bayo Eze</div><div class="item-meta">GTB ****2034 · 19 trips this week</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-weight:700;font-size:14px">₦94,700</div><button class="btn-sm btn-approve" onclick="toast('₦94,700 released to Bayo Eze')">Release</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger)">CI</div><div class="item-info"><div class="item-name">Chuks Ikenna</div><div class="item-meta">Access ****9012 · FAILED · Invalid account</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-weight:700;font-size:14px;color:var(--danger)">₦67,200</div><button class="btn-sm btn-reject" onclick="openDisputeModal('Failed payout for Chuks Ikenna')">Fix</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.1);color:var(--gold-dark)">DO</div><div class="item-info"><div class="item-name">Dayo Okon</div><div class="item-meta">Zenith ****6622 · 31 trips this week</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-weight:700;font-size:14px">₦182,900</div><button class="btn-sm btn-approve" onclick="toast('₦182,900 released to Dayo Okon')">Release</button></div></div>
-      </div>
+      <div class="scard-header"><h3>Driver Payouts</h3><button class="btn-primary" id="releaseAllPayoutsBtn" style="font-size:11px;padding:6px 12px;width:auto;" onclick="releaseVisiblePayouts()">Release visible</button></div>
+      <div class="panel-search" style="padding:14px 16px;margin-bottom:0"><input id="payoutSearch" placeholder="Search driver, bank, reference…" oninput="queuePayoutSearch(this.value)"><select class="filter-select" id="payoutStatus" onchange="setPayoutStatus(this.value)"><option value="pending">Pending</option><option value="processing">Processing</option><option value="failed">Failed</option><option value="paid">Paid</option><option value="all">All</option></select></div><div id="payoutList"><div class="loading-state">Loading payouts…</div></div><div class="pagination" id="payoutPagination"></div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Tax portal</h3></div>
@@ -818,9 +805,9 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   <div class="panel" id="panel-disputes">
     <div class="page-header"><h2 class="page-title">Disputes</h2><div class="page-sub">Customer complaints and escalations</div></div>
     <div class="metrics-grid three">
-      <div class="metric-card"><div class="metric-label">OPEN DISPUTES</div><div class="metric-value" style="color:var(--warn)">5</div><div class="metric-delta down">2 escalated</div></div>
-      <div class="metric-card"><div class="metric-label">RESOLVED THIS WEEK</div><div class="metric-value">18</div><div class="metric-delta up">↑ Avg 1.2 days</div></div>
-      <div class="metric-card"><div class="metric-label">REFUNDS ISSUED</div><div class="metric-value">₦84K</div><div class="metric-delta neutral">This week</div></div>
+      <div class="metric-card"><div class="metric-label">OPEN DISPUTES</div><div class="metric-value" style="color:var(--warn)" id="overviewOpenDisputes">--</div><div class="metric-delta down" id="overviewEscalatedDisputes">-- escalated</div></div>
+      <div class="metric-card"><div class="metric-label">TOTAL MATCHES</div><div class="metric-value" id="disputeTotalCount">--</div><div class="metric-delta neutral">Current filter</div></div>
+      <div class="metric-card"><div class="metric-label">REFUNDS ISSUED</div><div class="metric-value" id="disputeRefundAmount">--</div><div class="metric-delta neutral">Visible page</div></div>
     </div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="filterDisputes('all',this)">All</button>
@@ -828,15 +815,11 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <button class="filter-btn" onclick="filterDisputes('escalated',this)">Escalated</button>
       <button class="filter-btn" onclick="filterDisputes('resolved',this)">Resolved</button>
     </div>
-    <div class="scard">
-      <div>
-        <div class="list-item" data-dispute="open"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">!</div><div class="item-info"><div class="item-name">#D-0052 · Late delivery</div><div class="item-meta">Customer: Ifeanyi O. · Driver: Chuks I. · 1 day old</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openDisputeModal('#D-0052 — Late delivery')">Handle</button></div></div>
-        <div class="list-item" data-dispute="escalated"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">🔴</div><div class="item-info"><div class="item-name">#D-0051 · Package damaged</div><div class="item-meta">Customer: Ada B. · Driver: Mike N. · 3 days old · ESCALATED</div></div><div class="item-actions"><button class="btn-sm btn-reject" onclick="openDisputeModal('#D-0051 — Package damaged, ESCALATED')">Escalated</button></div></div>
-        <div class="list-item" data-dispute="open"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">!</div><div class="item-info"><div class="item-name">#D-0050 · Wrong drop-off</div><div class="item-meta">Customer: Tunde L. · Driver: Bayo E. · 2 days old</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openDisputeModal('#D-0050 — Wrong drop-off')">Handle</button></div></div>
-        <div class="list-item" data-dispute="resolved"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success);font-size:11px">✓</div><div class="item-info"><div class="item-name">#D-0049 · Rider rude behaviour</div><div class="item-meta">Resolved · ₦2,800 refunded · Driver warned</div></div><span class="badge badge-success">Resolved</span></div>
-        <div class="list-item" data-dispute="escalated"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">🔴</div><div class="item-info"><div class="item-name">#D-0048 · Theft allegation</div><div class="item-meta">Customer: Chioma A. · Driver suspended · 2 days old · ESCALATED</div></div><div class="item-actions"><button class="btn-sm btn-reject" onclick="openDisputeModal('#D-0048 — Theft allegation, ESCALATED')">Critical</button></div></div>
-      </div>
+    <div class="panel-search">
+      <input id="disputeSearch" placeholder="Search dispute, trip, customer, driver…" oninput="queueDisputeSearch(this.value)">
+      <select class="filter-select" id="disputeStatus" onchange="setDisputeStatus(this.value)"><option value="all">All statuses</option><option value="open">Open</option><option value="escalated">Escalated</option><option value="resolved">Resolved</option></select>
     </div>
+    <div class="scard"><div id="disputeList"><div class="loading-state">Loading disputes…</div></div><div class="pagination" id="disputePagination"></div></div>
   </div>
 
   <!-- SETTINGS -->
@@ -909,7 +892,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <div id="modalDesc" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></div>
       <div class="form-group"><label class="form-label">Resolution action</label><select class="form-input" id="resolutionType"><option>Issue full refund to customer</option><option>Issue partial refund</option><option>Warn driver (first offence)</option><option>Suspend driver temporarily</option><option>Suspend driver permanently</option><option>No action — complaint invalid</option></select></div>
       <div class="form-group"><label class="form-label">Refund amount (₦)</label><input class="form-input" type="number" placeholder="0" id="refundAmt"></div>
-      <div class="form-group"><label class="form-label">Admin notes</label><textarea class="form-input" rows="3" placeholder="Add resolution notes…" style="resize:none"></textarea></div>
+      <div class="form-group"><label class="form-label">Admin notes</label><textarea class="form-input" id="resolutionNotes" rows="3" placeholder="Add resolution notes…" style="resize:none"></textarea></div>
     </div>
     <div class="modal-footer">
       <button onclick="closeModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Cancel</button>
@@ -951,7 +934,11 @@ function nav(name,btn){
   document.getElementById('notifPanel').classList.remove('open');
 
   // Close sidebar on mobile after navigation
+  if(name === 'overview') loadDashboard();
   if(name === 'ops') loadLiveOps();
+  if(name === 'trips') loadTrips();
+  if(name === 'payouts') loadPayouts();
+  if(name === 'disputes') loadDisputes();
   if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
 
   if(window.innerWidth < 900) {
@@ -967,6 +954,9 @@ let currentKycId = 0;
 let currentKycTab = 'under_review';
 let currentKycFilter = 'all';
 let kycDrivers = [];
+const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'} };
+let searchTimers = {};
+let currentDisputeId = 0;
 
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
@@ -984,6 +974,22 @@ function maskAccount(number){
   const clean = String(number || '').replace(/\D/g, '');
   return clean ? '****' + clean.slice(-4) : 'Not provided';
 }
+
+function formatMoney(value){ return '₦' + Number(value || 0).toLocaleString(undefined, {maximumFractionDigits:0}); }
+function formatStatusLabel(value){ return String(value || '').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()); }
+function tripStatusClass(status){
+  if(['completed','delivered','paid'].includes(status)) return 'badge-success';
+  if(['cancelled','failed'].includes(status)) return 'badge-danger';
+  if(['pending','searching','delayed','escalated'].includes(status)) return 'badge-warn';
+  return 'badge-info';
+}
+function renderPagination(elId, state, total, loader){
+  const el=document.getElementById(elId); if(!el) return;
+  const pages=Math.max(1, Math.ceil(Number(total||0)/state.per_page));
+  el.innerHTML=`<span>Page ${state.page} of ${pages} · ${Number(total||0).toLocaleString()} total</span><button ${state.page<=1?'disabled':''} onclick="${loader}(${state.page-1})">Prev</button><button ${state.page>=pages?'disabled':''} onclick="${loader}(${state.page+1})">Next</button>`;
+}
+function dateLabel(value){ return value ? formatApplied(value) : 'Recently'; }
+
 function formatApplied(value){
   if(!value) return 'Recently';
   const created = new Date(String(value).replace(' ', 'T') + 'Z');
@@ -1216,9 +1222,71 @@ async function kycDetailAction(action){
   closeKycDetail();
 }
 loadKycQueue('under_review');
+loadDashboard();
+loadTrips();
+loadPayouts();
+loadDisputes();
 loadPaymentSettings();
 loadManualPayments();
 
+
+async function loadDashboard(){
+  const list=document.getElementById('overviewRecentTrips');
+  if(list) list.innerHTML='<div class="loading-state">Loading recent deliveries…</div>';
+  try{
+    const data=await adminApi('get_dashboard_stats');
+    document.getElementById('overviewActiveDrivers').textContent=Number(data.active_drivers||0).toLocaleString();
+    document.getElementById('overviewOnlineDrivers').textContent=Number(data.online_drivers||0).toLocaleString()+' online now';
+    document.getElementById('overviewTripsToday').textContent=Number(data.trips_today||0).toLocaleString();
+    const diff=Number(data.trips_today||0)-Number(data.trips_yesterday||0);
+    document.getElementById('overviewTripsDelta').textContent=(diff>=0?'↑ +':'↓ ')+diff.toLocaleString()+' vs yesterday';
+    document.getElementById('overviewRevenueToday').textContent=formatMoney(data.revenue_today);
+    document.getElementById('overviewKycPending').textContent=Number(data.kyc_pending||0).toLocaleString();
+    document.getElementById('overviewCompletionRate').textContent=Number(data.completion_rate||0).toFixed(1)+'%';
+    document.getElementById('overviewAvgPickup').textContent=Number(data.avg_pickup_time||0).toFixed(1)+'m';
+    document.getElementById('overviewOpenDisputes').textContent=Number(data.open_disputes||0).toLocaleString();
+    document.getElementById('overviewEscalatedDisputes').textContent=Number(data.escalated_disputes||0).toLocaleString()+' escalated';
+    document.getElementById('overviewSuspended').textContent=Number(data.suspended_drivers||0).toLocaleString();
+    const trips=data.recent_trips||[];
+    list.innerHTML=trips.length?trips.map(renderTripListItem).join(''):'<div class="empty-state">No deliveries found yet.</div>';
+  }catch(e){ if(list) list.innerHTML='<div class="empty-state">Could not load dashboard: '+escapeHtml(e.message)+'</div>'; }
+}
+function renderTripListItem(trip){
+  const status=trip.dispatch_status && trip.dispatch_status !== 'completed' ? trip.dispatch_status : trip.status;
+  const fare=trip.fare_amount ?? trip.final_fare ?? trip.fare_estimate ?? trip.fare;
+  const from=trip.pickup_address || trip.pickup || 'Pickup';
+  const to=trip.dropoff_address || trip.dropoff || 'Drop-off';
+  const category=trip.service_category || trip.category || 'Delivery';
+  const detail=[from+' → '+to, formatMoney(fare), trip.driver_name?'Driver: '+trip.driver_name:null].filter(Boolean).map(escapeHtml).join(' · ');
+  return `<div class="list-item" data-status="${escapeHtml(status)}"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(trip.customer_name || trip.driver_name || trip.trip_ref))}</div><div class="item-info"><div class="item-name">${escapeHtml(trip.trip_ref || ('Trip #'+trip.id))} · ${escapeHtml(formatStatusLabel(category))}</div><div class="item-meta">${detail}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge ${tripStatusClass(status)}">${escapeHtml(formatStatusLabel(status))}</span><button class="btn-sm btn-view" onclick='openTripDetailFromData(${JSON.stringify(trip).replace(/'/g,"&#39;")})'>Details</button></div></div>`;
+}
+async function loadTrips(page=pageState.trips.page){
+  const st=pageState.trips; st.page=page;
+  const list=document.getElementById('tripList'); if(!list) return;
+  list.innerHTML='<div class="loading-state">Loading deliveries…</div>';
+  try{ const data=await adminApi('get_trips', st); list.innerHTML=(data.trips||[]).length?(data.trips||[]).map(renderTripListItem).join(''):'<div class="empty-state">No deliveries match your filters.</div>'; renderPagination('tripPagination', st, data.total, 'loadTrips'); }
+  catch(e){ list.innerHTML='<div class="empty-state">Could not load deliveries: '+escapeHtml(e.message)+'</div>'; }
+}
+function openTripDetailFromData(trip){ openTripDetail(trip.trip_ref||('#'+trip.id), trip.service_category||trip.category||'Delivery', trip.pickup_address||trip.pickup||'', trip.dropoff_address||trip.dropoff||'', formatMoney(trip.fare_amount??trip.final_fare??trip.fare_estimate??trip.fare), trip.driver_name||'Unassigned', formatStatusLabel(trip.dispatch_status||trip.status)); }
+async function loadPayouts(page=pageState.payouts.page){
+  const st=pageState.payouts; st.page=page; const list=document.getElementById('payoutList'); if(!list) return;
+  list.innerHTML='<div class="loading-state">Loading payouts…</div>';
+  try{ const data=await adminApi('get_payouts', st); const m=data.metrics||{}; document.getElementById('payoutPendingAmount').textContent=formatMoney(m.pending_amount); document.getElementById('payoutPendingCount').textContent=Number(m.pending_count||0).toLocaleString()+' pending'; document.getElementById('payoutProcessedAmount').textContent=formatMoney(m.processed_today_amount); document.getElementById('payoutProcessedCount').textContent=Number(m.processed_today_count||0).toLocaleString()+' processed'; document.getElementById('payoutFailedCount').textContent=Number(m.failed_count||0).toLocaleString(); document.getElementById('payoutAvgAmount').textContent=formatMoney(m.avg_payout); list.innerHTML=(data.payouts||[]).length?(data.payouts||[]).map(renderPayoutItem).join(''):'<div class="empty-state">No payouts match your filters.</div>'; renderPagination('payoutPagination', st, data.total, 'loadPayouts'); }
+  catch(e){ list.innerHTML='<div class="empty-state">Could not load payouts: '+escapeHtml(e.message)+'</div>'; }
+}
+function renderPayoutItem(p){ const failed=p.status==='failed'; return `<div class="list-item"><div class="avatar" style="background:${failed?'rgba(232,72,74,0.1)':'rgba(34,196,122,0.1)'};color:${failed?'var(--danger)':'var(--success)'}">${escapeHtml(initials(p.driver_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(p.driver_name||('Driver #'+p.driver_id))}</div><div class="item-meta">${escapeHtml(p.bank_name||'Bank not set')} ${escapeHtml(maskAccount(p.account_number))} · ${Number(p.total_trips||0).toLocaleString()} trips · ${escapeHtml(formatStatusLabel(p.status))}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-weight:700;font-size:14px;color:${failed?'var(--danger)':'inherit'}">${formatMoney(p.amount)}</div>${p.status==='paid'?'<span class="badge badge-success">Paid</span>':`<button class="btn-sm ${failed?'btn-reject':'btn-approve'}" onclick="processPayout(${Number(p.id)}, 'paid')">Release</button>`}</div></div>`; }
+async function processPayout(id,status){ try{ const data=await adminApi('process_payout',{payout_id:id,status},'POST'); toast(data.message||'Payout updated'); loadPayouts(); }catch(e){ toast(e.message||'Could not update payout'); } }
+function releaseVisiblePayouts(){ document.querySelectorAll('#payoutList button.btn-approve').forEach(btn=>btn.click()); }
+async function loadDisputes(page=pageState.disputes.page){
+  const st=pageState.disputes; st.page=page; const list=document.getElementById('disputeList'); if(!list) return; list.innerHTML='<div class="loading-state">Loading disputes…</div>';
+  try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=rows.filter(d=>d.status==='open'||d.status==='escalated').length.toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=rows.filter(d=>d.status==='escalated').length.toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):'<div class="empty-state">No disputes match your filters.</div>'; renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
+  catch(e){ list.innerHTML='<div class="empty-state">Could not load disputes: '+escapeHtml(e.message)+'</div>'; }
+}
+function renderDisputeItem(d){ const status=d.status||'open'; const title='#D-'+String(d.id).padStart(4,'0')+' · '+(d.category||'Dispute'); const meta=status==='resolved'?`Resolved · ${formatMoney(d.refund_amount)} refunded · ${d.resolution||''}`:`Customer: ${d.customer_name||'Unknown'} · Driver: ${d.driver_name||'Unassigned'} · ${dateLabel(d.created_at)}`; return `<div class="list-item" data-dispute="${escapeHtml(status)}"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">${status==='resolved'?'✓':(status==='escalated'?'🔴':'!')}</div><div class="item-info"><div class="item-name">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div><div class="item-actions">${status==='resolved'?'<span class="badge badge-success">Resolved</span>':`<button class="btn-sm ${status==='escalated'?'btn-reject':'btn-view'}" onclick="openDisputeModal('${escapeHtml(title).replace(/'/g,'&#39;')}', ${Number(d.id)})">Handle</button>`}</div></div>`; }
+function queuePayoutSearch(v){ clearTimeout(searchTimers.payouts); searchTimers.payouts=setTimeout(()=>{pageState.payouts.search=v; loadPayouts(1);},300); }
+function setPayoutStatus(v){ pageState.payouts.status=v; loadPayouts(1); }
+function queueDisputeSearch(v){ clearTimeout(searchTimers.disputes); searchTimers.disputes=setTimeout(()=>{pageState.disputes.search=v; loadDisputes(1);},300); }
+function setDisputeStatus(v){ pageState.disputes.status=v; loadDisputes(1); }
 async function loadLiveOps(){
   try {
     const data = await adminApi('get_live_ops');
@@ -1260,36 +1328,27 @@ function filterOps(type,btn){
   document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');toast('Filtering: '+type);
 }
-function filterTripStatus(status,btn){
-  document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('#tripList .list-item').forEach(item=>{
-    item.style.display=(status==='all'||item.dataset.status===status)?'':'none';
-  });
-}
-function filterDisputes(type,btn){
-  document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('[data-dispute]').forEach(item=>{
-    item.style.display=(type==='all'||item.dataset.dispute===type)?'':'none';
-  });
-}
+function filterTripStatus(status,btn){ document.querySelectorAll('#panel-trips .filter-row .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); pageState.trips.status=status==='all'?'':status; loadTrips(1); }
+function filterDisputes(type,btn){ pageState.disputes.status=type; loadDisputes(1); }
 function openTripDetail(id,cat,from,to,fare,driver,status){
   document.getElementById('tripModalTitle').textContent='Trip '+id;
   document.getElementById('tripModalBody').innerHTML=`<div class="metrics-grid" style="margin-bottom:16px"><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">CATEGORY</div><div style="font-size:13px;font-weight:600">${cat}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">STATUS</div><div style="font-size:13px;font-weight:600">${status}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">PICKUP</div><div style="font-size:13px;font-weight:600">${from}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">DROP-OFF</div><div style="font-size:13px;font-weight:600">${to}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">FARE</div><div style="font-size:13px;font-weight:600">${fare}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">DRIVER</div><div style="font-size:13px;font-weight:600">${driver}</div></div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">PAYMENT BREAKDOWN</div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Base fare</span><span>${fare}</span></div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:var(--success)"><span>Platform comm.</span><span>-20%</span></div><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-top:6px;padding-top:6px;border-top:1px solid var(--surface-2)"><span>Driver payout</span><span style="color:var(--success)">80%</span></div></div>`;
   document.getElementById('tripModal').classList.add('open');
 }
 function closeTripModal(){document.getElementById('tripModal').classList.remove('open');}
-function openDisputeModal(desc){
+function openDisputeModal(desc, disputeId=0){
+  currentDisputeId=Number(disputeId||0);
   document.getElementById('modalDesc').textContent=desc;
   document.getElementById('disputeModal').classList.add('open');
 }
 function closeModal(){document.getElementById('disputeModal').classList.remove('open');}
-function resolveDispute(){
+async function resolveDispute(){
+  if(!currentDisputeId){ toast('Select a real dispute first.'); return; }
   const action=document.getElementById('resolutionType').value;
   const refund=document.getElementById('refundAmt').value;
-  closeModal();
-  toast('✓ Dispute resolved: '+action+(refund?' · ₦'+Number(refund).toLocaleString()+' refunded':''));
+  const notes=document.getElementById('resolutionNotes')?.value || '';
+  try{ const data=await adminApi('resolve_dispute',{dispute_id:currentDisputeId,resolution_action:action,refund_amount:refund||0,admin_notes:notes||''},'POST'); closeModal(); toast(data.message||'Dispute resolved'); loadDisputes(); loadDashboard(); }
+  catch(e){ toast(e.message||'Could not resolve dispute'); }
 }
 function confirmSuspend(name){
   if(confirm('Suspend '+name+'? They will be notified and go offline immediately.')){toast('⚠ '+name+' suspended');}
@@ -1301,18 +1360,8 @@ function markAllRead(){
   toast('All notifications marked read');
 }
 function handleSearch(val){if(val.length>2)toast('Searching: "'+val+'"');}
-function searchTrips(val){
-  if(!val){document.querySelectorAll('#tripList .list-item').forEach(i=>i.style.display='');return;}
-  document.querySelectorAll('#tripList .list-item').forEach(item=>{
-    item.style.display=item.textContent.toLowerCase().includes(val.toLowerCase())?'':'none';
-  });
-}
-function filterTrips(cat){
-  if(!cat){document.querySelectorAll('#tripList .list-item').forEach(i=>i.style.display='');return;}
-  document.querySelectorAll('#tripList .list-item').forEach(item=>{
-    item.style.display=item.textContent.toLowerCase().includes(cat.toLowerCase())?'':'none';
-  });
-}
+function searchTrips(val){ clearTimeout(searchTimers.trips); searchTimers.trips=setTimeout(()=>{pageState.trips.search=val; loadTrips(1);},300); }
+function filterTrips(cat){ pageState.trips.category=cat; loadTrips(1); }
 function toast(msg){
   const t=document.getElementById('toastEl');
   t.textContent=msg;t.classList.add('show');
