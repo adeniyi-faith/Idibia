@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 6;
+    $target_version = 5;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -209,33 +209,9 @@ function idibia_maybe_create_tables() {
     if ( $current_version < 5 ) {
         idibia_add_manual_payment_columns();
         update_option( 'idibia_db_version', 5 );
-        $current_version = 5;
-    }
-
-    if ( $current_version < 6 ) {
-        idibia_create_admin_audit_log_table();
-        update_option( 'idibia_db_version', 6 );
     }
 }
 
-
-
-function idibia_create_admin_audit_log_table(): void {
-    global $wpdb;
-    $charset = $wpdb->get_charset_collate();
-    $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_admin_audit_logs` (
-        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-        `admin_user_id` BIGINT UNSIGNED NOT NULL,
-        `action` VARCHAR(80) NOT NULL,
-        `reference_type` VARCHAR(40) NOT NULL,
-        `reference_id` BIGINT UNSIGNED NOT NULL,
-        `details` TEXT NULL,
-        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (`id`),
-        KEY `reference` (`reference_type`, `reference_id`),
-        KEY `admin_user_id` (`admin_user_id`)
-    ) $charset;" );
-}
 
 function idibia_add_manual_payment_columns(): void {
     global $wpdb;

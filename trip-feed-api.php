@@ -132,7 +132,7 @@ function idibia_build_trip_feed_payload( int $trip_id, string $payment_viewer_ty
         'status'          => $trip['status'],
         'dispatch_status' => $trip['dispatch_status'],
         'payment_status'  => $trip['payment_status'],
-        'payment'         => idibia_payment_public_payload( $trip_id, $payment_viewer_type ),
+        'payment'         => idibia_payment_public_payload( $trip_id ),
         'pickup'          => $trip['pickup_address'] ?: $trip['pickup'],
         'dropoff'         => $trip['dropoff_address'] ?: $trip['dropoff'],
         'pickup_location' => [ 'lat' => $trip['pickup_lat'] !== null ? (float) $trip['pickup_lat'] : null, 'lng' => $trip['pickup_lng'] !== null ? (float) $trip['pickup_lng'] : null ],

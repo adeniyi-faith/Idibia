@@ -400,8 +400,7 @@ function idibia_admin_review_manual_payment(): void {
         idibia_notify_trip_participants( (int) $payment['trip_id'], 'payment_captured' );
         idibia_credit_driver_for_trip( (int) $payment['trip_id'] );
     }
-    idibia_admin_audit_log( $decision === 'approve' ? 'approve_manual_payment' : 'reject_manual_payment', 'payment', $payment_id, [ 'trip_id' => (int) $payment['trip_id'], 'notes' => $notes ] );
     idibia_transaction_commit();
 
-    wp_send_json_success( [ 'message' => $decision === 'approve' ? 'Payment approved.' : 'Payment rejected.', 'payment' => idibia_payment_public_payload( (int) $payment['trip_id'], 'admin' ) ] );
+    wp_send_json_success( [ 'message' => $decision === 'approve' ? 'Payment approved.' : 'Payment rejected.', 'payment' => idibia_payment_public_payload( (int) $payment['trip_id'] ) ] );
 }

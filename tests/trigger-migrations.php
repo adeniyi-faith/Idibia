@@ -74,7 +74,7 @@ echo "Version set to: " . get_option('idibia_db_version') . "\n";
 echo "ALTER TABLE wp_sd_trips found: " . ($alter_trips_found ? "YES" : "NO") . "\n";
 echo "New lifecycle tables created: $tables_created / " . count($expected_tables) . "\n";
 
-if ($alter_trips_found && $tables_created === count($expected_tables) && get_option('idibia_db_version') === 6) {
+if ($alter_trips_found && $tables_created === count($expected_tables) && get_option('idibia_db_version') === 5) {
     echo "SUCCESS\n";
     exit(0);
 } else {
