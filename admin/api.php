@@ -95,10 +95,22 @@ try {
             idibia_admin_manual_payments();
             break;
 
+
         case 'review_manual_payment':
             idibia_require_method( 'POST' );
             idibia_admin_review_manual_payment();
             break;
+
+        case 'admin_reassign_trip':
+            idibia_require_method( 'POST' );
+            idibia_admin_reassign_trip();
+            break;
+
+        case 'admin_force_cancel_trip':
+            idibia_require_method( 'POST' );
+            idibia_admin_force_cancel_trip();
+            break;
+
 
         case 'save_settings':
             idibia_require_method( 'POST' );
@@ -311,6 +323,123 @@ function idibia_admin_paginated_trips(): void {
     wp_send_json_success( [ 'trips' => $rows ?: [], 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
 }
 
+
+
+function idibia_admin_reassign_trip(): void {
+    global $wpdb;
+    $trip_id = (int) ( $_POST['trip_id'] ?? 0 );
+    $driver_id = (int) ( $_POST['driver_id'] ?? 0 );
+
+    if ( $trip_id <= 0 || $driver_id <= 0 ) {
+        wp_send_json_error( [ 'message' => 'Invalid parameters.' ] );
+    }
+
+    $trip = $wpdb->get_row( $wpdb->prepare( "SELECT id, status, dispatch_status FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1", $trip_id ), ARRAY_A );
+    if ( ! $trip ) wp_send_json_error( [ 'message' => 'Trip not found.' ] );
+    if ( in_array( $trip['status'], [ 'completed', 'cancelled' ] ) || in_array( $trip['dispatch_status'], [ 'completed', 'cancelled' ] ) ) {
+        wp_send_json_error( [ 'message' => 'Cannot reassign a completed or cancelled trip.' ] );
+    }
+
+    idibia_transaction_start();
+
+    // Update the trip
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'sd_trips',
+        [ 'driver_id' => $driver_id, 'dispatch_status' => 'accepted', 'status' => 'accepted' ],
+        [ 'id' => $trip_id ],
+        [ '%d', '%s', '%s' ],
+        [ '%d' ]
+    );
+
+    if ( false === $updated ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Failed to reassign trip.' ] );
+    }
+
+    // Expire pending offers
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_dispatch_offers` SET status = 'expired' WHERE trip_id = %d AND status IN ('pending', 'accepted')",
+        $trip_id
+    ) );
+
+    idibia_log_event( $trip_id, 'trip_reassigned_by_admin', [ 'new_driver_id' => $driver_id ] );
+
+    // Broadcast trip change
+    if ( function_exists('idibia_pusher_broadcast_trip') ) {
+        idibia_pusher_broadcast_trip( $trip_id, 'trip_reassigned' );
+    }
+
+    // Add Audit Log
+    idibia_admin_audit_log( 'reassign_trip', 'trip', $trip_id, [ 'new_driver_id' => $driver_id ] );
+
+    idibia_transaction_commit();
+    wp_send_json_success( [ 'message' => 'Trip successfully reassigned.' ] );
+}
+
+function idibia_admin_force_cancel_trip(): void {
+    global $wpdb;
+    $trip_id = (int) ( $_POST['trip_id'] ?? 0 );
+    $reason = sanitize_text_field( wp_unslash( $_POST['reason'] ?? 'Force cancelled by admin' ) );
+
+    if ( $trip_id <= 0 ) {
+        wp_send_json_error( [ 'message' => 'Invalid parameters.' ] );
+    }
+
+    $trip = $wpdb->get_row( $wpdb->prepare( "SELECT id, status, dispatch_status FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1", $trip_id ), ARRAY_A );
+    if ( ! $trip ) wp_send_json_error( [ 'message' => 'Trip not found.' ] );
+    if ( in_array( $trip['status'], [ 'completed', 'cancelled' ] ) || in_array( $trip['dispatch_status'], [ 'completed', 'cancelled' ] ) ) {
+        wp_send_json_error( [ 'message' => 'Trip is already completed or cancelled.' ] );
+    }
+
+    idibia_transaction_start();
+
+    // Update the trip
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'sd_trips',
+        [ 'status' => 'cancelled', 'dispatch_status' => 'cancelled', 'cancellation_reason' => $reason ],
+        [ 'id' => $trip_id ],
+        [ '%s', '%s', '%s' ],
+        [ '%d' ]
+    );
+
+    if ( false === $updated ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Failed to cancel trip.' ] );
+    }
+
+    // Expire pending offers
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_dispatch_offers` SET status = 'expired' WHERE trip_id = %d AND status IN ('pending', 'accepted')",
+        $trip_id
+    ) );
+
+    // Update payments
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_payments` SET status = 'failed' WHERE trip_id = %d AND status IN ('pending', 'authorized')",
+        $trip_id
+    ) );
+    $wpdb->update(
+        $wpdb->prefix . 'sd_trips',
+        [ 'payment_status' => 'failed' ],
+        [ 'id' => $trip_id ],
+        [ '%s' ],
+        [ '%d' ]
+    );
+
+
+    idibia_log_event( $trip_id, 'trip_force_cancelled_by_admin', [ 'reason' => $reason ] );
+
+    // Broadcast trip change
+    if ( function_exists('idibia_pusher_broadcast_trip') ) {
+        idibia_pusher_broadcast_trip( $trip_id, 'trip_cancelled' );
+    }
+
+    // Add Audit Log
+    idibia_admin_audit_log( 'force_cancel_trip', 'trip', $trip_id, [ 'reason' => $reason ] );
+
+    idibia_transaction_commit();
+    wp_send_json_success( [ 'message' => 'Trip successfully cancelled.' ] );
+}
 
 function idibia_admin_live_ops(): void {
     global $wpdb;
