@@ -1689,7 +1689,7 @@ svg { display: block; }
                 Tax Portal
                 <span class="card-title-action">Learn more</span>
               </div>
-              <div class="tax-portal-card" onclick="showToast('Generating Q1 2025 tax summary...')">
+              <div class="tax-portal-card" role="button" aria-disabled="true" onclick="showUnavailableFeature('Tax summary', 'Tax report generation is not connected yet. Earnings remain visible in the wallet once payouts are enabled.')">
                 <div class="tax-card-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 </div>
@@ -1702,7 +1702,7 @@ svg { display: block; }
                   PDF
                 </button>
               </div>
-              <div class="tax-portal-card" onclick="showToast('Generating Q4 2024 tax summary...')">
+              <div class="tax-portal-card" role="button" aria-disabled="true" onclick="showUnavailableFeature('Tax summary', 'Tax report generation is not connected yet. Earnings remain visible in the wallet once payouts are enabled.')">
                 <div class="tax-card-icon">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
                 </div>
@@ -2444,7 +2444,7 @@ async function fetchDriverOffers() {
     const body = new FormData();
     body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
 
-    // Attempt to get real location if browser supports it, else use fallback
+    // Attempt to get real location if browser supports it; never send a fake GPS location.
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -2456,10 +2456,7 @@ async function fetchDriverOffers() {
           if (json.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
         },
         async (err) => {
-          // Fallback to static location for demo if permission denied/fails
-          body.append('lat', '4.8156');
-          body.append('lng', '7.0498');
-          body.append('heading', '90');
+          showToast('Location permission is needed for nearby dispatch. Turn it on to receive distance-based offers.');
           const response = await fetch('/driver-heartbeat-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
           const json = await parseDriverJson(response);
           if (json.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
@@ -2467,9 +2464,7 @@ async function fetchDriverOffers() {
         { timeout: 5000 }
       );
     } else {
-      body.append('lat', '4.8156');
-      body.append('lng', '7.0498');
-      body.append('heading', '90');
+      showToast('This browser does not support live location. Offers may be limited until location is available.');
       const response = await fetch('/driver-heartbeat-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
       const json = await parseDriverJson(response);
       if (json.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
@@ -2730,6 +2725,10 @@ if (document.getElementById('onlineToggle')) {
 }
 
 // Toast
+function showUnavailableFeature(title, detail) {
+  showToast(`${title}: ${detail}`);
+}
+
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;

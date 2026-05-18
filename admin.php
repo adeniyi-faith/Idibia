@@ -362,6 +362,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 .notif-item{padding:12px 16px;border-bottom:1px solid var(--surface);display:flex;gap:10px;}
 .notif-item:last-child{border-bottom:none;}
 .notif-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+.disabled-action{opacity:.66;cursor:not-allowed!important;}
 
 /* SETTINGS */
 .form-group{margin-bottom:16px;}
@@ -421,7 +422,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   </button>
   <button class="nav-btn" onclick="nav('kyc',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-    KYC Queue <span class="nav-badge" id="kyc-badge">7</span>
+    KYC Queue <span class="nav-badge" id="kyc-badge">0</span>
   </button>
   <button class="nav-btn" onclick="nav('ops',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
@@ -453,7 +454,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   </button>
   <button class="nav-btn" onclick="nav('disputes',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    Disputes <span class="nav-warn-badge">5</span>
+    Disputes <span class="nav-warn-badge" id="dispute-badge">0</span>
   </button>
 
   <div class="sidebar-bottom">
@@ -462,7 +463,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
       Settings
     </button>
-    <button class="nav-btn" onclick="toast('Logged out')">
+    <button class="nav-btn" onclick="adminLogout(this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Log Out
     </button>
@@ -479,16 +480,16 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       </button>
       <div>
         <div class="topbar-title" id="topbar-title">Platform Overview</div>
-        <div class="topbar-sub" id="topbar-sub">Live · Sat Apr 11, 2026</div>
+        <div class="topbar-sub" id="topbar-sub">Live · <?php echo esc_html( date_i18n( 'D M j, Y' ) ); ?></div>
       </div>
     </div>
     <div class="topbar-actions">
       <input class="topbar-search" placeholder="Search…" oninput="handleSearch(this.value)">
       <button class="topbar-btn" onclick="toggleNotif()" title="Notifications">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <span class="notif-dot"></span>
+        <span class="notif-dot" style="display:none"></span>
       </button>
-      <button class="topbar-btn" title="Export" onclick="toast('Exporting report…')">
+      <button class="topbar-btn disabled-action" title="Export reports are not connected yet" aria-disabled="true" onclick="showUnavailableFeature('Report export', 'Exports need a backend report endpoint before files can be generated.')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
     </div>
@@ -498,23 +499,11 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   <div class="notif-panel" id="notifPanel">
     <div class="notif-header">
       <h4>Notifications</h4>
-      <button onclick="markAllRead()" style="font-size:11px;color:var(--info);background:none;border:none;">Mark all read</button>
+      <button class="disabled-action" aria-disabled="true" onclick="showUnavailableFeature('Notification read state', 'Notification inbox APIs are not connected yet, so read/unread state cannot be changed.')" style="font-size:11px;color:var(--info);background:none;border:none;">Mark all read</button>
     </div>
     <div class="notif-item">
-      <div class="notif-icon" style="background:rgba(232,72,74,0.1)">🚨</div>
-      <div><div style="font-size:12px;font-weight:600">7 KYC applications pending</div><div style="font-size:11px;color:var(--text-muted)">Oldest: 6h ago</div></div>
-    </div>
-    <div class="notif-item">
-      <div class="notif-icon" style="background:rgba(245,166,35,0.1)">⚠️</div>
-      <div><div style="font-size:12px;font-weight:600">Driver Bayo A. has 3 complaints</div><div style="font-size:11px;color:var(--text-muted)">Review recommended</div></div>
-    </div>
-    <div class="notif-item">
-      <div class="notif-icon" style="background:rgba(34,196,122,0.1)">✅</div>
-      <div><div style="font-size:12px;font-weight:600">₦2.1M revenue today</div><div style="font-size:11px;color:var(--text-muted)">+14.5% vs yesterday</div></div>
-    </div>
-    <div class="notif-item">
-      <div class="notif-icon" style="background:rgba(74,158,255,0.1)">📦</div>
-      <div><div style="font-size:12px;font-weight:600">Dispute #D-0048 unresolved 2 days</div><div style="font-size:11px;color:var(--text-muted)">Escalation needed</div></div>
+      <div class="notif-icon" style="background:rgba(74,158,255,0.1)">ℹ️</div>
+      <div><div style="font-size:12px;font-weight:600">Notification inbox pending backend connection</div><div style="font-size:11px;color:var(--text-muted)">Operational alerts will appear here after notification APIs are wired.</div></div>
     </div>
   </div>
 
@@ -669,7 +658,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
         <option value="">All categories</option>
         <option>Package</option><option>Gift</option><option>Documents</option><option>Groceries</option><option>Flowers</option><option>Laundry</option>
       </select>
-      <button onclick="toast('Exported CSV')">Export</button>
+      <button class="disabled-action" aria-disabled="true" onclick="showUnavailableFeature('Delivery export', 'Delivery CSV export needs a backend report endpoint before files can be generated.')">Export</button>
     </div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="filterTripStatus('all',this)">All</button>
@@ -685,37 +674,29 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 
   <!-- REVENUE -->
   <div class="panel" id="panel-revenue">
-    <div class="page-header"><h2 class="page-title">Revenue Analytics</h2><div class="page-sub">April 2026 · Platform financial overview</div></div>
+    <div class="page-header"><h2 class="page-title">Revenue Analytics</h2><div class="page-sub">Finance analytics endpoint pending</div></div>
     <div class="metrics-grid four">
-      <div class="metric-card"><div class="metric-label">MONTHLY REVENUE</div><div class="metric-value">₦48.2M</div><div class="metric-delta up">↑ +22% MoM</div></div>
-      <div class="metric-card"><div class="metric-label">NET COMMISSION</div><div class="metric-value">₦9.6M</div><div class="metric-delta neutral">20% take rate</div></div>
-      <div class="metric-card"><div class="metric-label">DRIVER PAYOUTS</div><div class="metric-value">₦38.5M</div><div class="metric-delta neutral">80% to drivers</div></div>
-      <div class="metric-card"><div class="metric-label">AVG DAILY</div><div class="metric-value">₦1.6M</div><div class="metric-delta up">↑ vs ₦1.3M</div></div>
+      <div class="metric-card"><div class="metric-label">MONTHLY REVENUE</div><div class="metric-value">--</div><div class="metric-delta neutral">Connect finance analytics</div></div>
+      <div class="metric-card"><div class="metric-label">NET COMMISSION</div><div class="metric-value">--</div><div class="metric-delta neutral">Connect finance analytics</div></div>
+      <div class="metric-card"><div class="metric-label">DRIVER PAYOUTS</div><div class="metric-value">--</div><div class="metric-delta neutral">Loaded in payout panel</div></div>
+      <div class="metric-card"><div class="metric-label">AVG DAILY</div><div class="metric-value">--</div><div class="metric-delta neutral">Connect finance analytics</div></div>
     </div>
     <div class="scard">
-      <div class="scard-header"><h3>Revenue by day (this week)</h3><button class="scard-action" onclick="toast('Downloading revenue report…')">Download CSV</button></div>
+      <div class="scard-header"><h3>Revenue by day (this week)</h3><button class="scard-action disabled-action" aria-disabled="true" onclick="showUnavailableFeature('Revenue export', 'Revenue CSV export needs a finance analytics endpoint before files can be generated.')">Download CSV</button></div>
       <div class="rev-bars">
-        <div class="rev-row"><span class="rev-label">Mon</span><div class="rev-track"><div class="rev-fill" style="width:58%"><span>₦1.4M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label">Tue</span><div class="rev-track"><div class="rev-fill" style="width:72%"><span>₦1.8M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label">Wed</span><div class="rev-track"><div class="rev-fill" style="width:82%"><span>₦2.0M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label">Thu</span><div class="rev-track"><div class="rev-fill" style="width:88%"><span>₦2.2M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label">Fri</span><div class="rev-track"><div class="rev-fill today" style="width:100%"><span>₦2.4M (proj.)</span></div></div></div>
+        <div class="empty-state">Weekly revenue chart is preserved but waiting for a finance analytics endpoint.</div>
       </div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Revenue by delivery category</h3></div>
       <div class="rev-bars">
-        <div class="rev-row"><span class="rev-label" style="width:65px;text-align:left">Package</span><div class="rev-track"><div class="rev-fill" style="width:82%"><span>₦12.8M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label" style="width:65px;text-align:left">Groceries</span><div class="rev-track"><div class="rev-fill" style="width:60%"><span>₦9.4M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label" style="width:65px;text-align:left">Documents</span><div class="rev-track"><div class="rev-fill" style="width:45%"><span>₦7.2M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label" style="width:65px;text-align:left">Gifts</span><div class="rev-track"><div class="rev-fill" style="width:38%"><span>₦6.1M</span></div></div></div>
-        <div class="rev-row"><span class="rev-label" style="width:65px;text-align:left">Other</span><div class="rev-track"><div class="rev-fill" style="width:22%"><span>₦3.7M</span></div></div></div>
+        <div class="empty-state">Category revenue needs trip/payment aggregation before live values can be shown.</div>
       </div>
     </div>
     <div class="metrics-grid three">
-      <div class="metric-card"><div class="metric-label">SAME-DAY DELIVERIES</div><div class="metric-value">38%</div><div class="metric-delta up">↑ Premium tier</div></div>
-      <div class="metric-card"><div class="metric-label">REFERRAL REVENUE</div><div class="metric-value">₦2.1M</div><div class="metric-delta up">↑ 4.4% of total</div></div>
-      <div class="metric-card"><div class="metric-label">GATEWAY SUCCESS</div><div class="metric-value">99.1%</div><div class="metric-delta neutral">Payment uptime</div></div>
+      <div class="metric-card"><div class="metric-label">SAME-DAY DELIVERIES</div><div class="metric-value">--</div><div class="metric-delta neutral">Analytics pending</div></div>
+      <div class="metric-card"><div class="metric-label">REFERRAL REVENUE</div><div class="metric-value">--</div><div class="metric-delta neutral">Referral tracking pending</div></div>
+      <div class="metric-card"><div class="metric-label">GATEWAY SUCCESS</div><div class="metric-value">--</div><div class="metric-delta neutral">Gateway webhooks pending</div></div>
     </div>
   </div>
 
@@ -729,7 +710,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <div class="metric-card"><div class="metric-label">AVG PAYOUT</div><div class="metric-value" id="payoutAvgAmount">--</div><div class="metric-delta neutral">Per payout/wk</div></div>
     </div>
     <div class="scard">
-      <div class="scard-header"><h3>Driver Payouts</h3><button class="btn-primary" id="releaseAllPayoutsBtn" style="font-size:11px;padding:6px 12px;width:auto;" onclick="releaseVisiblePayouts()">Release visible</button></div>
+      <div class="scard-header"><h3>Driver Payouts</h3><button class="btn-primary disabled-action" id="releaseAllPayoutsBtn" style="font-size:11px;padding:6px 12px;width:auto;" aria-disabled="true" onclick="showUnavailableFeature('Bulk payout release', 'Payout release is disabled until a real transfer provider or manual transfer reference flow is connected.')">Release visible</button></div>
       <div class="panel-search" style="padding:14px 16px;margin-bottom:0"><input id="payoutSearch" placeholder="Search driver, bank, reference…" oninput="queuePayoutSearch(this.value)"><select class="filter-select" id="payoutStatus" onchange="setPayoutStatus(this.value)"><option value="pending">Pending</option><option value="processing">Processing</option><option value="failed">Failed</option><option value="paid">Paid</option><option value="all">All</option></select></div><div id="payoutList"><div class="loading-state">Loading payouts…</div></div><div class="pagination" id="payoutPagination"></div>
     </div>
     <div class="scard">
@@ -737,9 +718,9 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
       <div style="padding:16px 18px">
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Generate tax summaries for drivers and platform income reports for accounting.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px" onclick="toast('Generating Q1 2026 tax summary…')">Q1 2026 Summary</button>
-          <button class="btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" onclick="toast('Generating driver tax reports…')">Driver WHT Reports</button>
-          <button class="btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" onclick="toast('Downloading VAT schedule…')">VAT Schedule</button>
+          <button class="btn-primary disabled-action" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px" aria-disabled="true" onclick="showUnavailableFeature('Tax summary', 'Tax report generation needs payout and tax reporting endpoints before files can be generated.')">Q1 2026 Summary</button>
+          <button class="btn-primary disabled-action" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" aria-disabled="true" onclick="showUnavailableFeature('Driver WHT reports', 'Driver tax reports need payout and withholding data endpoints before files can be generated.')">Driver WHT Reports</button>
+          <button class="btn-primary disabled-action" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" aria-disabled="true" onclick="showUnavailableFeature('VAT schedule', 'VAT schedule export needs a tax reporting endpoint before files can be generated.')">VAT Schedule</button>
         </div>
       </div>
     </div>
@@ -749,24 +730,19 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   <div class="panel" id="panel-drivers">
     <div class="page-header"><h2 class="page-title">Drivers</h2><div class="page-sub">All approved and active delivery riders</div></div>
     <div class="metrics-grid four">
-      <div class="metric-card"><div class="metric-label">TOTAL DRIVERS</div><div class="metric-value">1,832</div><div class="metric-delta up">↑ +28 this week</div></div>
-      <div class="metric-card"><div class="metric-label">ONLINE NOW</div><div class="metric-value">284</div><div class="metric-delta up">15.5% online</div></div>
-      <div class="metric-card"><div class="metric-label">SUSPENDED</div><div class="metric-value" style="color:var(--danger)">14</div><div class="metric-delta down">Review needed</div></div>
-      <div class="metric-card"><div class="metric-label">AVG RATING</div><div class="metric-value">4.7★</div><div class="metric-delta up">Platform avg</div></div>
+      <div class="metric-card"><div class="metric-label">TOTAL DRIVERS</div><div class="metric-value" id="driversTotalCount">--</div><div class="metric-delta neutral">Current filter</div></div>
+      <div class="metric-card"><div class="metric-label">ONLINE NOW</div><div class="metric-value" id="driversOnlineCount">--</div><div class="metric-delta neutral">Loaded from driver records</div></div>
+      <div class="metric-card"><div class="metric-label">SUSPENDED</div><div class="metric-value" style="color:var(--danger)" id="driversSuspendedCount">--</div><div class="metric-delta down">Review needed</div></div>
+      <div class="metric-card"><div class="metric-label">AVG RATING</div><div class="metric-value" id="driversAvgRating">--</div><div class="metric-delta neutral">Visible page</div></div>
     </div>
     <div class="panel-search">
-      <input placeholder="Search name, state…">
-      <select class="filter-select"><option>All states</option><option>Rivers</option><option>Lagos</option><option>Abuja</option><option>Kano</option></select>
-      <button onclick="toast('Filtered')">Search</button>
+      <input id="driverSearch" placeholder="Search name, state…" oninput="queueDriverSearch(this.value)">
+      <select class="filter-select" id="driverStatusFilter" onchange="setDriverStatusFilter(this.value)"><option value="all">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
+      <button onclick="loadDrivers(1)">Search</button>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Driver Directory</h3></div>
-      <div>
-        <div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">AK</div><div class="item-info"><div class="item-name">Amina Kalu · 🛵</div><div class="item-meta">Rivers · 4.9★ · 312 trips · Online</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="toast('Opening Amina Kalu profile…')">Profile</button><button class="btn-sm btn-suspend" onclick="confirmSuspend('Amina Kalu')">Suspend</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">BE</div><div class="item-info"><div class="item-name">Bayo Eze · 🚗</div><div class="item-meta">Lagos · 4.6★ · 198 trips · Online</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="toast('Opening Bayo Eze profile…')">Profile</button><button class="btn-sm btn-suspend" onclick="confirmSuspend('Bayo Eze')">Suspend</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(245,166,35,0.1);color:var(--warn)">CI</div><div class="item-info"><div class="item-name">Chuks Ikenna · 🛺</div><div class="item-meta">Rivers · 3.8★ · 89 trips · Offline · ⚠ 2 complaints</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="toast('Opening Chuks Ikenna profile…')">Profile</button><button class="btn-sm btn-suspend" onclick="confirmSuspend('Chuks Ikenna')">Suspend</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger)">MN</div><div class="item-info"><div class="item-name">Mike Ndu · 🚗</div><div class="item-meta">Lagos · SUSPENDED · 3.1★ · 12 trips</div></div><div class="item-actions"><button class="btn-sm btn-approve" onclick="toast('Mike Ndu reinstated')">Reinstate</button><button class="btn-sm btn-reject" onclick="toast('Account permanently banned')">Ban</button></div></div>
-      </div>
+      <div id="driverDirectory"><div class="loading-state">Loading drivers…</div></div><div class="pagination" id="driverPagination"></div>
     </div>
   </div>
 
@@ -774,29 +750,21 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
   <div class="panel" id="panel-users">
     <div class="page-header"><h2 class="page-title">Customers</h2><div class="page-sub">User accounts, reports and referrals</div></div>
     <div class="metrics-grid four">
-      <div class="metric-card"><div class="metric-label">TOTAL CUSTOMERS</div><div class="metric-value">18,204</div><div class="metric-delta up">↑ +342 this week</div></div>
-      <div class="metric-card"><div class="metric-label">ACTIVE THIS WEEK</div><div class="metric-value">6,481</div><div class="metric-delta up">35.6% active rate</div></div>
-      <div class="metric-card"><div class="metric-label">REFERRALS USED</div><div class="metric-value">1,204</div><div class="metric-delta up">↑ +18% MoM</div></div>
-      <div class="metric-card"><div class="metric-label">SUSPENDED</div><div class="metric-value" style="color:var(--danger)">8</div><div class="metric-delta down">Fraud flags</div></div>
+      <div class="metric-card"><div class="metric-label">TOTAL CUSTOMERS</div><div class="metric-value" id="customersTotalCount">--</div><div class="metric-delta neutral">Current filter</div></div>
+      <div class="metric-card"><div class="metric-label">VERIFIED EMAILS</div><div class="metric-value" id="customersVerifiedCount">--</div><div class="metric-delta neutral">Visible page</div></div>
+      <div class="metric-card"><div class="metric-label">REFERRALS USED</div><div class="metric-value">--</div><div class="metric-delta neutral">Referral tracking not connected</div></div>
+      <div class="metric-card"><div class="metric-label">SUSPENDED</div><div class="metric-value" style="color:var(--danger)" id="customersSuspendedCount">--</div><div class="metric-delta neutral">Current filter</div></div>
     </div>
-    <div class="panel-search"><input placeholder="Search customer name or phone…"><button onclick="toast('Searching…')">Search</button></div>
+    <div class="panel-search"><input id="customerSearch" placeholder="Search customer name or phone…" oninput="queueCustomerSearch(this.value)"><button onclick="loadCustomers(1)">Search</button></div>
     <div class="scard">
-      <div class="scard-header"><h3>Recent customer reports</h3></div>
-      <div>
-        <div class="list-item"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">!</div><div class="item-info"><div class="item-name">Report #R-0048</div><div class="item-meta">Late delivery · Driver: Amina K. · Today</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openDisputeModal('Late delivery — Report #R-0048')">Review</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">!</div><div class="item-info"><div class="item-name">Report #R-0047</div><div class="item-meta">Wrong delivery · Driver: Bayo E. · Yesterday</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openDisputeModal('Wrong delivery — Report #R-0047')">Review</button></div></div>
-        <div class="list-item"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">!</div><div class="item-info"><div class="item-name">Report #R-0046</div><div class="item-meta">Rude driver · Driver: Chuks I. · 2 days ago</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openDisputeModal('Rude driver — Report #R-0046')">Review</button></div></div>
-      </div>
+      <div class="scard-header"><h3>Customer Directory</h3></div>
+      <div id="customerDirectory"><div class="loading-state">Loading customers…</div></div><div class="pagination" id="customerPagination"></div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Referral program</h3></div>
       <div style="padding:16px 18px">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:10px;margin-bottom:14px">
-          <div style="background:var(--surface);border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--text-muted)">Total codes</div><div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700">4,201</div></div>
-          <div style="background:var(--surface);border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--text-muted)">Redeemed</div><div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700">1,204</div></div>
-          <div style="background:var(--surface);border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:var(--text-muted)">Value paid</div><div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:700">₦2.1M</div></div>
-        </div>
-        <button class="btn-primary" style="font-size:12px;padding:8px 16px" onclick="toast('Referral report downloading…')">Download Report</button>
+        <div class="empty-state">Referral metrics are preserved in the UI but need referral tracking tables and analytics endpoints before live values can be shown.</div>
+        <button class="btn-primary disabled-action" style="font-size:12px;padding:8px 16px;margin-top:12px" aria-disabled="true" onclick="showUnavailableFeature('Referral report', 'Referral reporting needs referral tracking tables and export endpoints before files can be generated.')">Download Report</button>
       </div>
     </div>
   </div>
@@ -908,7 +876,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
     <div class="modal-body" id="tripModalBody"></div>
     <div class="modal-footer">
       <button onclick="closeTripModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Close</button>
-      <button class="btn-primary" onclick="toast('Receipt emailed to customer');closeTripModal()">Email Receipt</button>
+      <button class="btn-primary disabled-action" aria-disabled="true" onclick="showUnavailableFeature('Receipt email', 'Receipt email delivery needs a receipt generation endpoint before messages can be sent.')">Email Receipt</button>
     </div>
   </div>
 </div>
@@ -917,7 +885,7 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 
 <script>
 const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',users:'Customers',disputes:'Disputes',settings:'Settings'};
-const subs={overview:'Live · Sat Apr 11, 2026',kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'April 2026',payouts:'Earnings management',drivers:'All verified drivers',users:'Customer accounts',disputes:'Complaints & escalations',settings:'Platform configuration'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Finance analytics endpoint pending',payouts:'Earnings management',drivers:'Driver records from database',users:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -938,6 +906,8 @@ function nav(name,btn){
   if(name === 'ops') loadLiveOps();
   if(name === 'trips') loadTrips();
   if(name === 'payouts') loadPayouts();
+  if(name === 'drivers') loadDrivers();
+  if(name === 'users') loadCustomers();
   if(name === 'disputes') loadDisputes();
   if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
 
@@ -954,7 +924,7 @@ let currentKycId = 0;
 let currentKycTab = 'under_review';
 let currentKycFilter = 'all';
 let kycDrivers = [];
-const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'} };
+const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:''}, customers:{page:1, per_page:10, search:''} };
 let searchTimers = {};
 let currentDisputeId = 0;
 
@@ -1256,9 +1226,11 @@ async function loadDashboard(){
     document.getElementById('overviewTripsDelta').textContent=(diff>=0?'↑ +':'↓ ')+diff.toLocaleString()+' vs yesterday';
     document.getElementById('overviewRevenueToday').textContent=formatMoney(data.revenue_today);
     document.getElementById('overviewKycPending').textContent=Number(data.kyc_pending||0).toLocaleString();
+    document.getElementById('kyc-badge').textContent=Number(data.kyc_pending||0).toLocaleString();
     document.getElementById('overviewCompletionRate').textContent=Number(data.completion_rate||0).toFixed(1)+'%';
     document.getElementById('overviewAvgPickup').textContent=Number(data.avg_pickup_time||0).toFixed(1)+'m';
     document.getElementById('overviewOpenDisputes').textContent=Number(data.open_disputes||0).toLocaleString();
+    document.getElementById('dispute-badge').textContent=Number(data.open_disputes||0).toLocaleString();
     document.getElementById('overviewEscalatedDisputes').textContent=Number(data.escalated_disputes||0).toLocaleString()+' escalated';
     document.getElementById('overviewSuspended').textContent=Number(data.suspended_drivers||0).toLocaleString();
     const trips=data.recent_trips||[];
@@ -1288,9 +1260,64 @@ async function loadPayouts(page=pageState.payouts.page){
   try{ const data=await adminApi('get_payouts', st); const m=data.metrics||{}; document.getElementById('payoutPendingAmount').textContent=formatMoney(m.pending_amount); document.getElementById('payoutPendingCount').textContent=Number(m.pending_count||0).toLocaleString()+' pending'; document.getElementById('payoutProcessedAmount').textContent=formatMoney(m.processed_today_amount); document.getElementById('payoutProcessedCount').textContent=Number(m.processed_today_count||0).toLocaleString()+' processed'; document.getElementById('payoutFailedCount').textContent=Number(m.failed_count||0).toLocaleString(); document.getElementById('payoutAvgAmount').textContent=formatMoney(m.avg_payout); list.innerHTML=(data.payouts||[]).length?(data.payouts||[]).map(renderPayoutItem).join(''):'<div class="empty-state">No payouts match your filters.</div>'; renderPagination('payoutPagination', st, data.total, 'loadPayouts'); }
   catch(e){ list.innerHTML='<div class="empty-state">Could not load payouts: '+escapeHtml(e.message)+'</div>'; }
 }
-function renderPayoutItem(p){ const failed=p.status==='failed'; return `<div class="list-item"><div class="avatar" style="background:${failed?'rgba(232,72,74,0.1)':'rgba(34,196,122,0.1)'};color:${failed?'var(--danger)':'var(--success)'}">${escapeHtml(initials(p.driver_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(p.driver_name||('Driver #'+p.driver_id))}</div><div class="item-meta">${escapeHtml(p.bank_name||'Bank not set')} ${escapeHtml(maskAccount(p.account_number))} · ${Number(p.total_trips||0).toLocaleString()} trips · ${escapeHtml(formatStatusLabel(p.status))}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-weight:700;font-size:14px;color:${failed?'var(--danger)':'inherit'}">${formatMoney(p.amount)}</div>${p.status==='paid'?'<span class="badge badge-success">Paid</span>':`<button class="btn-sm ${failed?'btn-reject':'btn-approve'}" onclick="processPayout(${Number(p.id)}, 'paid')">Release</button>`}</div></div>`; }
+function renderPayoutItem(p){ const failed=p.status==='failed'; return `<div class="list-item"><div class="avatar" style="background:${failed?'rgba(232,72,74,0.1)':'rgba(34,196,122,0.1)'};color:${failed?'var(--danger)':'var(--success)'}">${escapeHtml(initials(p.driver_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(p.driver_name||('Driver #'+p.driver_id))}</div><div class="item-meta">${escapeHtml(p.bank_name||'Bank not set')} ${escapeHtml(maskAccount(p.account_number))} · ${Number(p.total_trips||0).toLocaleString()} trips · ${escapeHtml(formatStatusLabel(p.status))}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="font-weight:700;font-size:14px;color:${failed?'var(--danger)':'inherit'}">${formatMoney(p.amount)}</div>${p.status==='paid'?'<span class="badge badge-success">Paid</span>':`<button class="btn-sm disabled-action" aria-disabled="true" onclick="showUnavailableFeature('Payout release', 'Payout release is disabled until a real transfer provider or manual transfer reference flow is connected.')">Release</button>`}</div></div>`; }
 async function processPayout(id,status){ try{ const data=await adminApi('process_payout',{payout_id:id,status},'POST'); toast(data.message||'Payout updated'); loadPayouts(); }catch(e){ toast(e.message||'Could not update payout'); } }
-function releaseVisiblePayouts(){ document.querySelectorAll('#payoutList button.btn-approve').forEach(btn=>btn.click()); }
+function releaseVisiblePayouts(){ showUnavailableFeature('Bulk payout release', 'Payout release is disabled until a real transfer provider or manual transfer reference flow is connected.'); }
+
+async function loadDrivers(page=pageState.drivers.page){
+  const st=pageState.drivers; st.page=page;
+  const list=document.getElementById('driverDirectory'); if(!list) return;
+  list.innerHTML='<div class="loading-state">Loading drivers…</div>';
+  try{
+    const data=await adminApi('get_drivers', st);
+    const drivers=data.drivers||[];
+    document.getElementById('driversTotalCount').textContent=Number(data.total||0).toLocaleString();
+    document.getElementById('driversOnlineCount').textContent=drivers.filter(d=>Number(d.is_online)===1).length.toLocaleString();
+    document.getElementById('driversSuspendedCount').textContent=drivers.filter(d=>d.status==='suspended').length.toLocaleString();
+    const ratings=drivers.map(d=>Number(d.rating||0)).filter(Boolean);
+    document.getElementById('driversAvgRating').textContent=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1)+'★':'--';
+    list.innerHTML=drivers.length?drivers.map(renderDriverDirectoryItem).join(''):'<div class="empty-state">No drivers match your filters.</div>';
+    renderPagination('driverPagination', st, data.total, 'loadDrivers');
+  }catch(e){ list.innerHTML='<div class="empty-state">Could not load drivers: '+escapeHtml(e.message)+'</div>'; }
+}
+function renderDriverDirectoryItem(driver){
+  const status = driver.status || 'active';
+  const meta = [vehicleIcon(driver.vehicle_type)+' '+vehicleLabel(driver.vehicle_type), driver.kyc_status ? 'KYC '+formatStatusLabel(driver.kyc_status) : null, Number(driver.is_online)===1?'Online':'Offline', (driver.rating?Number(driver.rating).toFixed(1)+'★':null), Number(driver.total_trips||0).toLocaleString()+' trips'].filter(Boolean).map(escapeHtml).join(' · ');
+  return `<div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name||'Unnamed driver')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="showUnavailableFeature('Driver profile', 'Full driver profile screens need a driver-detail endpoint before opening from this directory. Use KYC Queue for document review.')">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendDriverFromDirectory(${Number(driver.id)}, '${escapeHtml(driver.full_name||'Driver').replace(/'/g,'&#39;')}')">Suspend</button>`}</div></div>`;
+}
+async function suspendDriverFromDirectory(driverId, name){
+  if(!confirm('Suspend '+name+'? They will be notified and go offline immediately.')) return;
+  try{ const data=await adminApi('suspend_driver',{driver_id:driverId},'POST'); toast(data.message||'Driver suspended.'); loadDrivers(); loadDashboard(); }
+  catch(e){ toast(e.message||'Could not suspend driver.'); }
+}
+function queueDriverSearch(v){ clearTimeout(searchTimers.drivers); searchTimers.drivers=setTimeout(()=>{pageState.drivers.search=v; loadDrivers(1);},300); }
+function setDriverStatusFilter(value){
+  if(value !== 'all') showUnavailableFeature('Driver status filter', 'The current drivers endpoint does not support status filtering yet. Use search or open the KYC queue for approval states.');
+  document.getElementById('driverStatusFilter').value='all';
+}
+
+async function loadCustomers(page=pageState.customers.page){
+  const st=pageState.customers; st.page=page;
+  const list=document.getElementById('customerDirectory'); if(!list) return;
+  list.innerHTML='<div class="loading-state">Loading customers…</div>';
+  try{
+    const data=await adminApi('get_customers', st);
+    const customers=data.customers||[];
+    document.getElementById('customersTotalCount').textContent=Number(data.total||0).toLocaleString();
+    document.getElementById('customersVerifiedCount').textContent=customers.filter(c=>Number(c.email_verified)===1).length.toLocaleString();
+    document.getElementById('customersSuspendedCount').textContent=customers.filter(c=>c.status==='suspended').length.toLocaleString();
+    list.innerHTML=customers.length?customers.map(renderCustomerDirectoryItem).join(''):'<div class="empty-state">No customers match your filters.</div>';
+    renderPagination('customerPagination', st, data.total, 'loadCustomers');
+  }catch(e){ list.innerHTML='<div class="empty-state">Could not load customers: '+escapeHtml(e.message)+'</div>'; }
+}
+function renderCustomerDirectoryItem(customer){
+  const status = customer.status || 'active';
+  const verified = Number(customer.email_verified)===1 ? 'Email verified' : 'Email pending';
+  const meta = [customer.email||'No email', customer.phone||'No phone', verified, dateLabel(customer.created_at)].map(escapeHtml).join(' · ');
+  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="showUnavailableFeature('Customer profile', 'Customer detail screens need a dedicated customer-detail endpoint before opening full profiles.')">Profile</button></div></div>`;
+}
+function queueCustomerSearch(v){ clearTimeout(searchTimers.customers); searchTimers.customers=setTimeout(()=>{pageState.customers.search=v; loadCustomers(1);},300); }
+
 async function loadDisputes(page=pageState.disputes.page){
   const st=pageState.disputes; st.page=page; const list=document.getElementById('disputeList'); if(!list) return; list.innerHTML='<div class="loading-state">Loading disputes…</div>';
   try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=rows.filter(d=>d.status==='open'||d.status==='escalated').length.toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=rows.filter(d=>d.status==='escalated').length.toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):'<div class="empty-state">No disputes match your filters.</div>'; renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
@@ -1369,11 +1396,26 @@ function confirmSuspend(name){
 }
 function toggleNotif(){document.getElementById('notifPanel').classList.toggle('open');}
 function markAllRead(){
-  document.getElementById('notifPanel').classList.remove('open');
-  document.querySelector('.notif-dot').style.display='none';
-  toast('All notifications marked read');
+  showUnavailableFeature('Notification read state', 'Notification inbox APIs are not connected yet, so read/unread state cannot be changed.');
 }
-function handleSearch(val){if(val.length>2)toast('Searching: "'+val+'"');}
+function handleSearch(val){
+  if(val.length>2) showUnavailableFeature('Global search', 'Cross-entity search needs a backend search endpoint before results can be opened.');
+}
+function showUnavailableFeature(title, detail){ toast(title + ': ' + detail); }
+async function adminLogout(btn){
+  const original = btn ? btn.innerHTML : '';
+  if(btn) btn.innerHTML = 'Logging out…';
+  try{
+    const body = new FormData();
+    body.append('action','admin_logout');
+    const response = await fetch('/admin.php', { method:'POST', body, credentials:'same-origin', headers:{ 'Accept':'application/json' } });
+    const data = await response.json();
+    window.location.href = data.data?.redirect || '/admin.php';
+  }catch(e){
+    if(btn) btn.innerHTML = original;
+    toast('Could not log out. Please refresh and try again.');
+  }
+}
 function searchTrips(val){ clearTimeout(searchTimers.trips); searchTimers.trips=setTimeout(()=>{pageState.trips.search=val; loadTrips(1);},300); }
 function filterTrips(cat){ pageState.trips.category=cat; loadTrips(1); }
 function toast(msg){
