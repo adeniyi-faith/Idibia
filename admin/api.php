@@ -622,7 +622,7 @@ function idibia_admin_save_settings(): void {
             }
 
             // Do not overwrite secrets if they are blank or masked
-            if ( in_array( $sanitized_key, ['paystack_secret_key', 'flutterwave_secret_key'] ) ) {
+            if ( in_array( $sanitized_key, ['paystack_secret_key', 'flutterwave_secret_key', 'pusher_secret'] ) ) {
                 if ( $sanitized_value === '' || $sanitized_value === '********' ) {
                     continue; // Skip updating this secret
                 }

@@ -354,8 +354,8 @@ function idibia_notify_trip_participants( int $trip_id, string $event_type, arra
 function idibia_pusher_public_config(): array {
     require_once __DIR__ . '/idibia-config.php';
 
-    $key     = (string) ( defined( 'IDIBIA_PUSHER_KEY' ) ? IDIBIA_PUSHER_KEY : '' );
-    $cluster = (string) ( defined( 'IDIBIA_PUSHER_CLUSTER' ) ? IDIBIA_PUSHER_CLUSTER : '' );
+    $key     = (string) idibia_get_setting('pusher_key', defined( 'IDIBIA_PUSHER_KEY' ) ? IDIBIA_PUSHER_KEY : '');
+    $cluster = (string) idibia_get_setting('pusher_cluster', defined( 'IDIBIA_PUSHER_CLUSTER' ) ? IDIBIA_PUSHER_CLUSTER : '');
 
     return [
         'enabled'      => idibia_pusher_is_configured(),
@@ -373,10 +373,10 @@ function idibia_pusher_is_configured(): bool {
     require_once __DIR__ . '/idibia-config.php';
 
     $values = [
-        defined( 'IDIBIA_PUSHER_APP_ID' ) ? IDIBIA_PUSHER_APP_ID : '',
-        defined( 'IDIBIA_PUSHER_KEY' ) ? IDIBIA_PUSHER_KEY : '',
-        defined( 'IDIBIA_PUSHER_SECRET' ) ? IDIBIA_PUSHER_SECRET : '',
-        defined( 'IDIBIA_PUSHER_CLUSTER' ) ? IDIBIA_PUSHER_CLUSTER : '',
+        idibia_get_setting('pusher_app_id', defined( 'IDIBIA_PUSHER_APP_ID' ) ? IDIBIA_PUSHER_APP_ID : ''),
+        idibia_get_setting('pusher_key', defined( 'IDIBIA_PUSHER_KEY' ) ? IDIBIA_PUSHER_KEY : ''),
+        idibia_get_setting('pusher_secret', defined( 'IDIBIA_PUSHER_SECRET' ) ? IDIBIA_PUSHER_SECRET : ''),
+        idibia_get_setting('pusher_cluster', defined( 'IDIBIA_PUSHER_CLUSTER' ) ? IDIBIA_PUSHER_CLUSTER : ''),
     ];
 
     foreach ( $values as $value ) {
@@ -406,6 +406,11 @@ function idibia_pusher_trigger( $channels, string $event_name, array $payload ):
 
     require_once __DIR__ . '/idibia-config.php';
 
+    $pusher_app_id = idibia_get_setting('pusher_app_id', defined( 'IDIBIA_PUSHER_APP_ID' ) ? IDIBIA_PUSHER_APP_ID : '');
+    $pusher_key    = idibia_get_setting('pusher_key', defined( 'IDIBIA_PUSHER_KEY' ) ? IDIBIA_PUSHER_KEY : '');
+    $pusher_secret = idibia_get_setting('pusher_secret', defined( 'IDIBIA_PUSHER_SECRET' ) ? IDIBIA_PUSHER_SECRET : '');
+    $pusher_cluster= idibia_get_setting('pusher_cluster', defined( 'IDIBIA_PUSHER_CLUSTER' ) ? IDIBIA_PUSHER_CLUSTER : '');
+
     $channels = array_values( array_unique( array_filter( (array) $channels ) ) );
     if ( empty( $channels ) ) {
         return false;
@@ -417,9 +422,9 @@ function idibia_pusher_trigger( $channels, string $event_name, array $payload ):
         'data'     => wp_json_encode( $payload ),
     ] );
 
-    $path = '/apps/' . rawurlencode( IDIBIA_PUSHER_APP_ID ) . '/events';
+    $path = '/apps/' . rawurlencode( $pusher_app_id ) . '/events';
     $query = [
-        'auth_key'       => IDIBIA_PUSHER_KEY,
+        'auth_key'       => $pusher_key,
         'auth_timestamp' => time(),
         'auth_version'   => '1.0',
         'body_md5'       => md5( $body ),
@@ -427,10 +432,10 @@ function idibia_pusher_trigger( $channels, string $event_name, array $payload ):
     ksort( $query );
 
     $query_string = http_build_query( $query, '', '&', PHP_QUERY_RFC3986 );
-    $signature = hash_hmac( 'sha256', "POST\n{$path}\n{$query_string}", IDIBIA_PUSHER_SECRET );
+    $signature = hash_hmac( 'sha256', "POST\n{$path}\n{$query_string}", $pusher_secret );
     $url = sprintf(
         'https://api-%s.pusher.com%s?%s&auth_signature=%s',
-        rawurlencode( IDIBIA_PUSHER_CLUSTER ),
+        rawurlencode( $pusher_cluster ),
         $path,
         $query_string,
         $signature

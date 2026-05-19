@@ -31,6 +31,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
         'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
         'support_action' => wp_create_nonce( 'idibia_support_action' ),
+        'driver_profile_update' => wp_create_nonce( 'idibia_driver_profile_update' ),
     ];
     if ( $email_verified ) {
         $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
@@ -41,11 +42,20 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'driver_id'   => $driver_id,
         'first_name'  => idibia_first_name_from_user( $current_user ),
         'full_name'   => $driver_row['full_name'] ?? $current_user->display_name,
+        'phone'       => $driver_row['phone'] ?? '',
         'kyc_status'  => $kyc_status,
         'status'      => $status,
         'is_approved' => $kyc_status === 'approved' && $status === 'active',
         'is_online'   => ! empty( $driver_row['is_online'] ),
         'email_verified' => $email_verified,
+        'vehicle_type' => $driver_row['vehicle_type'] ?? '',
+        'rating'      => $driver_row['rating'] ?? '0.00',
+        'total_trips' => $driver_row['total_trips'] ?? 0,
+        'bank_name'   => $driver_row['bank_name'] ?? '',
+        'account_number' => $driver_row['account_number'] ?? '',
+        'emergency_name' => $driver_row['emergency_name'] ?? '',
+        'emergency_phone' => $driver_row['emergency_phone'] ?? '',
+        'selfie_path' => $driver_row['selfie_path'] ?? '',
         'nonces'      => $driver_nonces,
     ];
 }
