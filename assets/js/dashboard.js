@@ -7,7 +7,9 @@ let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
 const IDIBIA_VERIFY_NONCE = '' + window.idibiaVerifyNonce + '';
+const IDIBIA_SUPPORT_NONCE = '' + window.idibiaSupportNonce + '';
 const IDIBIA_PUSHER_CONFIG = window.idibiaPusherConfig;
+const CUSTOMER_RATING = window.idibiaCustomerRating || '5.0';
 
 let idibiaPusher = null;
 let idibiaTripChannel = null;
@@ -78,6 +80,26 @@ async function idibiaPost(endpoint, body = null) {
 
 // ═══════════ INIT ═══════════
 document.addEventListener('DOMContentLoaded', () => {
+  const ratingEl = document.getElementById('account-rating-display');
+  if (ratingEl) {
+    ratingEl.innerText = CUSTOMER_RATING;
+  }
+
+  // Load preferences initial state
+  idibiaPost('preferences-api.php', {}, 'GET').then(res => {
+    if (res.success && res.data && res.data.preferences) {
+      const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
+      if (notifChip) {
+          if (res.data.preferences.trip_updates) {
+              notifChip.innerText = 'On';
+              notifChip.className = 'chip chip-success';
+          } else {
+              notifChip.innerText = 'Off';
+              notifChip.className = 'chip chip-warning';
+          }
+      }
+    }
+  });
   const start = 'screen-main';
   currentScreen = start;
   screenHistory = [start];
@@ -1225,4 +1247,138 @@ function drawRouteOnMap(routeCoordinates) {
 
     currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
     currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
+}
+
+function loadProfileData() {
+  idibiaPost('profile-api.php', {}).then(res => {
+    if (res.success && res.data) {
+      document.querySelectorAll('.account-row-meta').forEach(el => {
+        if (el.innerText.includes('John Okafor') || el.parentElement.querySelector('.account-row-label').innerText === 'Profile Details') {
+          el.innerText = res.data.full_name || 'My Profile';
+        }
+      });
+    }
+  });
+
+  const ratingEl = document.getElementById('account-rating-display');
+  if (ratingEl) {
+    ratingEl.innerText = CUSTOMER_RATING;
+  }
+}
+
+
+// ═══════════ NOTIFICATION PREFERENCES ═══════════
+function openPreferencesModal() {
+  idibiaPost('preferences-api.php', {}, 'GET').then(res => {
+    if (res.success && res.data && res.data.preferences) {
+      document.getElementById('pref_trip_updates').checked = res.data.preferences.trip_updates;
+      document.getElementById('pref_promotions').checked = res.data.preferences.promotions;
+      document.getElementById('pref_email_receipts').checked = res.data.preferences.email_receipts;
+
+      const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
+      if (notifChip) {
+          if (res.data.preferences.trip_updates) {
+              notifChip.innerText = 'On';
+              notifChip.className = 'chip chip-success';
+          } else {
+              notifChip.innerText = 'Off';
+              notifChip.className = 'chip chip-warning';
+          }
+      }
+    }
+    document.getElementById('modal-preferences').classList.add('active');
+  });
+}
+
+function savePreferences() {
+  const btn = document.getElementById('btnSavePreferences');
+  const ogText = btn.innerText;
+  btn.innerText = 'Saving...';
+  btn.disabled = true;
+
+  const payload = {
+    _nonce: IDIBIA_VERIFY_NONCE,
+    trip_updates: document.getElementById('pref_trip_updates').checked,
+    promotions: document.getElementById('pref_promotions').checked,
+    email_receipts: document.getElementById('pref_email_receipts').checked
+  };
+
+  idibiaPost('preferences-api.php', payload).then(res => {
+    btn.innerText = ogText;
+    btn.disabled = false;
+    if (res.success) {
+      showToast('Preferences updated');
+      closeModal('modal-preferences');
+
+      const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
+      if (notifChip) {
+          if (payload.trip_updates) {
+              notifChip.innerText = 'On';
+              notifChip.className = 'chip chip-success';
+          } else {
+              notifChip.innerText = 'Off';
+              notifChip.className = 'chip chip-warning';
+          }
+      }
+    } else {
+      showToast(res.data?.message || 'Error updating preferences');
+    }
+  });
+}
+
+
+// ═══════════ SUPPORT TICKETS ═══════════
+function submitSupportTicket() {
+  const btn = document.getElementById('btnSubmitSupport');
+  const ogText = btn.innerText;
+  btn.innerText = 'Submitting...';
+  btn.disabled = true;
+
+  const payload = {
+    _nonce: IDIBIA_SUPPORT_NONCE,
+    action: 'create_ticket',
+    category: document.getElementById('support_category').value,
+    message: document.getElementById('support_message').value
+  };
+
+  idibiaPost('support-api.php', payload).then(res => {
+    btn.innerText = ogText;
+    btn.disabled = false;
+    if (res.success) {
+      showToast('Support ticket submitted successfully!');
+      document.getElementById('support_message').value = '';
+      closeModal('modal-support');
+    } else {
+      showToast(res.data?.message || 'Error submitting ticket');
+    }
+  });
+}
+
+
+// ═══════════ PAYMENT MODAL ═══════════
+function copyAccountNumber() {
+  const accNum = document.getElementById('company_account_number').innerText;
+  navigator.clipboard.writeText(accNum).then(() => {
+    showToast('Account number copied to clipboard!');
+  }).catch(err => {
+    showToast('Failed to copy account number');
+    console.error('Copy failed', err);
+  });
+}
+
+
+// ═══════════ LEGAL MODAL ═══════════
+function openLegalModal(title, key) {
+  document.getElementById('legal_modal_title').innerText = title;
+
+  const contentMap = window.idibiaLegalContents || {};
+  const content = contentMap[key] || 'Content not available.';
+
+  // Basic rendering: replace newlines with <br> and sanitize roughly (since it's an internal tool setting, but still good practice)
+  const div = document.createElement('div');
+  div.innerText = content;
+  const htmlContent = div.innerHTML.replace(/\n/g, '<br>');
+
+  document.getElementById('legal_modal_content').innerHTML = htmlContent;
+  openModal('modal-legal');
 }

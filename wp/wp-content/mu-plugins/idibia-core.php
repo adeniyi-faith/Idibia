@@ -231,7 +231,8 @@ function idibia_maybe_create_tables() {
     }
 
     if ( $current_version < 6 ) {
-        idibia_add_saved_addresses_column();
+            idibia_add_customer_rating_and_prefs_columns();
+    idibia_add_saved_addresses_column();
         update_option( 'idibia_db_version', 6 );
         $current_version = 6;
     }
@@ -252,6 +253,13 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 7 );
         $current_version = 7;
     }
+}
+
+function idibia_add_customer_rating_and_prefs_columns(): void {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sd_customers';
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `rating` DECIMAL(3,2) NOT NULL DEFAULT 0.00 AFTER `status`" );
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `notification_preferences` TEXT NULL AFTER `rating`" );
 }
 
 function idibia_add_saved_addresses_column(): void {
@@ -293,7 +301,9 @@ function idibia_create_tables() {
         `verify_expires` DATETIME         NULL,
         `referral_code`  VARCHAR(20)      NOT NULL DEFAULT '',
         `referred_by`    BIGINT UNSIGNED  NULL,
-        `status`         ENUM('pending','active','suspended') NOT NULL DEFAULT 'pending',
+                `status`         ENUM('pending','active','suspended') NOT NULL DEFAULT 'pending',
+        `rating`           DECIMAL(3,2)     NOT NULL DEFAULT 0.00,
+        `notification_preferences` TEXT     NULL,
         `created_at`     DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `updated_at`     DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (`id`),

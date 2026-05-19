@@ -343,7 +343,7 @@
             <div class="stat-label">Trips</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">4.9</div>
+            <div class="stat-value" id="account-rating-display">5.0</div>
             <div class="stat-label">Rating</div>
           </div>
           <div class="stat-card">
@@ -370,10 +370,10 @@
               <span class="account-row-meta">John Okafor</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Managing payment methods...')">
+            <div class="account-row" onclick="openModal('modal-payment')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
               <span class="account-row-label">Payment Methods</span>
-              <span class="account-row-meta">Card ••4091</span>
+              <span class="account-row-meta">Bank Transfer</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
             <div class="account-row" onclick="showToast('Managing saved addresses...')">
@@ -382,7 +382,7 @@
               <span class="account-row-meta">3 places</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Notification preferences...')">
+            <div class="account-row" onclick="openPreferencesModal()">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
               <span class="account-row-label">Notifications</span>
               <span class="chip chip-success" style="font-size:10px">On</span>
@@ -393,12 +393,12 @@
           <!-- Support -->
           <div class="account-card">
             <div class="account-card-title">Support & Help</div>
-            <div class="account-row" onclick="showToast('Opening support chat...')">
+            <div class="account-row" onclick="openModal('modal-support')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
               <span class="account-row-label">Customer Support</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Opening FAQs...')">
+            <div class="account-row" onclick="openModal('modal-faq')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
               <span class="account-row-label">FAQs</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
@@ -408,27 +408,27 @@
           <!-- Legal Center -->
           <div class="account-card">
             <div class="account-card-title">Legal Center</div>
-            <div class="account-row" onclick="showToast('Terms & Conditions')">
+            <div class="account-row" onclick="openLegalModal('Terms & Conditions', 'legal_terms')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
               <span class="account-row-label">Terms & Conditions</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Privacy Policy')">
+            <div class="account-row" onclick="openLegalModal('Privacy Policy', 'legal_privacy')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
               <span class="account-row-label">Privacy Policy</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Location Data Policy')">
+            <div class="account-row" onclick="openLegalModal('Location Data Policy', 'legal_location')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
               <span class="account-row-label">Location Data Policy</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Software License')">
+            <div class="account-row" onclick="openLegalModal('Software License', 'legal_license')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
               <span class="account-row-label">Software License</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Copyright Notice')">
+            <div class="account-row" onclick="openLegalModal('Copyright Notice', 'legal_copyright')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M15 9.354a4 4 0 1 0 0 5.292"/></svg></div>
               <span class="account-row-label">Copyright</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
