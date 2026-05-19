@@ -20,8 +20,9 @@
         </div>
         <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Email cannot be changed directly. Contact support if you need to update it.</div>
       </div>
-      <div style="margin-top: 24px;">
+      <div style="margin-top: 24px; display: flex; flex-direction: column; gap: 12px;">
         <button type="submit" class="btn-primary" id="profileSaveBtn">Save Changes</button>
+        <button type="button" class="global-btn ghost" style="width:100%; justify-content:center; border: 1px solid var(--surface-3); background: transparent;" onclick="closeModal(null, 'profile')">Cancel</button>
       </div>
     </form>
   </div>

@@ -20,6 +20,61 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
         wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
     }
 
+    $action = sanitize_text_field( wp_unslash( $_POST['action'] ?? '' ) );
+    $customer_id = $GLOBALS['auth_customer_id'];
+
+    if ( $action === 'upload_avatar' ) {
+        if ( empty( $_FILES['avatar'] ) || ! empty( $_FILES['avatar']['error'] ) ) {
+            wp_send_json_error( [ 'message' => 'No valid image uploaded.' ] );
+        }
+
+        $file = $_FILES['avatar'];
+        if ( ! is_uploaded_file( $file['tmp_name'] ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid upload.' ] );
+        }
+
+        if ( (int) $file['size'] > 5 * 1024 * 1024 ) {
+            wp_send_json_error( [ 'message' => 'Image must be 5MB or smaller.' ] );
+        }
+
+        $allowed_mimes = [ 'image/jpeg', 'image/png', 'image/webp' ];
+        $filetype      = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'] );
+        if ( empty( $filetype['type'] ) || ! in_array( $filetype['type'], $allowed_mimes, true ) ) {
+            wp_send_json_error( [ 'message' => 'Upload only JPG, PNG or WEBP images.' ] );
+        }
+
+        $upload = wp_upload_dir();
+        if ( ! empty( $upload['error'] ) ) {
+            wp_send_json_error( [ 'message' => 'Could not save uploaded image.' ] );
+        }
+
+        $target_dir = trailingslashit( $upload['basedir'] ) . 'idibia-avatars/customer-' . $customer_id;
+        if ( ! wp_mkdir_p( $target_dir ) ) {
+            wp_send_json_error( [ 'message' => 'Could not create upload directory.' ] );
+        }
+
+        $original = sanitize_file_name( wp_unslash( $file['name'] ) );
+        $filename = wp_unique_filename( $target_dir, 'avatar-' . $original );
+        $target   = trailingslashit( $target_dir ) . $filename;
+
+        if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) {
+            wp_send_json_error( [ 'message' => 'Could not move uploaded image.' ] );
+        }
+
+        $path = 'idibia-avatars/customer-' . $customer_id . '/' . $filename;
+
+        global $wpdb;
+        $wpdb->update(
+            $wpdb->prefix . 'sd_customers',
+            [ 'avatar_path' => $path ],
+            [ 'id' => $customer_id ],
+            [ '%s' ],
+            [ '%d' ]
+        );
+
+        wp_send_json_success( [ 'message' => 'Avatar updated successfully.', 'avatar_path' => $path ] );
+    }
+
     $full_name = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );
     if ( ! empty( $full_name ) ) {
         $user_id = get_current_user_id();

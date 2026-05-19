@@ -366,14 +366,27 @@
               </div>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
             </div>
+            <div class="help-category" onclick="openModal('modal-faq')">
+              <div class="help-cat-icon" style="background:rgba(100,100,100,0.1);color:var(--text-primary)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div class="help-cat-text">
+                <div class="help-cat-title">FAQs</div>
+                <div class="help-cat-sub">Frequently asked questions</div>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
           </div>
 
           <!-- PROFILE TAB -->
           <div class="dash-panel" id="panel-profile">
             <div class="profile-header">
-              <div class="profile-avatar-lg" onclick="document.getElementById('profileAvatarInput').click()">
+              <div class="profile-avatar-lg" style="position: relative;" onclick="document.getElementById('profileAvatarInput').click()">
                 <img src="" alt="Profile Image" id="profileAvatarImg">
                 <input type="file" id="profileAvatarInput" style="display:none;" accept="image/jpeg, image/png, image/webp" onchange="uploadDriverAvatar(event)">
+                <div class="camera-badge" style="position:absolute; bottom:-4px; right:-4px; width:24px; height:24px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); cursor:pointer;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
               </div>
               <div class="profile-name" id="profileNameDisplay">Driver Name</div>
               <div class="profile-rating" id="profileStatsDisplay">

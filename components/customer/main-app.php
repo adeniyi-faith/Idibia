@@ -325,7 +325,17 @@
         <div class="account-hero">
           <div class="account-hero-bg"></div>
           <div class="avatar-wrap">
-            <div class="avatar"><?php echo esc_html($customer_initials); ?></div>
+            <div class="avatar" style="position: relative;">
+              <?php if ( ! empty( $customer_avatar_path ) ) : ?>
+                <img src="/wp/wp-content/uploads/<?php echo esc_attr( $customer_avatar_path ); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+              <?php else : ?>
+                <?php echo esc_html($customer_initials); ?>
+              <?php endif; ?>
+              <div class="camera-badge" onclick="document.getElementById('customerAvatarInput').click()" style="position:absolute; bottom:-4px; right:-4px; width:24px; height:24px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); cursor:pointer;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
+              <input type="file" id="customerAvatarInput" style="display:none;" accept="image/jpeg, image/png, image/webp" onchange="uploadCustomerAvatar(event)">
+            </div>
             <div>
               <div class="avatar-name"><?php echo esc_html($customer_full_name); ?></div>
               <div class="avatar-email"><?php echo esc_html($customer_email); ?></div>

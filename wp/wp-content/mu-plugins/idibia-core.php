@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 9;
+    $target_version = 10;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -267,6 +267,13 @@ function idibia_maybe_create_tables() {
         $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_drivers` ADD COLUMN IF NOT EXISTS `avatar_path` VARCHAR(255) NULL AFTER `selfie_path`" );
         update_option( 'idibia_db_version', 9 );
         $current_version = 9;
+    }
+
+    if ( $current_version < 10 ) {
+        global $wpdb;
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers` ADD COLUMN IF NOT EXISTS `avatar_path` VARCHAR(255) NULL AFTER `saved_addresses`" );
+        update_option( 'idibia_db_version', 10 );
+        $current_version = 10;
     }
 }
 

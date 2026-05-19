@@ -25,9 +25,14 @@
           <p style="margin: 0; font-size: 14px; color: var(--text-muted); display: none;">We currently support bank transfers. You can find our company bank details in the Payment Methods section.</p>
         </div>
 
-        <div class="faq-item" style="padding: 15px 0;">
+        <div class="faq-item" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding: 15px 0;">
           <h4 style="margin: 0 0 10px 0; font-size: 16px; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';">How can I contact my driver?</h4>
           <p style="margin: 0; font-size: 14px; color: var(--text-muted); display: none;">After a driver is assigned to your trip, you will see a call button on the tracking screen that lets you contact them directly.</p>
+        </div>
+
+        <div class="faq-item" style="padding: 15px 0;">
+          <h4 style="margin: 0 0 10px 0; font-size: 16px; cursor: pointer;" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none';">How do I update my account details?</h4>
+          <p style="margin: 0; font-size: 14px; color: var(--text-muted); display: none;">Navigate to the Account tab and tap 'Profile Details' to edit your personal information.</p>
         </div>
       </div>
     </div>
