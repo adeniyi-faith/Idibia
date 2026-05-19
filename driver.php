@@ -56,6 +56,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'emergency_name' => $driver_row['emergency_name'] ?? '',
         'emergency_phone' => $driver_row['emergency_phone'] ?? '',
         'selfie_path' => $driver_row['selfie_path'] ?? '',
+        'avatar_path' => $driver_row['avatar_path'] ?? '',
         'nonces'      => $driver_nonces,
     ];
 }

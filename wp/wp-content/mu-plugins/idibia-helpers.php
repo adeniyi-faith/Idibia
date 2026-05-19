@@ -526,7 +526,7 @@ function idibia_pusher_broadcast_driver_location( int $trip_id, int $driver_id, 
 function idibia_get_setting( string $key, $default = null ) {
     global $wpdb;
     $row = $wpdb->get_row( $wpdb->prepare( "SELECT setting_value FROM `{$wpdb->prefix}sd_settings` WHERE setting_key = %s LIMIT 1", $key ), ARRAY_A );
-    if ( ! $row ) {
+    if ( ! $row || $row['setting_value'] === '' ) {
         return $default;
     }
 

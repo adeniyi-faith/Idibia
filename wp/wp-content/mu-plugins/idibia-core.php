@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 8;
+    $target_version = 9;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -260,6 +260,13 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 8 );
         $current_version = 8;
     }
+
+    if ( $current_version < 9 ) {
+        global $wpdb;
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_drivers` ADD COLUMN IF NOT EXISTS `avatar_path` VARCHAR(255) NULL AFTER `selfie_path`" );
+        update_option( 'idibia_db_version', 9 );
+        $current_version = 9;
+    }
 }
 
 function idibia_add_saved_addresses_column(): void {
@@ -351,6 +358,7 @@ function idibia_create_tables() {
         `emergency_phone`  VARCHAR(30)      NULL,
         `emergency_address` VARCHAR(255)    NULL,
         `selfie_path`      VARCHAR(255)     NULL,
+        `avatar_path`      VARCHAR(255)     NULL,
         `id_front_path`    VARCHAR(255)     NULL,
         `id_back_path`     VARCHAR(255)     NULL,
         `vehicle_photo_path` VARCHAR(255)   NULL,
