@@ -716,11 +716,51 @@ function renderDriverProfile() {
     if (nameDisplay) nameDisplay.textContent = ctx.full_name;
 
     const imgDisplay = document.getElementById('profileAvatarImg');
+    const initialsDisplay = document.getElementById('profileAvatarInitials');
     const avatarToUse = ctx.avatar_path || ctx.selfie_path;
-    if (imgDisplay) imgDisplay.src = avatarToUse ? `/wp/wp-content/uploads/${avatarToUse}` : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ctx.full_name) + '&background=0D8ABC&color=fff';
+
+    if (avatarToUse) {
+        if (imgDisplay) {
+            imgDisplay.src = `/wp/wp-content/uploads/${avatarToUse}`;
+            imgDisplay.style.display = 'block';
+        }
+        if (initialsDisplay) initialsDisplay.style.display = 'none';
+    } else {
+        if (imgDisplay) imgDisplay.style.display = 'none';
+        if (initialsDisplay) {
+            const parts = (ctx.full_name || '').trim().split(' ');
+            let initials = '';
+            if (parts.length > 0 && parts[0]) initials += parts[0][0];
+            if (parts.length > 1 && parts[parts.length - 1]) initials += parts[parts.length - 1][0];
+            initialsDisplay.textContent = initials.toUpperCase() || '?';
+            initialsDisplay.style.display = 'flex';
+        }
+    }
 
     const statsDisplay = document.getElementById('profileStatsDisplay');
-    if (statsDisplay) statsDisplay.innerHTML = `<span class="profile-star">★★★★★</span> ${ctx.rating} · ${ctx.total_trips} trips total`;
+    if (statsDisplay) {
+        const starSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+        const emptyStarSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="var(--surface-3)" stroke="var(--surface-3)" stroke-width="0"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+        const halfStarSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="url(#halfGrad)" stroke="var(--surface-3)" stroke-width="0"><defs><linearGradient id="halfGrad"><stop offset="50%" stop-color="currentColor"/><stop offset="50%" stop-color="var(--surface-3)"/></linearGradient></defs><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+
+        if (!ctx.total_trips || ctx.total_trips === 0 || ctx.rating == 0) {
+            let svgStarsHtml = '';
+            for (let i = 0; i < 5; i++) svgStarsHtml += emptyStarSvg;
+            statsDisplay.innerHTML = `<span class="profile-star" style="display:inline-flex;gap:2px;align-items:center;color:var(--surface-3);">${svgStarsHtml}</span> No ratings yet`;
+        } else {
+            const rating = parseFloat(ctx.rating) || 0;
+            const fullStars = Math.floor(rating);
+            const halfStar = (rating - fullStars) >= 0.5 ? 1 : 0;
+            const emptyStars = 5 - fullStars - halfStar;
+
+            let svgStarsHtml = '';
+            for (let i = 0; i < fullStars; i++) svgStarsHtml += starSvg;
+            if (halfStar) svgStarsHtml += halfStarSvg;
+            for (let i = 0; i < emptyStars; i++) svgStarsHtml += emptyStarSvg;
+
+            statsDisplay.innerHTML = `<span class="profile-star" style="display:inline-flex;gap:2px;align-items:center;color:var(--gold);">${svgStarsHtml}</span> ${rating.toFixed(2)} · ${ctx.total_trips} trips total`;
+        }
+    }
 
     const verifyBadge = document.getElementById('profileVerifyBadge');
     if (verifyBadge) {
