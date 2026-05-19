@@ -372,8 +372,12 @@
           <div class="dash-panel" id="panel-profile">
             <div class="profile-header">
               <div class="profile-avatar-lg" onclick="document.getElementById('profileAvatarInput').click()">
+                <div class="avatar-initials" id="profileAvatarInitials" style="display:none;"></div>
                 <img src="" alt="Profile Image" id="profileAvatarImg">
                 <input type="file" id="profileAvatarInput" style="display:none;" accept="image/jpeg, image/png, image/webp" onchange="uploadDriverAvatar(event)">
+                <div class="avatar-edit-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
               </div>
               <div class="profile-name" id="profileNameDisplay">Driver Name</div>
               <div class="profile-rating" id="profileStatsDisplay">
@@ -450,18 +454,18 @@
       </div><!-- end dashBody scroll wrapper -->
 
       <!-- Profile Edit Modals -->
-      <div class="modal" id="modal-edit-personal">
-        <div class="modal-content">
+      <div class="modal" id="modal-edit-personal" onclick="closeModal('modal-edit-personal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
           <h3>Edit Personal Info</h3>
           <p class="modal-sub">Update your personal information below.</p>
           <form onsubmit="submitProfileForm(event, 'update_personal')">
             <div class="form-group">
-              <label>Full Name</label>
-              <input type="text" class="global-input" name="full_name" id="inputProfileName" required>
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-input" name="full_name" id="inputProfileName" required>
             </div>
             <div class="form-group">
-              <label>Phone Number</label>
-              <input type="tel" class="global-input" name="phone" id="inputProfilePhone" required>
+              <label class="form-label">Phone Number</label>
+              <input type="tel" class="form-input" name="phone" id="inputProfilePhone" required>
             </div>
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-personal')">Cancel</button>
@@ -471,18 +475,18 @@
         </div>
       </div>
 
-      <div class="modal" id="modal-edit-bank">
-        <div class="modal-content">
+      <div class="modal" id="modal-edit-bank" onclick="closeModal('modal-edit-bank')">
+        <div class="modal-content" onclick="event.stopPropagation()">
           <h3>Edit Bank Details</h3>
           <p class="modal-sub">Update where you receive your payouts.</p>
           <form onsubmit="submitProfileForm(event, 'update_bank')">
             <div class="form-group">
-              <label>Bank Name</label>
-              <input type="text" class="global-input" name="bank_name" id="inputProfileBankName" required>
+              <label class="form-label">Bank Name</label>
+              <input type="text" class="form-input" name="bank_name" id="inputProfileBankName" required>
             </div>
             <div class="form-group">
-              <label>Account Number</label>
-              <input type="text" class="global-input" name="account_number" id="inputProfileAccountNumber" required>
+              <label class="form-label">Account Number</label>
+              <input type="text" class="form-input" name="account_number" id="inputProfileAccountNumber" required>
             </div>
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-bank')">Cancel</button>
@@ -492,18 +496,18 @@
         </div>
       </div>
 
-      <div class="modal" id="modal-edit-emergency">
-        <div class="modal-content">
+      <div class="modal" id="modal-edit-emergency" onclick="closeModal('modal-edit-emergency')">
+        <div class="modal-content" onclick="event.stopPropagation()">
           <h3>Edit Emergency Contact</h3>
           <p class="modal-sub">Who should we contact in an emergency?</p>
           <form onsubmit="submitProfileForm(event, 'update_emergency')">
             <div class="form-group">
-              <label>Contact Name</label>
-              <input type="text" class="global-input" name="emergency_name" id="inputProfileEmergencyName" required>
+              <label class="form-label">Contact Name</label>
+              <input type="text" class="form-input" name="emergency_name" id="inputProfileEmergencyName" required>
             </div>
             <div class="form-group">
-              <label>Contact Phone</label>
-              <input type="tel" class="global-input" name="emergency_phone" id="inputProfileEmergencyPhone" required>
+              <label class="form-label">Contact Phone</label>
+              <input type="tel" class="form-input" name="emergency_phone" id="inputProfileEmergencyPhone" required>
             </div>
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-emergency')">Cancel</button>
