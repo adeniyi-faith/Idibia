@@ -371,47 +371,48 @@
           <!-- PROFILE TAB -->
           <div class="dash-panel" id="panel-profile">
             <div class="profile-header">
-              <div class="profile-avatar-lg">
-                <img src="https://app.oaglobalstandardservice.com/wp/wp-content/uploads/2026/04/1725853367655.jpg" alt="Profile Image">
+              <div class="profile-avatar-lg" onclick="document.getElementById('profileAvatarInput').click()">
+                <img src="" alt="Profile Image" id="profileAvatarImg">
+                <input type="file" id="profileAvatarInput" style="display:none;" accept="image/jpeg, image/png, image/webp" onchange="uploadDriverAvatar(event)">
               </div>
-              <div class="profile-name">Chidi Nwosu</div>
-              <div class="profile-rating">
+              <div class="profile-name" id="profileNameDisplay">Driver Name</div>
+              <div class="profile-rating" id="profileStatsDisplay">
                 <span class="profile-star">★★★★★</span>
-                4.8 · 23 trips this week
+                0.0 · 0 trips total
               </div>
               <div style="margin-top:16px;display:flex;gap:10px">
-                <div style="background:rgba(34,196,122,0.15);border:1px solid rgba(34,196,122,0.25);color:var(--success);font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px">✓ Verified</div>
-                <div style="background:rgba(245,200,66,0.1);border:1px solid rgba(245,200,66,0.2);color:var(--gold);font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px">Motorbike</div>
+                <div style="background:rgba(34,196,122,0.15);border:1px solid rgba(34,196,122,0.25);color:var(--success);font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px" id="profileVerifyBadge">✓ Verified</div>
+                <div style="background:rgba(245,200,66,0.1);border:1px solid rgba(245,200,66,0.2);color:var(--gold);font-size:12px;font-weight:600;padding:5px 14px;border-radius:20px; text-transform: capitalize;" id="profileVehicleBadge">Vehicle</div>
               </div>
             </div>
 
-            <div class="profile-row" onclick="showToast('Edit personal info')">
+            <div class="profile-row" onclick="openModal('modal-edit-personal')">
               <div class="profile-row-left">
                 <div class="profile-row-icon" style="background:var(--info-pale);color:var(--info)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 </div>
                 <div>
                   <div class="profile-row-label">Personal Info</div>
-                  <div class="profile-row-sub">Name, DOB, State of Origin</div>
+                  <div class="profile-row-sub" id="profilePersonalSub">Name, Phone</div>
                 </div>
               </div>
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
 
-            <div class="profile-row" onclick="showToast('Edit bank details')">
+            <div class="profile-row" onclick="openModal('modal-edit-bank')">
               <div class="profile-row-left">
                 <div class="profile-row-icon" style="background:rgba(34,196,122,0.1);color:var(--success)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                 </div>
                 <div>
                   <div class="profile-row-label">Bank Details</div>
-                  <div class="profile-row-sub">GTBank · ****7890</div>
+                  <div class="profile-row-sub" id="profileBankSub">Bank Name · Account</div>
                 </div>
               </div>
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
 
-            <div class="profile-row" onclick="showToast('View vehicle documents')">
+            <div class="profile-row" onclick="showToast('Vehicle documents can only be updated via support at this time.')">
               <div class="profile-row-left">
                 <div class="profile-row-icon" style="background:var(--gold-pale);color:var(--gold-dark)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="1" y="6" width="15" height="10" rx="2"/><polygon points="16 9 20 9 23 13 23 16 16 16 16 9"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
@@ -424,14 +425,14 @@
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
 
-            <div class="profile-row" onclick="showToast('Edit emergency contact')">
+            <div class="profile-row" onclick="openModal('modal-edit-emergency')">
               <div class="profile-row-left">
                 <div class="profile-row-icon" style="background:rgba(232,72,74,0.08);color:var(--danger)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.37 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.97-.86a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                 </div>
                 <div>
                   <div class="profile-row-label">Emergency Contact</div>
-                  <div class="profile-row-sub">Mama Nwosu · Parent</div>
+                  <div class="profile-row-sub" id="profileEmergencySub">Contact Name · Phone</div>
                 </div>
               </div>
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
@@ -447,6 +448,70 @@
 
         </div><!-- end driver-dash-body -->
       </div><!-- end dashBody scroll wrapper -->
+
+      <!-- Profile Edit Modals -->
+      <div class="modal" id="modal-edit-personal">
+        <div class="modal-content">
+          <h3>Edit Personal Info</h3>
+          <p class="modal-sub">Update your personal information below.</p>
+          <form onsubmit="submitProfileForm(event, 'update_personal')">
+            <div class="form-group">
+              <label>Full Name</label>
+              <input type="text" class="global-input" name="full_name" id="inputProfileName" required>
+            </div>
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" class="global-input" name="phone" id="inputProfilePhone" required>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:24px">
+              <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-personal')">Cancel</button>
+              <button type="submit" class="global-btn" style="flex:1;justify-content:center">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-edit-bank">
+        <div class="modal-content">
+          <h3>Edit Bank Details</h3>
+          <p class="modal-sub">Update where you receive your payouts.</p>
+          <form onsubmit="submitProfileForm(event, 'update_bank')">
+            <div class="form-group">
+              <label>Bank Name</label>
+              <input type="text" class="global-input" name="bank_name" id="inputProfileBankName" required>
+            </div>
+            <div class="form-group">
+              <label>Account Number</label>
+              <input type="text" class="global-input" name="account_number" id="inputProfileAccountNumber" required>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:24px">
+              <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-bank')">Cancel</button>
+              <button type="submit" class="global-btn" style="flex:1;justify-content:center">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-edit-emergency">
+        <div class="modal-content">
+          <h3>Edit Emergency Contact</h3>
+          <p class="modal-sub">Who should we contact in an emergency?</p>
+          <form onsubmit="submitProfileForm(event, 'update_emergency')">
+            <div class="form-group">
+              <label>Contact Name</label>
+              <input type="text" class="global-input" name="emergency_name" id="inputProfileEmergencyName" required>
+            </div>
+            <div class="form-group">
+              <label>Contact Phone</label>
+              <input type="tel" class="global-input" name="emergency_phone" id="inputProfileEmergencyPhone" required>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:24px">
+              <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-emergency')">Cancel</button>
+              <button type="submit" class="global-btn" style="flex:1;justify-content:center">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
 
       <!-- BOTTOM NAV (mobile only) -->
       <nav class="bottom-nav">

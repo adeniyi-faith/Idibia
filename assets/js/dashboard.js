@@ -599,9 +599,19 @@ function renderManualPaymentPanel(trip) {
   const payment = trip?.payment || {};
   const record = payment.record || null;
   const settings = payment.settings || {};
+
+  if (payment.receipt_url) {
+    currentReceiptUrl = payment.receipt_url;
+    const receiptBtn = document.getElementById('receiptLinkBtn');
+    if (receiptBtn) receiptBtn.style.display = 'inline-block';
+  } else {
+    currentReceiptUrl = null;
+    const receiptBtn = document.getElementById('receiptLinkBtn');
+    if (receiptBtn) receiptBtn.style.display = 'none';
+  }
   const manual = settings.manual_transfer || {};
   const status = record?.status || trip?.payment_status || 'pending';
-  const show = settings.active_provider === 'manual_transfer' && status !== 'captured' && status !== 'refunded';
+  const show = settings.active_provider === 'manual_transfer' && status !== 'captured' && status !== 'approved' && status !== 'refunded';
   panel.style.display = show ? 'block' : 'none';
   if (!show) return;
 
@@ -615,7 +625,7 @@ function renderManualPaymentPanel(trip) {
   const statusEl = document.getElementById('manualPaymentStatus');
   const uploadBtn = panel.querySelector('button');
   const hasProof = !!record?.proof_path;
-  if (status === 'failed') {
+  if (status === 'failed' || status === 'rejected') {
     statusEl.textContent = record?.admin_notes ? `Rejected: ${record.admin_notes}` : 'Payment proof was rejected. Please upload a clearer proof.';
     uploadBtn.disabled = false;
   } else if (hasProof) {
@@ -1207,6 +1217,7 @@ window.enterCustomerApp = function(msg) {
 let currentMap = null;
 let currentMarker = null;
 let currentRouteLayer = null;
+let currentReceiptUrl = null;
 
 function initLeafletMap(containerId, lat, lng, isTracking = false) {
   if (currentMap) {
@@ -1249,136 +1260,60 @@ function drawRouteOnMap(routeCoordinates) {
     currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
 }
 
-function loadProfileData() {
-  idibiaPost('profile-api.php', {}).then(res => {
-    if (res.success && res.data) {
-      document.querySelectorAll('.account-row-meta').forEach(el => {
-        if (el.innerText.includes('John Okafor') || el.parentElement.querySelector('.account-row-label').innerText === 'Profile Details') {
-          el.innerText = res.data.full_name || 'My Profile';
-        }
+// ═══════════ PROFILE EDIT ═══════════
+async function submitProfileEdit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('profileSaveBtn');
+  const initialText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const body = new FormData();
+    const newFullName = document.getElementById('profileFullName').value.trim();
+    body.append('_nonce', window.idibiaProfileNonce);
+    body.append('full_name', newFullName);
+
+    const json = await idibiaPost('profile-api.php', body);
+
+    if (json.success) {
+      showToast(json.data?.message || 'Profile updated successfully.');
+      closeModal(null, 'profile');
+
+      // Update DOM elements dynamically
+      const avatarName = document.querySelector('.avatar-name');
+      if (avatarName) avatarName.textContent = newFullName;
+
+      // Look for the "Profile Details" account row to update its meta element
+      const accountRows = document.querySelectorAll('.account-row');
+      accountRows.forEach(row => {
+          const label = row.querySelector('.account-row-label');
+          if (label && label.textContent === 'Profile Details') {
+              const meta = row.querySelector('.account-row-meta');
+              if (meta) meta.textContent = newFullName;
+          }
       });
-    }
-  });
 
-  const ratingEl = document.getElementById('account-rating-display');
-  if (ratingEl) {
-    ratingEl.innerText = CUSTOMER_RATING;
+      // Update initials
+      const parts = newFullName.split(' ').filter(p => p.length > 0);
+      let initials = '';
+      if (parts.length >= 2) {
+          initials = parts[0][0].toUpperCase() + parts[1][0].toUpperCase();
+      } else if (parts.length === 1) {
+          initials = parts[0].substring(0, 2).toUpperCase();
+      }
+      if (!initials) initials = 'CU';
+
+      const avatarIcon = document.querySelector('.avatar');
+      if (avatarIcon) avatarIcon.textContent = initials;
+
+    } else {
+      showToast(json.data?.message || 'Could not update profile.');
+    }
+  } catch (err) {
+    showToast('Connection error updating profile.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = initialText;
   }
-}
-
-
-// ═══════════ NOTIFICATION PREFERENCES ═══════════
-function openPreferencesModal() {
-  idibiaPost('preferences-api.php', {}, 'GET').then(res => {
-    if (res.success && res.data && res.data.preferences) {
-      document.getElementById('pref_trip_updates').checked = res.data.preferences.trip_updates;
-      document.getElementById('pref_promotions').checked = res.data.preferences.promotions;
-      document.getElementById('pref_email_receipts').checked = res.data.preferences.email_receipts;
-
-      const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
-      if (notifChip) {
-          if (res.data.preferences.trip_updates) {
-              notifChip.innerText = 'On';
-              notifChip.className = 'chip chip-success';
-          } else {
-              notifChip.innerText = 'Off';
-              notifChip.className = 'chip chip-warning';
-          }
-      }
-    }
-    document.getElementById('modal-preferences').classList.add('active');
-  });
-}
-
-function savePreferences() {
-  const btn = document.getElementById('btnSavePreferences');
-  const ogText = btn.innerText;
-  btn.innerText = 'Saving...';
-  btn.disabled = true;
-
-  const payload = {
-    _nonce: IDIBIA_VERIFY_NONCE,
-    trip_updates: document.getElementById('pref_trip_updates').checked,
-    promotions: document.getElementById('pref_promotions').checked,
-    email_receipts: document.getElementById('pref_email_receipts').checked
-  };
-
-  idibiaPost('preferences-api.php', payload).then(res => {
-    btn.innerText = ogText;
-    btn.disabled = false;
-    if (res.success) {
-      showToast('Preferences updated');
-      closeModal('modal-preferences');
-
-      const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
-      if (notifChip) {
-          if (payload.trip_updates) {
-              notifChip.innerText = 'On';
-              notifChip.className = 'chip chip-success';
-          } else {
-              notifChip.innerText = 'Off';
-              notifChip.className = 'chip chip-warning';
-          }
-      }
-    } else {
-      showToast(res.data?.message || 'Error updating preferences');
-    }
-  });
-}
-
-
-// ═══════════ SUPPORT TICKETS ═══════════
-function submitSupportTicket() {
-  const btn = document.getElementById('btnSubmitSupport');
-  const ogText = btn.innerText;
-  btn.innerText = 'Submitting...';
-  btn.disabled = true;
-
-  const payload = {
-    _nonce: IDIBIA_SUPPORT_NONCE,
-    action: 'create_ticket',
-    category: document.getElementById('support_category').value,
-    message: document.getElementById('support_message').value
-  };
-
-  idibiaPost('support-api.php', payload).then(res => {
-    btn.innerText = ogText;
-    btn.disabled = false;
-    if (res.success) {
-      showToast('Support ticket submitted successfully!');
-      document.getElementById('support_message').value = '';
-      closeModal('modal-support');
-    } else {
-      showToast(res.data?.message || 'Error submitting ticket');
-    }
-  });
-}
-
-
-// ═══════════ PAYMENT MODAL ═══════════
-function copyAccountNumber() {
-  const accNum = document.getElementById('company_account_number').innerText;
-  navigator.clipboard.writeText(accNum).then(() => {
-    showToast('Account number copied to clipboard!');
-  }).catch(err => {
-    showToast('Failed to copy account number');
-    console.error('Copy failed', err);
-  });
-}
-
-
-// ═══════════ LEGAL MODAL ═══════════
-function openLegalModal(title, key) {
-  document.getElementById('legal_modal_title').innerText = title;
-
-  const contentMap = window.idibiaLegalContents || {};
-  const content = contentMap[key] || 'Content not available.';
-
-  // Basic rendering: replace newlines with <br> and sanitize roughly (since it's an internal tool setting, but still good practice)
-  const div = document.createElement('div');
-  div.innerText = content;
-  const htmlContent = div.innerHTML.replace(/\n/g, '<br>');
-
-  document.getElementById('legal_modal_content').innerHTML = htmlContent;
-  openModal('modal-legal');
 }

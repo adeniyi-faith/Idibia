@@ -325,10 +325,10 @@
         <div class="account-hero">
           <div class="account-hero-bg"></div>
           <div class="avatar-wrap">
-            <div class="avatar">JO</div>
+            <div class="avatar"><?php echo esc_html($customer_initials); ?></div>
             <div>
-              <div class="avatar-name">John Okafor</div>
-              <div class="avatar-email">john@swiftdrop.com</div>
+              <div class="avatar-name"><?php echo esc_html($customer_full_name); ?></div>
+              <div class="avatar-email"><?php echo esc_html($customer_email); ?></div>
               <div class="avatar-badge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11"><polyline points="20 6 9 17 4 12"/></svg>
                 Verified Account
@@ -339,11 +339,11 @@
         <!-- Stats -->
         <div class="account-stats">
           <div class="stat-card">
-            <div class="stat-value">24</div>
+            <div class="stat-value"><?php echo esc_html($trips_count); ?></div>
             <div class="stat-label">Trips</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="account-rating-display">5.0</div>
+            <div class="stat-value"><?php echo esc_html($customer_rating); ?></div>
             <div class="stat-label">Rating</div>
           </div>
           <div class="stat-card">
@@ -358,16 +358,16 @@
               <h4>Refer & Earn ₦500</h4>
               <p>Share your code with friends</p>
             </div>
-            <div class="ref-code" onclick="showToast('Referral code IDIBIA-JO7 copied!')">IDIBIA-JO7</div>
+            <div class="ref-code" onclick="showToast('Referral code <?php echo esc_js($customer_referral_code); ?> copied!')"><?php echo esc_html($customer_referral_code); ?></div>
           </div>
 
           <!-- Account Settings -->
           <div class="account-card">
             <div class="account-card-title">My Account</div>
-            <div class="account-row" onclick="showToast('Opening profile...')">
+            <div class="account-row" onclick="openModal('profile')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
               <span class="account-row-label">Profile Details</span>
-              <span class="account-row-meta">John Okafor</span>
+              <span class="account-row-meta"><?php echo esc_html($customer_full_name); ?></span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
             <div class="account-row" onclick="openModal('modal-payment')">
@@ -376,10 +376,10 @@
               <span class="account-row-meta">Bank Transfer</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="showToast('Managing saved addresses...')">
+            <div class="account-row" onclick="switchTab('home')">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
               <span class="account-row-label">Saved Addresses</span>
-              <span class="account-row-meta">3 places</span>
+              <span class="account-row-meta"><?php echo esc_html($saved_addresses_count); ?> places</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
             <div class="account-row" onclick="openPreferencesModal()">

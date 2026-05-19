@@ -47,16 +47,16 @@ if ( ! $payment ) {
             'customer_id' => $customer_id,
             'amount'      => max( 0, (float) $trip['payment_amount'] ),
             'provider'    => 'manual_transfer',
-            'status'      => 'pending',
+            'status'      => 'proof_submitted',
         ],
         [ '%d', '%d', '%f', '%s', '%s' ]
     );
     if ( false === $payment_inserted ) {
         wp_send_json_error( [ 'message' => 'Could not create a payment record for this trip.' ] );
     }
-    $payment = [ 'id' => (int) $wpdb->insert_id, 'status' => 'pending' ];
+    $payment = [ 'id' => (int) $wpdb->insert_id, 'status' => 'proof_submitted' ];
 }
-if ( $payment['status'] === 'captured' ) {
+if ( $payment['status'] === 'captured' || $payment['status'] === 'approved' ) {
     wp_send_json_error( [ 'message' => 'This payment is already approved.' ] );
 }
 
@@ -71,7 +71,7 @@ $updated = $wpdb->update(
     [
         'provider_ref' => $provider_ref ?: null,
         'proof_path'   => $proof_path,
-        'status'       => 'pending',
+        'status'       => 'proof_submitted',
         'admin_notes'  => null,
         'reviewed_by'  => null,
         'reviewed_at'  => null,
@@ -85,7 +85,7 @@ if ( false === $updated ) {
     wp_send_json_error( [ 'message' => 'Could not submit payment proof.' ] );
 }
 
-$wpdb->update( $wpdb->prefix . 'sd_trips', [ 'payment_status' => 'pending' ], [ 'id' => $trip_id ], [ '%s' ], [ '%d' ] );
+$wpdb->update( $wpdb->prefix . 'sd_trips', [ 'payment_status' => 'proof_submitted' ], [ 'id' => $trip_id ], [ '%s' ], [ '%d' ] );
 idibia_log_event( $trip_id, 'payment_proof_uploaded', [ 'payment_id' => (int) $payment['id'] ] );
 idibia_notify_trip_participants( $trip_id, 'payment_proof_uploaded' );
 
