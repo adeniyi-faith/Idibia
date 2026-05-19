@@ -707,6 +707,124 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
 }
 
+function renderDriverProfile() {
+    const ctx = window.driverInitialContext;
+    if (!ctx || !ctx.logged_in) return;
+
+    // Display basic info
+    const nameDisplay = document.getElementById('profileNameDisplay');
+    if (nameDisplay) nameDisplay.textContent = ctx.full_name;
+
+    const imgDisplay = document.getElementById('profileAvatarImg');
+    if (imgDisplay) imgDisplay.src = ctx.selfie_path ? `/wp/wp-content/uploads/${ctx.selfie_path}` : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ctx.full_name) + '&background=0D8ABC&color=fff';
+
+    const statsDisplay = document.getElementById('profileStatsDisplay');
+    if (statsDisplay) statsDisplay.innerHTML = `<span class="profile-star">★★★★★</span> ${ctx.rating} · ${ctx.total_trips} trips total`;
+
+    const verifyBadge = document.getElementById('profileVerifyBadge');
+    if (verifyBadge) {
+        verifyBadge.style.display = ctx.kyc_status === 'approved' ? 'block' : 'none';
+    }
+
+    const vehicleBadge = document.getElementById('profileVehicleBadge');
+    if (vehicleBadge && ctx.vehicle_type) {
+        vehicleBadge.textContent = ctx.vehicle_type;
+    }
+
+    // Populate rows
+    const personalSub = document.getElementById('profilePersonalSub');
+    if (personalSub) personalSub.textContent = `${ctx.full_name}, ${ctx.phone || 'No phone'}`;
+
+    const bankSub = document.getElementById('profileBankSub');
+    if (bankSub) bankSub.textContent = `${ctx.bank_name || 'No Bank'} · ${ctx.account_number ? '****' + ctx.account_number.slice(-4) : 'No Account'}`;
+
+    const emergencySub = document.getElementById('profileEmergencySub');
+    if (emergencySub) emergencySub.textContent = `${ctx.emergency_name || 'No Name'} · ${ctx.emergency_phone || 'No Phone'}`;
+
+    // Populate forms
+    const nameInput = document.getElementById('inputProfileName');
+    if (nameInput) nameInput.value = ctx.full_name || '';
+
+    const phoneInput = document.getElementById('inputProfilePhone');
+    if (phoneInput) phoneInput.value = ctx.phone || '';
+
+    const bankNameInput = document.getElementById('inputProfileBankName');
+    if (bankNameInput) bankNameInput.value = ctx.bank_name || '';
+
+    const accNumInput = document.getElementById('inputProfileAccountNumber');
+    if (accNumInput) accNumInput.value = ctx.account_number || '';
+
+    const emerNameInput = document.getElementById('inputProfileEmergencyName');
+    if (emerNameInput) emerNameInput.value = ctx.emergency_name || '';
+
+    const emerPhoneInput = document.getElementById('inputProfileEmergencyPhone');
+    if (emerPhoneInput) emerPhoneInput.value = ctx.emergency_phone || '';
+}
+
+async function submitProfileForm(event, action) {
+    event.preventDefault();
+    const form = event.target;
+    const formData = new FormData(form);
+    formData.append('action', action);
+    formData.append('_nonce', window.driverInitialContext.nonces?.driver_profile_update || '');
+
+    const btn = form.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const response = await fetch('/driver-profile-api.php', { method: 'POST', body: formData, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        const json = await parseDriverJson(response);
+        if (json.success) {
+            showToast(json.data?.message || 'Profile updated.');
+            // Update context
+            for (let [key, value] of formData.entries()) {
+                if (key !== 'action' && key !== '_nonce') {
+                    window.driverInitialContext[key] = value;
+                }
+            }
+            renderDriverProfile();
+            const modalId = form.closest('.modal')?.id;
+            if (modalId) closeModal(modalId);
+        } else {
+            showToast(json.data?.message || 'Could not update profile.');
+        }
+    } catch (err) {
+        showToast('Connection error updating profile.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+    }
+}
+
+async function uploadDriverAvatar(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('action', 'upload_avatar');
+    formData.append('selfie', file);
+    formData.append('_nonce', window.driverInitialContext.nonces?.driver_profile_update || '');
+
+    showToast('Uploading profile picture...');
+    try {
+        const response = await fetch('/driver-profile-api.php', { method: 'POST', body: formData, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        const json = await parseDriverJson(response);
+        if (json.success) {
+            showToast('Profile picture updated.');
+            if (json.data?.selfie_path) {
+                window.driverInitialContext.selfie_path = json.data.selfie_path;
+                renderDriverProfile();
+            }
+        } else {
+            showToast(json.data?.message || 'Could not upload picture.');
+        }
+    } catch (err) {
+        showToast('Connection error uploading picture.');
+    }
+}
+
 function switchTab(tab) {
   currentTab = tab;
   // panels
@@ -787,6 +905,7 @@ function showToast(msg) {
 }
 
 updateDriver();
+renderDriverProfile();
 
 // ═══════════ LEAFLET MAP INTEGRATION ═══════════
 let currentMap = null;
