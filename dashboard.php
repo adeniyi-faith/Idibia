@@ -5,8 +5,37 @@ if ( ! is_user_logged_in() || get_user_meta( get_current_user_id(), 'idibia_acco
     header( 'Location: index.php' );
     die();
 }
+
+$user_id = get_current_user_id();
+$current_user = wp_get_current_user();
+$customer_id = idibia_find_or_create_profile_row( $user_id, 'customer' );
+
+global $wpdb;
+$customer_row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_customers` WHERE id = %d LIMIT 1", $customer_id ), ARRAY_A );
+$trips_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE customer_id = %d", $customer_id ) );
+
+$customer_full_name = $customer_row['full_name'] ?? $current_user->display_name;
+$customer_email = $customer_row['email'] ?? $current_user->user_email;
+$customer_referral_code = $customer_row['referral_code'] ?? '';
+$customer_rating = '5.0'; // Default placeholder, no rating system visible yet for customers
+$customer_initials = '';
+$name_parts = explode(' ', trim($customer_full_name));
+if (count($name_parts) >= 2) {
+    $customer_initials = strtoupper(substr($name_parts[0], 0, 1) . substr($name_parts[1], 0, 1));
+} else {
+    $customer_initials = strtoupper(substr($customer_full_name, 0, 2));
+}
+if (!$customer_initials) $customer_initials = 'CU';
+
+$saved_addresses_count = 0;
+if (!empty($customer_row['saved_addresses'])) {
+    $decoded = json_decode($customer_row['saved_addresses'], true);
+    if (is_array($decoded)) $saved_addresses_count = count($decoded);
+}
+
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
+$profile_nonce  = wp_create_nonce( 'idibia_profile_update' );
 $pusher_config  = idibia_pusher_public_config();
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
@@ -34,6 +63,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <?php require_once __DIR__ . '/components/customer/modal-schedule.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-logout.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-sos.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-profile.php'; ?>
 
 </div>
 
@@ -45,6 +75,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 
 <script>
 window.idibiaVerifyNonce = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
+window.idibiaProfileNonce = '<?php echo esc_js( $profile_nonce ?? '' ); ?>';
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ); ?>;
 window.idibiaLogoutUrl = '<?php echo esc_url( wp_logout_url( home_url() ) ); ?>';
 </script>
