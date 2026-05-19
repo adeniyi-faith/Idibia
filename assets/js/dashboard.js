@@ -7,7 +7,9 @@ let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
 const IDIBIA_VERIFY_NONCE = '' + window.idibiaVerifyNonce + '';
+const IDIBIA_SUPPORT_NONCE = '' + window.idibiaSupportNonce + '';
 const IDIBIA_PUSHER_CONFIG = window.idibiaPusherConfig;
+const CUSTOMER_RATING = window.idibiaCustomerRating || '5.0';
 
 let idibiaPusher = null;
 let idibiaTripChannel = null;
@@ -78,6 +80,26 @@ async function idibiaPost(endpoint, body = null) {
 
 // ═══════════ INIT ═══════════
 document.addEventListener('DOMContentLoaded', () => {
+  const ratingEl = document.getElementById('account-rating-display');
+  if (ratingEl) {
+    ratingEl.innerText = CUSTOMER_RATING;
+  }
+
+  // Load preferences initial state
+  idibiaPost('preferences-api.php', {}, 'GET').then(res => {
+    if (res.success && res.data && res.data.preferences) {
+      const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
+      if (notifChip) {
+          if (res.data.preferences.trip_updates) {
+              notifChip.innerText = 'On';
+              notifChip.className = 'chip chip-success';
+          } else {
+              notifChip.innerText = 'Off';
+              notifChip.className = 'chip chip-warning';
+          }
+      }
+    }
+  });
   const start = 'screen-main';
   currentScreen = start;
   screenHistory = [start];

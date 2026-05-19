@@ -37,6 +37,22 @@ $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
 $profile_nonce  = wp_create_nonce( 'idibia_profile_update' );
 $pusher_config  = idibia_pusher_public_config();
+
+$company_bank_name = idibia_get_setting('company_bank_name', 'Not Available');
+$company_account_name = idibia_get_setting('company_account_name', 'Not Available');
+$company_account_number = idibia_get_setting('company_account_number', 'Not Available');
+
+$legal_terms = idibia_get_setting('legal_terms', 'Terms and conditions will be provided here.');
+$legal_privacy = idibia_get_setting('legal_privacy', 'Privacy policy will be provided here.');
+$legal_location = idibia_get_setting('legal_location', 'Location data policy will be provided here.');
+$legal_license = idibia_get_setting('legal_license', 'Software license will be provided here.');
+$legal_copyright = idibia_get_setting('legal_copyright', 'Copyright notice will be provided here.');
+
+global $wpdb;
+$customer_id = idibia_find_or_create_profile_row( get_current_user_id(), 'customer' );
+$customer    = $wpdb->get_row( $wpdb->prepare( "SELECT rating FROM `{$wpdb->prefix}sd_customers` WHERE id = %d LIMIT 1", $customer_id ), ARRAY_A );
+$customer_rating = !empty($customer['rating']) && (float)$customer['rating'] > 0 ? number_format((float)$customer['rating'], 1) : '5.0';
+
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
@@ -61,6 +77,11 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <?php require_once __DIR__ . '/components/customer/tracking.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-receipt.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-schedule.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-preferences.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-support.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-faq.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-payment.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-legal.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-logout.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-sos.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-profile.php'; ?>
@@ -78,6 +99,14 @@ window.idibiaVerifyNonce = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
 window.idibiaProfileNonce = '<?php echo esc_js( $profile_nonce ?? '' ); ?>';
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ); ?>;
 window.idibiaLogoutUrl = '<?php echo esc_url( wp_logout_url( home_url() ) ); ?>';
+window.idibiaCustomerRating = '<?php echo esc_js( $customer_rating ); ?>';
+window.idibiaLegalContents = {
+  legal_terms: <?php echo wp_json_encode( $legal_terms ); ?>,
+  legal_privacy: <?php echo wp_json_encode( $legal_privacy ); ?>,
+  legal_location: <?php echo wp_json_encode( $legal_location ); ?>,
+  legal_license: <?php echo wp_json_encode( $legal_license ); ?>,
+  legal_copyright: <?php echo wp_json_encode( $legal_copyright ); ?>
+};
 </script>
 <script src="assets/js/dashboard.js"></script>
 </body>

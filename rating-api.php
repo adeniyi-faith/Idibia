@@ -82,6 +82,9 @@ if ( false === $saved ) {
 if ( $reviewer_type === 'customer' ) {
     $avg = (float) $wpdb->get_var( $wpdb->prepare( "SELECT AVG(rating) FROM `{$wpdb->prefix}sd_ratings` WHERE reviewer_type = 'customer' AND subject_id = %d", $subject_id ) );
     $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'rating' => round( $avg, 2 ) ], [ 'id' => $subject_id ], [ '%f' ], [ '%d' ] );
+} else if ( $reviewer_type === 'driver' ) {
+    $avg = (float) $wpdb->get_var( $wpdb->prepare( "SELECT AVG(rating) FROM `{$wpdb->prefix}sd_ratings` WHERE reviewer_type = 'driver' AND subject_id = %d", $subject_id ) );
+    $wpdb->update( $wpdb->prefix . 'sd_customers', [ 'rating' => round( $avg, 2 ) ], [ 'id' => $subject_id ], [ '%f' ], [ '%d' ] );
 }
 
 idibia_log_event( $trip_id, 'rating_submitted', [ 'reviewer_type' => $reviewer_type, 'rating' => $rating ] );
