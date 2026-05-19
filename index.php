@@ -1,5 +1,18 @@
 <?php ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
+
+if ( isset($_GET['track']) ) {
+    $token = sanitize_text_field($_GET['track']);
+    global $wpdb;
+    $row = $wpdb->get_row( $wpdb->prepare( "SELECT trip_id FROM `{$wpdb->prefix}sd_tracking_tokens` WHERE token = %s AND expires_at > NOW() LIMIT 1", $token ) );
+    if ( $row ) {
+        // Render public tracking view
+        require_once __DIR__ . '/public-tracking.php';
+        die();
+    } else {
+        die('Tracking link expired or invalid.');
+    }
+}
 if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_account_type', true ) === 'customer' ) {
     header( 'Location: dashboard.php' );
     exit;

@@ -53,6 +53,8 @@ function idibia_format_driver_offer( array $row ): array {
         'pickup_distance_km' => $pickup_distance,
         'expires_at'         => $row['expires_at'],
         'expires_in'         => max( 0, $expires_at - time() ),
+        'pickup_location'    => [ 'lat' => $row['pickup_lat'] !== null ? (float) $row['pickup_lat'] : null, 'lng' => $row['pickup_lng'] !== null ? (float) $row['pickup_lng'] : null ],
+        'dropoff_location'   => [ 'lat' => $row['dropoff_lat'] !== null ? (float) $row['dropoff_lat'] : null, 'lng' => $row['dropoff_lng'] !== null ? (float) $row['dropoff_lng'] : null ],
     ];
 }
 
@@ -121,8 +123,11 @@ function idibia_get_driver_active_trip( int $driver_id ): ?array {
         'customer'         => [
             'name'         => $row['customer_name'] ?: 'Customer',
             'masked_phone' => $customer_phone ? '•••• ' . substr( $customer_phone, -4 ) : 'Masked contact',
+            'phone'        => $row['customer_phone'] ?: '08000000000',
             'contact'      => 'masked_relay',
         ],
+        'pickup_location'  => [ 'lat' => $row['pickup_lat'] !== null ? (float) $row['pickup_lat'] : null, 'lng' => $row['pickup_lng'] !== null ? (float) $row['pickup_lng'] : null ],
+        'dropoff_location' => [ 'lat' => $row['dropoff_lat'] !== null ? (float) $row['dropoff_lat'] : null, 'lng' => $row['dropoff_lng'] !== null ? (float) $row['dropoff_lng'] : null ],
     ];
 }
 

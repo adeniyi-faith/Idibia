@@ -49,13 +49,21 @@ if ( $action === 'create_ticket' || $action === 'safety_report' ) {
     $has_evidence = idibia_has_upload( 'evidence' );
     idibia_validate_evidence_upload( 'evidence' );
 
+    $status = $action === 'safety_report' ? 'in_progress' : 'open';
+    if ( $action === 'safety_report' ) {
+        $severity = sanitize_key( $_POST['severity'] ?? 'high' );
+        if ( $severity === 'high' ) {
+            $status = 'escalated';
+        }
+    }
+
     idibia_transaction_start();
     $wpdb->insert( $wpdb->prefix . 'sd_support_tickets', [
         'creator_id'   => $actor_id,
         'creator_type' => $actor_type,
         'trip_id'      => $trip_id ?: null,
         'category'     => $category,
-        'status'       => $action === 'safety_report' ? 'in_progress' : 'open',
+        'status'       => $status,
     ], [ '%d', '%s', '%d', '%s', '%s' ] );
     $ticket_id = (int) $wpdb->insert_id;
     if ( $ticket_id <= 0 ) {
@@ -82,7 +90,11 @@ if ( $action === 'create_ticket' || $action === 'safety_report' ) {
     idibia_transaction_commit();
 
     if ( $trip_id > 0 ) {
-        idibia_log_event( $trip_id, $action === 'safety_report' ? 'safety_report_created' : 'support_ticket_created', [ 'ticket_id' => $ticket_id, 'category' => $category ] );
+        $metadata = [ 'ticket_id' => $ticket_id, 'category' => $category ];
+        if ( $action === 'safety_report' && isset($severity) ) {
+            $metadata['severity'] = $severity;
+        }
+        idibia_log_event( $trip_id, $action === 'safety_report' ? 'safety_report_created' : 'support_ticket_created', $metadata );
         idibia_notify_trip_participants( $trip_id, $action === 'safety_report' ? 'safety_report_created' : 'support_ticket_created' );
     }
 
