@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 6;
+    $target_version = 7;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -234,6 +234,23 @@ function idibia_maybe_create_tables() {
         idibia_add_saved_addresses_column();
         update_option( 'idibia_db_version', 6 );
         $current_version = 6;
+    }
+
+    if ( $current_version < 7 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_tracking_tokens` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `token` VARCHAR(64) NOT NULL,
+            `trip_id` BIGINT UNSIGNED NOT NULL,
+            `expires_at` DATETIME NOT NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `token` (`token`),
+            KEY `trip_id` (`trip_id`)
+        ) $charset;" );
+        update_option( 'idibia_db_version', 7 );
+        $current_version = 7;
     }
 }
 

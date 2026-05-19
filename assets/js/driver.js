@@ -449,6 +449,7 @@ async function fetchDriverOffers() {
           body.append('lat', position.coords.latitude);
           body.append('lng', position.coords.longitude);
           body.append('heading', position.coords.heading || 0);
+          updateMapLocation(position.coords.latitude, position.coords.longitude);
           const response = await fetch('/driver-heartbeat-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
           const json = await parseDriverJson(response);
           if (json.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
@@ -477,6 +478,10 @@ function renderDriverOffers(offers, activeTrip = null) {
   if (!container) return;
 
   if (activeTrip) {
+    if (activeTrip.pickup_location && activeTrip.dropoff_location) {
+        // Wait till next tick to draw
+        setTimeout(() => drawRouteOnMap([[activeTrip.pickup_location.lat, activeTrip.pickup_location.lng], [activeTrip.dropoff_location.lat, activeTrip.dropoff_location.lng]]), 10);
+    }
     container.innerHTML = renderActiveTrip(activeTrip);
     return;
   }
@@ -543,7 +548,7 @@ function renderActiveTrip(trip) {
       </div>
       <div class="trq-actions">
         <button class="trq-decline" onclick="window.open('${navUrl}', '_blank')">Navigate</button>
-        <button class="trq-decline" onclick="showToast('Opening masked customer contact...')">Contact</button>
+        <button class="trq-decline" onclick="window.currentActiveTripId = ${trip.trip_id}; callTripCustomer('${encodeURIComponent(trip.customer?.phone || '')}')">Contact</button>
         <button class="trq-decline" onclick="driverSafetyReport(${trip.trip_id})">Safety</button>
         ${nextAction ? `<button class="trq-accept" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button>` : ''}
       </div>
@@ -552,9 +557,19 @@ function renderActiveTrip(trip) {
 }
 
 
-function callTripCustomer(encodedPhone) {
+async function callTripCustomer(encodedPhone) {
   const phone = decodeURIComponent(encodedPhone || '').replace(/[^\d+]/g, '');
   if (!phone) return showToast('Customer phone is not available.');
+
+  if (window.currentActiveTripId) {
+      const body = new FormData();
+      body.append('action', 'log_event');
+      body.append('trip_id', window.currentActiveTripId);
+      body.append('event_type', 'driver_contacted_customer');
+      // Fire and forget
+      fetch('/driver-trip-action-api.php', { method: 'POST', body, credentials: 'same-origin' }).catch(()=>{});
+  }
+
   window.location.href = `tel:${phone}`;
 }
 
@@ -577,21 +592,57 @@ async function driverSupportRequest(tripId, category = 'driver_support') {
   }
 }
 
-async function driverSafetyReport(tripId) {
-  const message = prompt('Safety issue: tell us what is happening right now.');
-  if (!message) return;
+function driverSafetyReport(tripId) {
+  window.currentActiveTripId = tripId;
+  const modal = document.getElementById('modal-sos');
+  if (modal) {
+      modal.classList.add('show');
+  }
+}
+
+function openModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.classList.add('show');
+}
+
+function closeModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) modal.classList.remove('show');
+}
+
+async function submitSosReport() {
+  const descEl = document.getElementById('sosDescription');
+  const catEl = document.getElementById('sosCategory');
+  const sevEl = document.getElementById('sosSeverity');
+  const message = descEl ? descEl.value.trim() : '';
+  const category = catEl ? catEl.value : 'other';
+  const severity = sevEl ? sevEl.value : 'high';
+
+  if (!message) {
+      showToast('Please describe the situation.');
+      return;
+  }
+
   const body = new FormData();
   body.append('action', 'safety_report');
-  body.append('trip_id', tripId);
-  body.append('category', 'emergency_safety');
-  body.append('message', message.trim());
+  if (window.currentActiveTripId) body.append('trip_id', window.currentActiveTripId);
+  body.append('category', category);
+  body.append('severity', severity);
+  body.append('message', message);
   body.append('_nonce', driverInitialContext.nonces?.support_action || '');
+
   try {
     const response = await fetch('/support-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
     const json = await parseDriverJson(response);
-    showToast(json.data?.message || (json.success ? 'Safety report sent.' : 'Could not send safety report.'));
+    if (json.success) {
+        showToast(json.data?.message || 'Safety report sent.');
+        closeModal('modal-sos');
+        if (descEl) descEl.value = '';
+    } else {
+        showToast(json.data?.message || 'Could not send safety report.');
+    }
   } catch (err) {
-    showToast('Could not send safety report.');
+    showToast('Connection error sending safety report.');
   }
 }
 
@@ -736,3 +787,46 @@ function showToast(msg) {
 }
 
 updateDriver();
+
+// ═══════════ LEAFLET MAP INTEGRATION ═══════════
+let currentMap = null;
+let currentMarker = null;
+
+function initLeafletMap(containerId, lat, lng) {
+  if (currentMap) {
+    currentMap.remove();
+    currentMap = null;
+  }
+
+  const el = document.getElementById(containerId);
+  if (!el || !window.L) return;
+
+  currentMap = L.map(containerId, { zoomControl: false }).setView([lat, lng], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(currentMap);
+
+  const iconHtml = `<div class="rider-avatar" style="width: 32px; height: 32px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);"><div class="rider-online"></div></div>`;
+  const icon = L.divIcon({ html: iconHtml, className: 'leaflet-custom-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
+  currentMarker = L.marker([lat, lng], { icon }).addTo(currentMap);
+}
+
+function updateMapLocation(lat, lng) {
+  if (currentMap && currentMarker) {
+    const newLatLng = new L.LatLng(lat, lng);
+    currentMarker.setLatLng(newLatLng);
+    currentMap.panTo(newLatLng);
+  }
+}
+
+let currentRouteLayer = null;
+function drawRouteOnMap(routeCoordinates) {
+    if (!currentMap) return;
+    if (currentRouteLayer) {
+        currentMap.removeLayer(currentRouteLayer);
+    }
+
+    currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
+    currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
+}

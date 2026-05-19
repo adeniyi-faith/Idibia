@@ -374,18 +374,40 @@ async function openSupportTicket(category = 'general') {
   }
 }
 
-async function sendSafetyReport() {
-  const message = prompt('Safety emergency: tell us what is happening right now.');
-  if (!message) return;
+function sendSafetyReport() {
+  openModal('modal-sos');
+}
+
+async function submitSosReport() {
+  const descEl = document.getElementById('sosDescription');
+  const catEl = document.getElementById('sosCategory');
+  const sevEl = document.getElementById('sosSeverity');
+  const message = descEl ? descEl.value.trim() : '';
+  const category = catEl ? catEl.value : 'other';
+  const severity = sevEl ? sevEl.value : 'high';
+
+  if (!message) {
+      showToast('Please describe the situation.');
+      return;
+  }
+
   const body = new FormData();
   body.append('action', 'safety_report');
   if (currentActiveTripId) body.append('trip_id', currentActiveTripId);
-  body.append('category', 'emergency_safety');
-  body.append('message', message.trim());
+  body.append('category', category);
+  body.append('severity', severity);
+  body.append('message', message);
   body.append('_nonce', IDIBIA_SUPPORT_NONCE);
+
   try {
     const json = await idibiaPost('support-api.php', body);
-    showToast(json.success ? (json.data?.message || 'Safety report sent.') : (json.data?.message || 'Could not send safety report.'));
+    if (json.success) {
+        showToast(json.data?.message || 'Safety report sent.');
+        closeModal('modal-sos');
+        if (descEl) descEl.value = '';
+    } else {
+        showToast(json.data?.message || 'Could not send safety report.');
+    }
   } catch (err) {
     showToast('Connection error sending safety report.');
   }
@@ -514,6 +536,7 @@ function startLiveTracking(tripId) {
   if (!tripId) return;
   currentActiveTripId = tripId;
   goTo('screen-tracking');
+  setTimeout(() => initLeafletMap('tracking-map-container', 6.5244, 3.3792, true), 300); // Default to Lagos, will update on feed
   subscribeToTripRealtime(tripId);
   pollTracking();
   if (trackingInterval) clearInterval(trackingInterval);
@@ -622,14 +645,32 @@ function updateTrackingUI(trip) {
   const drvName = document.getElementById('trackingDriverName');
   if (drvName) drvName.textContent = driverName;
 
-  const mapLabel = document.getElementById('trackingMapDriverLabel');
-  if (mapLabel) mapLabel.textContent = shortName;
 
   const drvPlate = document.getElementById('trackingDriverPlate');
   if (drvPlate) drvPlate.textContent = drv?.plate || (drv ? 'No plate' : 'Pending');
 
   const drvRating = document.getElementById('trackingDriverRating');
   if (drvRating) drvRating.textContent = drv ? `${drv.rating || '5.0'} · ${Number(drv.total_trips || 0).toLocaleString()} trips · ${drv.masked_phone || 'masked'}` : 'Waiting for assignment';
+
+  const callBtn = document.getElementById('trackingCallButton');
+  if (callBtn) {
+      if (trip.driver) {
+          callBtn.href = `tel:${trip.driver.phone || '08000000000'}`;
+          callBtn.onclick = () => {
+              if (currentActiveTripId) {
+                  const body = new FormData();
+                  body.append('action', 'log_event');
+                  body.append('trip_id', currentActiveTripId);
+                  body.append('event_type', 'customer_contacted_driver');
+                  fetch('/customer-cancel-api.php', { method: 'POST', body, credentials: 'same-origin' }).catch(()=>{});
+              }
+              return true;
+          };
+      } else {
+          callBtn.href = '#';
+          callBtn.onclick = (e) => { e.preventDefault(); return false; };
+      }
+  }
 
   const drvAvatar = document.querySelector('.rider-avatar');
   if (drvAvatar) drvAvatar.innerHTML = drv ? `${escapeHtml(initials)}<div class="rider-online"></div>` : '…';
@@ -640,6 +681,14 @@ function updateTrackingUI(trip) {
 
   const distanceLabel = document.getElementById('trackingDistanceLabel');
   if (distanceLabel) distanceLabel.textContent = eta.distance_km != null ? `${eta.distance_km} km remaining` : `Trip ${trip.trip_ref || ''}`;
+
+  if (trip.driver && trip.driver.location) {
+      updateMapLocation(trip.driver.location.lat, trip.driver.location.lng);
+  }
+
+  if (trip.pickup_location && trip.dropoff_location) {
+     drawRouteOnMap([[trip.pickup_location.lat, trip.pickup_location.lng], [trip.dropoff_location.lat, trip.dropoff_location.lng]]);
+  }
 
   const etaMinutes = document.getElementById('etaMinutes');
   if (etaMinutes) etaMinutes.textContent = eta.minutes != null ? eta.minutes : '--';
@@ -692,10 +741,22 @@ function renderTrackingTimeline(trip) {
   }).join('');
 }
 
-function shareTrackingLink() {
-  const url = `${window.location.origin}${window.location.pathname}?track=${encodeURIComponent(currentActiveTripId || '')}`;
-  if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
-  showToast('Trip tracking link copied.');
+async function shareTrackingLink() {
+  if (!currentActiveTripId) return;
+  const body = new FormData();
+  body.append('trip_id', currentActiveTripId);
+  try {
+      const json = await idibiaPost('tracking-token-api.php', body);
+      if (json.success) {
+          const url = `${window.location.origin}/index.php?track=${encodeURIComponent(json.data.token)}`;
+          if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
+          showToast('Trip tracking link copied.');
+      } else {
+          showToast('Could not generate tracking link.');
+      }
+  } catch (e) {
+      showToast('Error generating tracking link.');
+  }
 }
 
 // ═══════════ TOAST ═══════════
@@ -1117,4 +1178,51 @@ window.enterCustomerApp = function(msg) {
     if(origEnter) origEnter(msg);
     fetchRecentActivity();
     fetchSavedAddresses();
+    setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 300);
 };
+
+// ═══════════ LEAFLET MAP INTEGRATION ═══════════
+let currentMap = null;
+let currentMarker = null;
+let currentRouteLayer = null;
+
+function initLeafletMap(containerId, lat, lng, isTracking = false) {
+  if (currentMap) {
+    currentMap.remove();
+    currentMap = null;
+  }
+
+  const el = document.getElementById(containerId);
+  if (!el || !window.L) return;
+
+  currentMap = L.map(containerId, { zoomControl: false }).setView([lat, lng], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(currentMap);
+
+  const iconHtml = `<div class="rider-avatar" style="width: 32px; height: 32px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);"><div class="rider-online"></div></div>`;
+  const icon = L.divIcon({ html: iconHtml, className: 'leaflet-custom-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
+
+  if (isTracking) {
+    currentMarker = L.marker([lat, lng], { icon }).addTo(currentMap);
+  }
+}
+
+function updateMapLocation(lat, lng) {
+  if (currentMap && currentMarker) {
+    const newLatLng = new L.LatLng(lat, lng);
+    currentMarker.setLatLng(newLatLng);
+    currentMap.panTo(newLatLng);
+  }
+}
+
+function drawRouteOnMap(routeCoordinates) {
+    if (!currentMap) return;
+    if (currentRouteLayer) {
+        currentMap.removeLayer(currentRouteLayer);
+    }
+
+    currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
+    currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
+}

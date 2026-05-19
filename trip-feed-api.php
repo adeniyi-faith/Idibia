@@ -112,6 +112,7 @@ function idibia_build_trip_feed_payload( int $trip_id, string $payment_viewer_ty
                 'rating'       => $driver['rating'] !== null ? (float) $driver['rating'] : null,
                 'total_trips'  => (int) $driver['total_trips'],
                 'masked_phone' => idibia_mask_phone( $driver['phone'] ?? '' ),
+                'phone'        => $driver['phone'] ?: '08000000000',
                 'contact'      => 'masked_relay',
                 'location'     => $loc ? [
                     'lat'        => (float) $loc['lat'],
@@ -149,6 +150,7 @@ function idibia_build_trip_feed_payload( int $trip_id, string $payment_viewer_ty
         'customer'        => [
             'name'         => $trip['customer_name'] ?: 'Customer',
             'masked_phone' => idibia_mask_phone( $trip['customer_phone'] ?? '' ),
+            'phone'        => $trip['customer_phone'] ?: '08000000000',
             'contact'      => 'masked_relay',
         ],
         'timeline'        => idibia_trip_timeline( $events ),

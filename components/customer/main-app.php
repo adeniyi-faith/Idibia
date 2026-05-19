@@ -30,59 +30,12 @@
     <div class="tab-view active" id="tab-home">
       <div class="home-split">
         <!-- MAP -->
-        <div class="map-area">
-          <div class="map-bg"></div>
-          <svg class="map-roads" viewBox="0 0 100 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 28 Q25 24 50 28 T100 26" stroke="white" stroke-width="2.5" fill="none" opacity="0.55"/>
-            <path d="M0 60 Q40 56 62 62 T100 60" stroke="white" stroke-width="2" fill="none" opacity="0.45"/>
-            <path d="M0 80 Q50 78 100 82" stroke="white" stroke-width="1.5" fill="none" opacity="0.3"/>
-            <path d="M28 0 Q26 50 30 100" stroke="white" stroke-width="2.5" fill="none" opacity="0.5"/>
-            <path d="M70 0 Q68 50 72 100" stroke="white" stroke-width="2" fill="none" opacity="0.4"/>
-            <path d="M50 0 Q52 30 50 100" stroke="white" stroke-width="1" fill="none" opacity="0.25"/>
-          </svg>
-          <!-- Animated rider markers -->
-          <div class="rider-marker" style="top:20%;left:15%">
-            <div class="rider-blip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" width="16" height="16"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            </div>
-            <div class="rider-label" id="homeMapDriverLabel">Searching</div>
-          </div>
-          <div class="rider-marker" style="top:52%;right:22%">
-            <div class="rider-blip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" width="16" height="16"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            </div>
-            <div class="rider-label">Emeka O.</div>
-          </div>
-          <div class="rider-marker" style="bottom:30%;left:40%">
-            <div class="rider-blip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" width="16" height="16"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-            </div>
-            <div class="rider-label">Fatima A.</div>
-          </div>
-          <!-- Center pin -->
-          <div class="map-pin">
-            <div class="map-pin-head"></div>
-            <div class="map-pin-shadow"></div>
-          </div>
+        <div class="map-area" id="home-map-container" style="z-index: 1;">
           <!-- Map controls -->
-          <div class="map-float">
+          <div class="map-float" style="z-index: 1000;">
             <button class="map-btn" onclick="showToast('Location updated')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
             </button>
-            <button class="map-btn" onclick="startLiveTracking(1)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-            </button>
-            <button class="map-btn" onclick="showToast('Map layers')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-            </button>
-          </div>
-          <!-- ETA chip -->
-          <div class="map-eta-chip">
-            <div class="eta-chip-dot"></div>
-            <div>
-              <div class="eta-chip-text">3 riders nearby</div>
-              <div class="eta-chip-sub">Avg. 4 min pickup</div>
-            </div>
           </div>
         </div>
 

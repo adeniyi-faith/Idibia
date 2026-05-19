@@ -86,11 +86,8 @@
               </div>
             </div>
 
-            <!-- Map placeholder -->
-            <div style="background:linear-gradient(145deg,var(--navy-light),var(--navy));border-radius:var(--radius-lg);padding:28px;text-align:center;border:1px solid rgba(255,255,255,0.07);margin-bottom:16px;box-shadow:var(--shadow-md)">
-              <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" width="36" height="36" style="margin:0 auto 12px"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7M9 20l6-3M9 20V7m6 13l4.553 2.276A1 1 0 0 0 21 21.382V10.618a1 1 0 0 0-.553-.894L15 7m0 13V7M9 7l6-3"/></svg>
-              <div style="font-family:'Syne',sans-serif;font-size:15px;color:var(--white);margin-bottom:4px">Live Map Active</div>
-              <div style="font-size:13px;color:var(--slate-light)">Port Harcourt, Rivers State</div>
+            <!-- Map container -->
+            <div id="driver-map-container" style="height: 200px; border-radius:var(--radius-lg); margin-bottom:16px; box-shadow:var(--shadow-md); z-index: 1;">
             </div>
           </div>
 
