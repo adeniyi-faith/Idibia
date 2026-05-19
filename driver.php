@@ -37,9 +37,56 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
     }
 
+    // Dashboard Statistics
+    $today_start = gmdate('Y-m-d 00:00:00');
+    $today_end = gmdate('Y-m-d 23:59:59');
+    $today_stats = $wpdb->get_row($wpdb->prepare("SELECT SUM(fare) as today_earnings, COUNT(id) as today_trips FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s", $driver_id, $today_start, $today_end), ARRAY_A);
+    $today_earnings = (float) ($today_stats['today_earnings'] ?? 0);
+    $today_trips = (int) ($today_stats['today_trips'] ?? 0);
+
+    $week_start = gmdate('Y-m-d 00:00:00', strtotime('monday this week'));
+    $week_end = gmdate('Y-m-d 23:59:59', strtotime('sunday this week'));
+    $weekly_stats = $wpdb->get_row($wpdb->prepare("SELECT SUM(fare) as week_earnings, COUNT(id) as week_trips FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s", $driver_id, $week_start, $week_end), ARRAY_A);
+    $week_earnings = (float) ($weekly_stats['week_earnings'] ?? 0);
+    $week_trips = (int) ($weekly_stats['week_trips'] ?? 0);
+
+    $daily_breakdown_raw = $wpdb->get_results($wpdb->prepare("SELECT DATE(completed_at) as date, SUM(fare) as daily_earnings FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s GROUP BY DATE(completed_at)", $driver_id, $week_start, $week_end), ARRAY_A);
+    $daily_breakdown = [];
+    foreach ($daily_breakdown_raw as $row) {
+        $daily_breakdown[$row['date']] = (float) $row['daily_earnings'];
+    }
+
+    $avg_rating = (float) $wpdb->get_var($wpdb->prepare("SELECT AVG(rating) FROM `{$wpdb->prefix}sd_ratings` WHERE subject_id = %d AND reviewer_type = 'customer'", $driver_id));
+    $avg_rating = $avg_rating > 0 ? round($avg_rating, 1) : 0.0;
+
+    $trips_history = $wpdb->get_results($wpdb->prepare("SELECT id, trip_ref, pickup, dropoff, fare, status, created_at, completed_at FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d ORDER BY created_at DESC LIMIT 100", $driver_id), ARRAY_A);
+
+    // Active Campaigns
+    $now = gmdate('Y-m-d H:i:s');
+    $active_campaigns_raw = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$wpdb->prefix}sd_campaigns` WHERE status = 'active' AND start_time <= %s AND end_time >= %s ORDER BY end_time ASC", $now, $now), ARRAY_A);
+
+    $active_campaigns = [];
+    foreach ($active_campaigns_raw as $campaign) {
+        // Count driver's completed trips within the campaign window
+        $completed_trips = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s", $driver_id, $campaign['start_time'], $campaign['end_time']));
+
+        $campaign['progress'] = $completed_trips;
+        $active_campaigns[] = $campaign;
+    }
+
     $driver_initial_context = [
         'logged_in'   => true,
         'driver_id'   => $driver_id,
+        'dashboard_stats' => [
+            'today_earnings'  => $today_earnings,
+            'today_trips'     => $today_trips,
+            'week_earnings'   => $week_earnings,
+            'week_trips'      => $week_trips,
+            'daily_breakdown' => $daily_breakdown,
+            'avg_rating'      => $avg_rating,
+        ],
+        'trips_history' => $trips_history,
+        'active_campaigns' => $active_campaigns,
         'first_name'  => idibia_first_name_from_user( $current_user ),
         'full_name'   => $driver_row['full_name'] ?? $current_user->display_name,
         'phone'       => $driver_row['phone'] ?? '',
