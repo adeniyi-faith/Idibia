@@ -12,6 +12,7 @@ function wp_remote_retrieve_response_code($res) { return $res['response']['code'
 function wp_remote_retrieve_body($res) { return $res['body'] ?? ''; }
 function is_wp_error($obj) { return $obj instanceof WP_Error; }
 function add_query_arg($args, $url) { return $url . '?' . http_build_query($args); }
+function idibia_get_setting($k, $d) { return $d; }
 
 class WP_Error {
     public $code, $message;

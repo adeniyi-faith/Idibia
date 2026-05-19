@@ -2,6 +2,22 @@
   <div class="panel" id="panel-settings">
     <div class="page-header"><h2 class="page-title">Settings</h2><div class="page-sub">Platform configuration and policies</div></div>
     <div class="settings-section">
+      <h4>Services & APIs</h4>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nominatim URL</label><input class="form-input" data-setting="nominatim_url" placeholder="https://nominatim.openstreetmap.org/search"></div>
+        <div class="form-group"><label class="form-label">ORS URL</label><input class="form-input" data-setting="ors_url" placeholder="https://api.openrouteservice.org/v2/directions/driving-car"></div>
+        <div class="form-group"><label class="form-label">ORS API Key</label><input class="form-input" data-setting="ors_api_key" placeholder="ORS API Key"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Pusher App ID</label><input class="form-input" data-setting="pusher_app_id" placeholder="App ID"></div>
+        <div class="form-group"><label class="form-label">Pusher Key</label><input class="form-input" data-setting="pusher_key" placeholder="Key"></div>
+        <div class="form-group"><label class="form-label">Pusher Secret</label><input class="form-input" type="password" data-setting="pusher_secret" placeholder="********"></div>
+        <div class="form-group"><label class="form-label">Pusher Cluster</label><input class="form-input" data-setting="pusher_cluster" placeholder="eu"></div>
+      </div>
+      <button class="btn-primary" style="font-size:12px;padding:8px 14px;width:auto" onclick="savePaymentSettings()">Save API settings</button>
+    </div>
+
+    <div class="settings-section">
       <h4>Commission & Pricing</h4>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Platform commission (%)</label><input class="form-input" type="number" data-setting="platform_commission_pct" value="20" min="1" max="50"></div>
