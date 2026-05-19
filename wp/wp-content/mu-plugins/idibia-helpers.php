@@ -108,6 +108,20 @@ function idibia_queue_pusher_after_commit( $channels, string $event_name, array 
 }
 
 /**
+ * Processes a Paystack webhook payload (Stub).
+ */
+function idibia_process_paystack_webhook( array $payload ): void {
+    // To be implemented in a future phase
+}
+
+/**
+ * Processes a Flutterwave webhook payload (Stub).
+ */
+function idibia_process_flutterwave_webhook( array $payload ): void {
+    // To be implemented in a future phase
+}
+
+/**
  * Credits a driver's wallet once for a captured/completed trip.
  */
 function idibia_credit_driver_for_trip( int $trip_id ): bool {
@@ -119,7 +133,7 @@ function idibia_credit_driver_for_trip( int $trip_id ): bool {
     ), ARRAY_A );
 
     $is_completed = $trip && ( $trip['status'] === 'completed' || $trip['dispatch_status'] === 'completed' );
-    if ( ! $trip || ! $is_completed || empty( $trip['driver_id'] ) || $trip['payment_status'] !== 'captured' ) {
+    if ( ! $trip || ! $is_completed || empty( $trip['driver_id'] ) || ! in_array( $trip['payment_status'], [ 'captured', 'approved' ], true ) ) {
         return false;
     }
 
@@ -555,13 +569,21 @@ function idibia_payment_public_payload( int $trip_id ): array {
 
     $amount = (float) ( $trip['final_fare'] ?: $trip['fare_estimate'] ?: $trip['fare'] );
 
+    $status = $payment ? $payment['status'] : 'pending';
+    $receipt_url = null;
+    if ( in_array( $status, [ 'approved', 'captured' ], true ) ) {
+        $token = hash_hmac( 'sha256', $trip_id, wp_salt( 'auth' ) );
+        $receipt_url = '/receipt-handler.php?trip_id=' . $trip_id . '&token=' . $token;
+    }
+
     return array_merge( idibia_payment_settings(), [
         'trip_id'      => (int) $trip['id'],
         'amount'       => $amount,
-        'status'       => $payment ? $payment['status'] : 'pending',
+        'status'       => $status,
         'provider'     => $payment ? $payment['provider'] : idibia_get_setting('payment_active_provider', 'manual_transfer'),
         'proof_url'    => $payment && ! empty( $payment['proof_path'] ) ? $baseurl . ltrim( $payment['proof_path'], '/' ) : null,
         'admin_notes'  => $payment && ! empty( $payment['admin_notes'] ) ? $payment['admin_notes'] : null,
         'reviewed_at'  => $payment && ! empty( $payment['reviewed_at'] ) ? $payment['reviewed_at'] : null,
+        'receipt_url'  => $receipt_url,
     ] );
 }

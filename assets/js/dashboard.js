@@ -577,9 +577,19 @@ function renderManualPaymentPanel(trip) {
   const payment = trip?.payment || {};
   const record = payment.record || null;
   const settings = payment.settings || {};
+
+  if (payment.receipt_url) {
+    currentReceiptUrl = payment.receipt_url;
+    const receiptBtn = document.getElementById('receiptLinkBtn');
+    if (receiptBtn) receiptBtn.style.display = 'inline-block';
+  } else {
+    currentReceiptUrl = null;
+    const receiptBtn = document.getElementById('receiptLinkBtn');
+    if (receiptBtn) receiptBtn.style.display = 'none';
+  }
   const manual = settings.manual_transfer || {};
   const status = record?.status || trip?.payment_status || 'pending';
-  const show = settings.active_provider === 'manual_transfer' && status !== 'captured' && status !== 'refunded';
+  const show = settings.active_provider === 'manual_transfer' && status !== 'captured' && status !== 'approved' && status !== 'refunded';
   panel.style.display = show ? 'block' : 'none';
   if (!show) return;
 
@@ -593,7 +603,7 @@ function renderManualPaymentPanel(trip) {
   const statusEl = document.getElementById('manualPaymentStatus');
   const uploadBtn = panel.querySelector('button');
   const hasProof = !!record?.proof_path;
-  if (status === 'failed') {
+  if (status === 'failed' || status === 'rejected') {
     statusEl.textContent = record?.admin_notes ? `Rejected: ${record.admin_notes}` : 'Payment proof was rejected. Please upload a clearer proof.';
     uploadBtn.disabled = false;
   } else if (hasProof) {
@@ -1185,6 +1195,7 @@ window.enterCustomerApp = function(msg) {
 let currentMap = null;
 let currentMarker = null;
 let currentRouteLayer = null;
+let currentReceiptUrl = null;
 
 function initLeafletMap(containerId, lat, lng, isTracking = false) {
   if (currentMap) {
@@ -1225,4 +1236,12 @@ function drawRouteOnMap(routeCoordinates) {
 
     currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
     currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
+}
+
+function viewReceipt() {
+  if (currentReceiptUrl) {
+    window.open(currentReceiptUrl, '_blank');
+  } else {
+    showToast('Receipt is not available yet.');
+  }
 }

@@ -95,6 +95,11 @@ try {
             idibia_admin_manual_payments();
             break;
 
+        case 'get_reconciliation_data':
+            idibia_require_method( 'GET' );
+            idibia_admin_reconciliation_data();
+            break;
+
 
         case 'review_manual_payment':
             idibia_require_method( 'POST' );
@@ -644,7 +649,7 @@ function idibia_admin_manual_payments(): void {
     global $wpdb;
     idibia_ensure_manual_payment_columns();
     [ $page, $per_page, $offset ] = idibia_page_args();
-    $status = sanitize_text_field( wp_unslash( $_GET['status'] ?? 'pending' ) );
+    $status = sanitize_text_field( wp_unslash( $_GET['status'] ?? 'proof_submitted' ) );
     $where = [ "p.provider = 'manual_transfer'" ];
     $args = [];
     if ( $status && $status !== 'all' ) { $where[] = 'p.status = %s'; $args[] = $status; }
@@ -671,6 +676,65 @@ function idibia_admin_manual_payments(): void {
     wp_send_json_success( [ 'payments' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
 }
 
+function idibia_admin_reconciliation_data(): void {
+    global $wpdb;
+    [ $page, $per_page, $offset ] = idibia_page_args();
+    $status = sanitize_text_field( wp_unslash( $_GET['status'] ?? 'all' ) );
+    $search = sanitize_text_field( wp_unslash( $_GET['search'] ?? '' ) );
+
+    $where = [ '1=1' ];
+    $args = [];
+
+    if ( $status && $status !== 'all' ) {
+        $where[] = 'p.status = %s';
+        $args[]  = $status;
+    }
+
+    if ( $search ) {
+        $like = '%' . $wpdb->esc_like( $search ) . '%';
+        $where[] = '(t.trip_ref LIKE %s OR c.full_name LIKE %s)';
+        $args[] = $like;
+        $args[] = $like;
+    }
+
+    $start_date = sanitize_text_field( wp_unslash( $_GET['start_date'] ?? '' ) );
+    $end_date = sanitize_text_field( wp_unslash( $_GET['end_date'] ?? '' ) );
+
+    if ( $start_date ) {
+        $where[] = 'DATE(p.created_at) >= %s';
+        $args[] = $start_date;
+    }
+    if ( $end_date ) {
+        $where[] = 'DATE(p.created_at) <= %s';
+        $args[] = $end_date;
+    }
+
+    $sql_where = implode( ' AND ', $where );
+    $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payments` p LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = p.trip_id LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = p.customer_id WHERE $sql_where", $args ) );
+
+    $sql = "SELECT p.*, t.trip_ref, t.status AS trip_status, c.full_name AS customer_name
+            FROM `{$wpdb->prefix}sd_payments` p
+            LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = p.trip_id
+            LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = p.customer_id
+            WHERE $sql_where
+            ORDER BY p.created_at DESC
+            LIMIT %d OFFSET %d";
+
+    $rows = $wpdb->get_results( idibia_sql( $sql, array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A ) ?: [];
+
+    foreach ( $rows as &$row ) {
+        if ( in_array( $row['status'], [ 'approved', 'captured' ], true ) ) {
+            $token = hash_hmac( 'sha256', $row['trip_id'], wp_salt( 'auth' ) );
+            $row['receipt_url'] = '/receipt-handler.php?trip_id=' . $row['trip_id'] . '&token=' . $token;
+        } else {
+            $row['receipt_url'] = null;
+        }
+    }
+    unset($row);
+
+    wp_send_json_success( [ 'reconciliation' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+}
+
 function idibia_admin_review_manual_payment(): void {
     global $wpdb;
     idibia_ensure_manual_payment_columns();
@@ -689,7 +753,7 @@ function idibia_admin_review_manual_payment(): void {
         wp_send_json_error( [ 'message' => 'A receipt/proof file is required before approval.' ] );
     }
 
-    $new_status = $decision === 'approve' ? 'captured' : 'failed';
+    $new_status = $decision === 'approve' ? 'approved' : 'rejected';
     idibia_transaction_start();
     $updated = $wpdb->update(
         $wpdb->prefix . 'sd_payments',
