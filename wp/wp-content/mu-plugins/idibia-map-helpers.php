@@ -18,11 +18,12 @@ function idibia_geocode_address( string $address ) {
         return new WP_Error( 'empty_address', 'Address cannot be empty.' );
     }
 
+    $base_url = function_exists('idibia_get_setting') ? idibia_get_setting('nominatim_url', IDIBIA_NOMINATIM_URL) : IDIBIA_NOMINATIM_URL;
     $url = add_query_arg( [
         'q'      => urlencode( $address ),
         'format' => 'json',
         'limit'  => 1
-    ], IDIBIA_NOMINATIM_URL );
+    ], $base_url );
 
     $args = [
         'headers' => [
@@ -66,11 +67,11 @@ function idibia_geocode_address( string $address ) {
  * @return array|WP_Error Associative array with 'distance_km' and 'duration_mins'.
  */
 function idibia_calculate_route( float $lat1, float $lng1, float $lat2, float $lng2 ) {
-    $url = IDIBIA_ORS_URL;
-    $api_key = IDIBIA_ORS_API_KEY;
+    $url = function_exists('idibia_get_setting') ? idibia_get_setting('ors_url', IDIBIA_ORS_URL) : IDIBIA_ORS_URL;
+    $api_key = function_exists('idibia_get_setting') ? idibia_get_setting('ors_api_key', IDIBIA_ORS_API_KEY) : IDIBIA_ORS_API_KEY;
 
     // Check if we're using the placeholder key (which means we should mock the response)
-    if ( $api_key === 'ORS_API_KEY_REPLACE_ME' ) {
+    if ( $api_key === 'ORS_API_KEY_REPLACE_ME' || empty($api_key) ) {
         // Mock distance using Haversine formula for a straight line, multiplied by a realistic routing factor
         $earth_radius = 6371; // km
         $dLat = deg2rad($lat2 - $lat1);
