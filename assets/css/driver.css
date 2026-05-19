@@ -1063,7 +1063,9 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   border-radius: 30px;
   font-size: 14px;
   font-weight: 500;
-  white-space: nowrap;
+  white-space: normal;
+  max-width: 90%;
+  text-align: center;
   opacity: 0;
   pointer-events: none;
   transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
