@@ -131,13 +131,13 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
 
         $wpdb->update(
             $wpdb->prefix . 'sd_drivers',
-            [ 'selfie_path' => $path ],
+            [ 'avatar_path' => $path ],
             [ 'id' => $driver_id ],
             [ '%s' ],
             [ '%d' ]
         );
 
-        wp_send_json_success( [ 'message' => 'Avatar updated successfully.', 'selfie_path' => $path ] );
+        wp_send_json_success( [ 'message' => 'Avatar updated successfully.', 'avatar_path' => $path ] );
     }
 
     // Fallback if no specific action matched but full_name was provided (legacy compat)

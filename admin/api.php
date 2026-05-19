@@ -82,7 +82,7 @@ try {
             $rows = $wpdb->get_results( "SELECT setting_key, setting_value FROM `{$wpdb->prefix}sd_settings`", ARRAY_A );
             $settings = [];
             foreach ( $rows as $row ) {
-                if ( in_array( $row['setting_key'], ['paystack_secret_key', 'flutterwave_secret_key'] ) ) {
+                if ( in_array( $row['setting_key'], ['paystack_secret_key', 'flutterwave_secret_key', 'pusher_secret'] ) ) {
                     $settings[ $row['setting_key'] ] = !empty($row['setting_value']) ? '********' : '';
                 } else {
                     $settings[ $row['setting_key'] ] = $row['setting_value'];

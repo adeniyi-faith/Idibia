@@ -716,7 +716,8 @@ function renderDriverProfile() {
     if (nameDisplay) nameDisplay.textContent = ctx.full_name;
 
     const imgDisplay = document.getElementById('profileAvatarImg');
-    if (imgDisplay) imgDisplay.src = ctx.selfie_path ? `/wp/wp-content/uploads/${ctx.selfie_path}` : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ctx.full_name) + '&background=0D8ABC&color=fff';
+    const avatarToUse = ctx.avatar_path || ctx.selfie_path;
+    if (imgDisplay) imgDisplay.src = avatarToUse ? `/wp/wp-content/uploads/${avatarToUse}` : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ctx.full_name) + '&background=0D8ABC&color=fff';
 
     const statsDisplay = document.getElementById('profileStatsDisplay');
     if (statsDisplay) statsDisplay.innerHTML = `<span class="profile-star">★★★★★</span> ${ctx.rating} · ${ctx.total_trips} trips total`;
@@ -813,8 +814,8 @@ async function uploadDriverAvatar(event) {
         const json = await parseDriverJson(response);
         if (json.success) {
             showToast('Profile picture updated.');
-            if (json.data?.selfie_path) {
-                window.driverInitialContext.selfie_path = json.data.selfie_path;
+            if (json.data?.avatar_path) {
+                window.driverInitialContext.avatar_path = json.data.avatar_path;
                 renderDriverProfile();
             }
         } else {
