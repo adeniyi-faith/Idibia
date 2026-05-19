@@ -61,29 +61,22 @@
             <!-- Quick stats -->
             <div class="stat-row">
               <div class="stat-chip">
-                <div class="stat-chip-val">₦8,200</div>
+                <div class="stat-chip-val" id="home-today-earnings">₦0</div>
                 <div class="stat-chip-label">Today</div>
               </div>
               <div class="stat-chip">
-                <div class="stat-chip-val">6</div>
+                <div class="stat-chip-val" id="home-today-trips">0</div>
                 <div class="stat-chip-label">Trips</div>
               </div>
               <div class="stat-chip">
-                <div class="stat-chip-val">4.8★</div>
+                <div class="stat-chip-val" id="home-rating">0.0★</div>
                 <div class="stat-chip-label">Rating</div>
               </div>
             </div>
 
             <!-- Campaign -->
-            <div class="campaign-card">
-              <div>
-                <div class="campaign-badge">⚡ Peak Hour Bonus</div>
-                <div class="campaign-text">Complete 3 more trips to unlock a ₦5,000 bonus</div>
-              </div>
-              <div class="campaign-progress-wrap">
-                <div class="campaign-progress-num">2/5</div>
-                <div class="campaign-progress-label">done</div>
-              </div>
+            <div id="home-active-campaigns">
+                <!-- Dynamically populated via JS -->
             </div>
 
             <!-- Map container -->
@@ -96,21 +89,24 @@
             <div class="earnings-card">
               <div class="earnings-top">
                 <div class="earnings-label">This week's earnings</div>
-                <div class="earnings-period">Mon – Fri</div>
+                <div class="earnings-period">Mon – Sun</div>
               </div>
-              <div class="earnings-amount"><span>₦</span>47,850</div>
+              <div class="earnings-amount" id="earnings-week-total-container"><span>₦</span><span id="earnings-week-total">0</span></div>
               <div class="earnings-row">
                 <div class="earnings-sub">
                   <div class="earnings-sub-label">Today</div>
-                  <div class="earnings-sub-val up">₦8,200</div>
+                  <div class="earnings-sub-val" id="earnings-today-total">₦0</div>
                 </div>
                 <div class="earnings-sub">
                   <div class="earnings-sub-label">Trips</div>
-                  <div class="earnings-sub-val">23</div>
+                  <div class="earnings-sub-val" id="earnings-week-trips">0</div>
                 </div>
                 <div class="earnings-sub">
                   <div class="earnings-sub-label">Rating</div>
-                  <div class="earnings-sub-val">4.8 ★</div>
+                  <div class="earnings-sub-val" style="display:flex;align-items:center;gap:4px">
+                      <span id="earnings-rating-text">0.0</span>
+                      <span id="earnings-rating-stars" style="display:flex;gap:2px;color:var(--gold)"></span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -118,177 +114,34 @@
             <!-- Weekly bar chart -->
             <div class="card">
               <div class="card-title">Weekly breakdown</div>
-              <div class="week-chart">
-                <div class="week-bar-wrap">
-                  <div class="week-bar" style="height:45%"></div>
-                  <div class="week-day">Mon</div>
-                </div>
-                <div class="week-bar-wrap">
-                  <div class="week-bar" style="height:65%"></div>
-                  <div class="week-day">Tue</div>
-                </div>
-                <div class="week-bar-wrap">
-                  <div class="week-bar" style="height:50%"></div>
-                  <div class="week-day">Wed</div>
-                </div>
-                <div class="week-bar-wrap">
-                  <div class="week-bar" style="height:80%"></div>
-                  <div class="week-day">Thu</div>
-                </div>
-                <div class="week-bar-wrap">
-                  <div class="week-bar active" style="height:55%"></div>
-                  <div class="week-day" style="color:var(--gold-dark);font-weight:700">Fri</div>
-                </div>
-                <div class="week-bar-wrap">
-                  <div class="week-bar" style="height:30%"></div>
-                  <div class="week-day">Sat</div>
-                </div>
-                <div class="week-bar-wrap">
-                  <div class="week-bar" style="height:20%"></div>
-                  <div class="week-day">Sun</div>
-                </div>
+              <div class="week-chart" id="weekly-bar-chart">
+                  <!-- Bars will be generated via JS -->
               </div>
               <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)">
-                <span>₦0</span><span>₦15k</span>
+                <span>₦0</span><span id="weekly-chart-max">₦0</span>
               </div>
             </div>
 
             <!-- Active campaign -->
             <div class="card">
               <div class="card-title">Active Campaigns</div>
-              <div class="campaign-card" style="margin-bottom:10px">
-                <div>
-                  <div class="campaign-badge">⚡ Peak Hour</div>
-                  <div class="campaign-text">3 more trips = ₦5,000 bonus</div>
-                </div>
-                <div class="campaign-progress-wrap">
-                  <div class="campaign-progress-num">2/5</div>
-                  <div class="campaign-progress-label">done</div>
-                </div>
-              </div>
-              <div class="campaign-card">
-                <div>
-                  <div class="campaign-badge">🌟 Weekend Star</div>
-                  <div class="campaign-text">10 trips this weekend = ₦8,000</div>
-                </div>
-                <div class="campaign-progress-wrap">
-                  <div class="campaign-progress-num">0/10</div>
-                  <div class="campaign-progress-label">done</div>
-                </div>
+              <div id="earnings-active-campaigns">
+                 <!-- Dynamically populated via JS -->
               </div>
             </div>
 
-            <!-- Tax portal -->
-            <div class="card">
-              <div class="card-title">
-                Tax Portal
-                <span class="card-title-action">Learn more</span>
-              </div>
-              <div class="tax-portal-card" role="button" aria-disabled="true" onclick="showUnavailableFeature('Tax summary', 'Tax report generation is not connected yet. Earnings remain visible in the wallet once payouts are enabled.')">
-                <div class="tax-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                </div>
-                <div class="tax-card-info">
-                  <div class="tax-card-title">Q1 2025 Summary</div>
-                  <div class="tax-card-sub">Jan – Mar 2025 · Ready to download</div>
-                </div>
-                <button class="btn-download">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  PDF
-                </button>
-              </div>
-              <div class="tax-portal-card" role="button" aria-disabled="true" onclick="showUnavailableFeature('Tax summary', 'Tax report generation is not connected yet. Earnings remain visible in the wallet once payouts are enabled.')">
-                <div class="tax-card-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
-                </div>
-                <div class="tax-card-info">
-                  <div class="tax-card-title">Q4 2024 Summary</div>
-                  <div class="tax-card-sub">Oct – Dec 2024 · Available</div>
-                </div>
-                <button class="btn-download">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  PDF
-                </button>
-              </div>
-            </div>
           </div>
 
           <!-- TRIPS TAB -->
           <div class="dash-panel" id="panel-trips">
             <div class="section-head">
               <div class="section-head-title">Trip History</div>
-              <div class="section-head-link">Filter</div>
+              <div class="section-head-link" onclick="openModal('modal-filter-trips')" style="cursor:pointer">Filter</div>
             </div>
 
             <!-- Trip items -->
-            <div class="trip-history-item" onclick="showToast('Receipt for trip #TRP-00142 opened')">
-              <div class="trip-icon completed">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <div class="trip-details">
-                <div class="trip-route">Eagle Island → Rumuola Rd</div>
-                <div class="trip-meta">Today · 2:14 PM · #TRP-00142</div>
-              </div>
-              <div>
-                <div class="trip-amount">₦3,400</div>
-                <div class="trip-status completed">Completed</div>
-              </div>
-            </div>
-
-            <div class="trip-history-item" onclick="showToast('Receipt for trip #TRP-00141 opened')">
-              <div class="trip-icon completed">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <div class="trip-details">
-                <div class="trip-route">GRA Phase 2 → Trans Amadi</div>
-                <div class="trip-meta">Today · 12:55 PM · #TRP-00141</div>
-              </div>
-              <div>
-                <div class="trip-amount">₦2,100</div>
-                <div class="trip-status completed">Completed</div>
-              </div>
-            </div>
-
-            <div class="trip-history-item" onclick="showToast('Receipt for trip #TRP-00140 opened')">
-              <div class="trip-icon cancelled">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </div>
-              <div class="trip-details">
-                <div class="trip-route">Woji Road → D-Line</div>
-                <div class="trip-meta">Today · 11:02 AM · #TRP-00140</div>
-              </div>
-              <div>
-                <div class="trip-amount">₦0</div>
-                <div class="trip-status cancelled">Cancelled</div>
-              </div>
-            </div>
-
-            <div class="trip-history-item" onclick="showToast('Receipt for trip #TRP-00139 opened')">
-              <div class="trip-icon completed">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <div class="trip-details">
-                <div class="trip-route">Peter Odili Rd → Old GRA</div>
-                <div class="trip-meta">Yesterday · 6:45 PM · #TRP-00139</div>
-              </div>
-              <div>
-                <div class="trip-amount">₦4,750</div>
-                <div class="trip-status completed">Completed</div>
-              </div>
-            </div>
-
-            <div class="trip-history-item" onclick="showToast('Receipt for trip #TRP-00138 opened')">
-              <div class="trip-icon completed">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>
-              </div>
-              <div class="trip-details">
-                <div class="trip-route">Rumuokwurushi → Stadium Rd</div>
-                <div class="trip-meta">Yesterday · 4:20 PM · #TRP-00138</div>
-              </div>
-              <div>
-                <div class="trip-amount">₦3,200</div>
-                <div class="trip-status completed">Completed</div>
-              </div>
+            <div id="trip-history-list">
+                <!-- Populated via JS -->
             </div>
           </div>
 
@@ -381,11 +234,12 @@
           <!-- PROFILE TAB -->
           <div class="dash-panel" id="panel-profile">
             <div class="profile-header">
-              <div class="profile-avatar-lg" style="position: relative;" onclick="document.getElementById('profileAvatarInput').click()">
+              <div class="profile-avatar-lg" onclick="document.getElementById('profileAvatarInput').click()">
+                <div class="avatar-initials" id="profileAvatarInitials" style="display:none;"></div>
                 <img src="" alt="Profile Image" id="profileAvatarImg">
                 <input type="file" id="profileAvatarInput" style="display:none;" accept="image/jpeg, image/png, image/webp" onchange="uploadDriverAvatar(event)">
-                <div class="camera-badge" style="position:absolute; bottom:-4px; right:-4px; width:24px; height:24px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--white); cursor:pointer;">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                <div class="avatar-edit-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 </div>
               </div>
               <div class="profile-name" id="profileNameDisplay">Driver Name</div>
@@ -463,18 +317,18 @@
       </div><!-- end dashBody scroll wrapper -->
 
       <!-- Profile Edit Modals -->
-      <div class="modal" id="modal-edit-personal">
-        <div class="modal-content">
+      <div class="modal" id="modal-edit-personal" onclick="closeModal('modal-edit-personal')">
+        <div class="modal-content" onclick="event.stopPropagation()">
           <h3>Edit Personal Info</h3>
           <p class="modal-sub">Update your personal information below.</p>
           <form onsubmit="submitProfileForm(event, 'update_personal')">
             <div class="form-group">
-              <label>Full Name</label>
-              <input type="text" class="global-input" name="full_name" id="inputProfileName" required>
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-input" name="full_name" id="inputProfileName" required>
             </div>
             <div class="form-group">
-              <label>Phone Number</label>
-              <input type="tel" class="global-input" name="phone" id="inputProfilePhone" required>
+              <label class="form-label">Phone Number</label>
+              <input type="tel" class="form-input" name="phone" id="inputProfilePhone" required>
             </div>
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-personal')">Cancel</button>
@@ -484,18 +338,18 @@
         </div>
       </div>
 
-      <div class="modal" id="modal-edit-bank">
-        <div class="modal-content">
+      <div class="modal" id="modal-edit-bank" onclick="closeModal('modal-edit-bank')">
+        <div class="modal-content" onclick="event.stopPropagation()">
           <h3>Edit Bank Details</h3>
           <p class="modal-sub">Update where you receive your payouts.</p>
           <form onsubmit="submitProfileForm(event, 'update_bank')">
             <div class="form-group">
-              <label>Bank Name</label>
-              <input type="text" class="global-input" name="bank_name" id="inputProfileBankName" required>
+              <label class="form-label">Bank Name</label>
+              <input type="text" class="form-input" name="bank_name" id="inputProfileBankName" required>
             </div>
             <div class="form-group">
-              <label>Account Number</label>
-              <input type="text" class="global-input" name="account_number" id="inputProfileAccountNumber" required>
+              <label class="form-label">Account Number</label>
+              <input type="text" class="form-input" name="account_number" id="inputProfileAccountNumber" required>
             </div>
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-bank')">Cancel</button>
@@ -505,24 +359,51 @@
         </div>
       </div>
 
-      <div class="modal" id="modal-edit-emergency">
-        <div class="modal-content">
+      <div class="modal" id="modal-edit-emergency" onclick="closeModal('modal-edit-emergency')">
+        <div class="modal-content" onclick="event.stopPropagation()">
           <h3>Edit Emergency Contact</h3>
           <p class="modal-sub">Who should we contact in an emergency?</p>
           <form onsubmit="submitProfileForm(event, 'update_emergency')">
             <div class="form-group">
-              <label>Contact Name</label>
-              <input type="text" class="global-input" name="emergency_name" id="inputProfileEmergencyName" required>
+              <label class="form-label">Contact Name</label>
+              <input type="text" class="form-input" name="emergency_name" id="inputProfileEmergencyName" required>
             </div>
             <div class="form-group">
-              <label>Contact Phone</label>
-              <input type="tel" class="global-input" name="emergency_phone" id="inputProfileEmergencyPhone" required>
+              <label class="form-label">Contact Phone</label>
+              <input type="tel" class="form-input" name="emergency_phone" id="inputProfileEmergencyPhone" required>
             </div>
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-emergency')">Cancel</button>
               <button type="submit" class="global-btn" style="flex:1;justify-content:center">Save Changes</button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <!-- Trips Filter Modal -->
+      <div class="modal modal-overlay" id="modal-filter-trips" onclick="closeModal('modal-filter-trips')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+          <h3>Filter Trips</h3>
+          <p class="modal-sub">Filter your trip history by status and date.</p>
+          <div class="form-group" style="margin-top:16px;">
+            <label>Trip Status</label>
+            <select class="global-input" id="tripFilterSelect">
+                <option value="all">All Trips</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-top:16px;">
+            <label>Date Range</label>
+            <div style="display:flex;gap:8px">
+              <input type="date" class="global-input" id="tripFilterDateStart" placeholder="Start Date">
+              <input type="date" class="global-input" id="tripFilterDateEnd" placeholder="End Date">
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:24px">
+            <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-filter-trips')">Cancel</button>
+            <button type="button" class="global-btn" style="flex:1;justify-content:center" onclick="applyTripFilters()">Apply Filters</button>
+          </div>
         </div>
       </div>
 

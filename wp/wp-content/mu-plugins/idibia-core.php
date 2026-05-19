@@ -111,6 +111,20 @@ function idibia_maybe_create_tables() {
             KEY `trip_id` (`trip_id`)
         ) $charset;" );
 
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_campaigns` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `title` VARCHAR(255) NOT NULL,
+            `description` TEXT NOT NULL,
+            `target_trips` INT UNSIGNED NOT NULL,
+            `bonus_amount` DECIMAL(10,2) NOT NULL,
+            `start_time` DATETIME NOT NULL,
+            `end_time` DATETIME NOT NULL,
+            `status` ENUM('active','inactive','completed') NOT NULL DEFAULT 'active',
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `status` (`status`)
+        ) $charset;" );
+
         $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_wallet_ledger` (
             `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             `driver_id` BIGINT UNSIGNED NOT NULL,

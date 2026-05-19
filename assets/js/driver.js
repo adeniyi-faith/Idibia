@@ -716,11 +716,51 @@ function renderDriverProfile() {
     if (nameDisplay) nameDisplay.textContent = ctx.full_name;
 
     const imgDisplay = document.getElementById('profileAvatarImg');
+    const initialsDisplay = document.getElementById('profileAvatarInitials');
     const avatarToUse = ctx.avatar_path || ctx.selfie_path;
-    if (imgDisplay) imgDisplay.src = avatarToUse ? `/wp/wp-content/uploads/${avatarToUse}` : 'https://ui-avatars.com/api/?name=' + encodeURIComponent(ctx.full_name) + '&background=0D8ABC&color=fff';
+
+    if (avatarToUse) {
+        if (imgDisplay) {
+            imgDisplay.src = `/wp/wp-content/uploads/${avatarToUse}`;
+            imgDisplay.style.display = 'block';
+        }
+        if (initialsDisplay) initialsDisplay.style.display = 'none';
+    } else {
+        if (imgDisplay) imgDisplay.style.display = 'none';
+        if (initialsDisplay) {
+            const parts = (ctx.full_name || '').trim().split(' ');
+            let initials = '';
+            if (parts.length > 0 && parts[0]) initials += parts[0][0];
+            if (parts.length > 1 && parts[parts.length - 1]) initials += parts[parts.length - 1][0];
+            initialsDisplay.textContent = initials.toUpperCase() || '?';
+            initialsDisplay.style.display = 'flex';
+        }
+    }
 
     const statsDisplay = document.getElementById('profileStatsDisplay');
-    if (statsDisplay) statsDisplay.innerHTML = `<span class="profile-star">★★★★★</span> ${ctx.rating} · ${ctx.total_trips} trips total`;
+    if (statsDisplay) {
+        const starSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" stroke="none"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+        const emptyStarSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="var(--surface-3)" stroke="var(--surface-3)" stroke-width="0"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+        const halfStarSvg = `<svg viewBox="0 0 24 24" width="16" height="16" fill="url(#halfGrad)" stroke="var(--surface-3)" stroke-width="0"><defs><linearGradient id="halfGrad"><stop offset="50%" stop-color="currentColor"/><stop offset="50%" stop-color="var(--surface-3)"/></linearGradient></defs><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`;
+
+        if (!ctx.total_trips || ctx.total_trips === 0 || ctx.rating == 0) {
+            let svgStarsHtml = '';
+            for (let i = 0; i < 5; i++) svgStarsHtml += emptyStarSvg;
+            statsDisplay.innerHTML = `<span class="profile-star" style="display:inline-flex;gap:2px;align-items:center;color:var(--surface-3);">${svgStarsHtml}</span> No ratings yet`;
+        } else {
+            const rating = parseFloat(ctx.rating) || 0;
+            const fullStars = Math.floor(rating);
+            const halfStar = (rating - fullStars) >= 0.5 ? 1 : 0;
+            const emptyStars = 5 - fullStars - halfStar;
+
+            let svgStarsHtml = '';
+            for (let i = 0; i < fullStars; i++) svgStarsHtml += starSvg;
+            if (halfStar) svgStarsHtml += halfStarSvg;
+            for (let i = 0; i < emptyStars; i++) svgStarsHtml += emptyStarSvg;
+
+            statsDisplay.innerHTML = `<span class="profile-star" style="display:inline-flex;gap:2px;align-items:center;color:var(--gold);">${svgStarsHtml}</span> ${rating.toFixed(2)} · ${ctx.total_trips} trips total`;
+        }
+    }
 
     const verifyBadge = document.getElementById('profileVerifyBadge');
     if (verifyBadge) {
@@ -950,3 +990,237 @@ function drawRouteOnMap(routeCoordinates) {
     currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
     currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
 }
+
+// ===== DASHBOARD RENDER =====
+function formatCurrency(amount) {
+  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 0 }).format(amount);
+}
+
+function renderStars(rating) {
+  let html = '';
+  const fullStars = Math.floor(rating);
+  const halfStar = (rating % 1) >= 0.5;
+  const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+
+  const fullSvg = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  const halfSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><defs><linearGradient id="halfGrad"><stop offset="50%" stop-color="currentColor"/><stop offset="50%" stop-color="transparent" stop-opacity="1"/></linearGradient></defs><polygon fill="url(#halfGrad)" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+  const emptySvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+
+  for (let i = 0; i < fullStars; i++) html += fullSvg;
+  if (halfStar) html += halfSvg;
+  for (let i = 0; i < emptyStars; i++) html += emptySvg;
+
+  return html;
+}
+
+function renderWeeklyChart(breakdownData) {
+  const chartContainer = document.getElementById('weekly-bar-chart');
+  if (!chartContainer) return;
+
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const amounts = [0, 0, 0, 0, 0, 0, 0];
+
+  Object.keys(breakdownData).forEach(dateStr => {
+      const date = new Date(dateStr);
+      let dayIdx = date.getDay() - 1;
+      if (dayIdx === -1) dayIdx = 6;
+      amounts[dayIdx] += breakdownData[dateStr];
+  });
+
+  const maxAmount = Math.max(...amounts, 1);
+  const maxLabel = document.getElementById('weekly-chart-max');
+  if(maxLabel) maxLabel.textContent = formatCurrency(maxAmount);
+
+  let html = '';
+  const todayDate = new Date();
+  let todayIdx = todayDate.getDay() - 1;
+  if (todayIdx === -1) todayIdx = 6;
+
+  days.forEach((day, idx) => {
+    const heightPct = (amounts[idx] / maxAmount) * 100;
+    const isActive = idx === todayIdx ? 'active' : '';
+    const activeColorStyle = idx === todayIdx ? 'color:var(--gold-dark);font-weight:700' : '';
+    html += `
+      <div class="week-bar-wrap" title="${formatCurrency(amounts[idx])}">
+        <div class="week-bar ${isActive}" style="height:${heightPct}%"></div>
+        <div class="week-day" style="${activeColorStyle}">${day}</div>
+      </div>
+    `;
+  });
+
+  chartContainer.innerHTML = html;
+}
+
+function applyTripFilters() {
+    const status = document.getElementById('tripFilterSelect')?.value || 'all';
+    const startDate = document.getElementById('tripFilterDateStart')?.value || null;
+    const endDate = document.getElementById('tripFilterDateEnd')?.value || null;
+
+    renderTripHistory(status, startDate, endDate);
+    closeModal('modal-filter-trips');
+}
+
+function renderTripHistory(filterStatus = 'all', filterStartDate = null, filterEndDate = null) {
+    const container = document.getElementById('trip-history-list');
+    if (!container) return;
+
+    const trips = driverInitialContext.trips_history || [];
+    const filteredTrips = trips.filter(t => {
+        const statusMatch = filterStatus === 'all' || t.status === filterStatus;
+        if (!statusMatch) return false;
+
+        if (filterStartDate || filterEndDate) {
+            const tripDate = new Date(t.created_at + 'Z');
+            if (filterStartDate) {
+                const start = new Date(filterStartDate);
+                start.setHours(0,0,0,0);
+                if (tripDate < start) return false;
+            }
+            if (filterEndDate) {
+                const end = new Date(filterEndDate);
+                end.setHours(23,59,59,999);
+                if (tripDate > end) return false;
+            }
+        }
+
+        return true;
+    });
+
+    if (filteredTrips.length === 0) {
+        let msg = `No trips found`;
+        if (filterStatus !== 'all') msg = `No ${filterStatus} trips found`;
+        container.innerHTML = `<div style="text-align:center; padding: 40px 20px; color: var(--slate);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="margin-bottom:12px;opacity:0.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><p>${msg}.</p></div>`;
+        return;
+    }
+
+    let html = '';
+    filteredTrips.forEach(trip => {
+        const isCompleted = trip.status === 'completed';
+        const isCancelled = trip.status === 'cancelled';
+        const iconClass = isCompleted ? 'completed' : (isCancelled ? 'cancelled' : '');
+        const statusClass = isCompleted ? 'completed' : (isCancelled ? 'cancelled' : '');
+        const statusLabel = trip.status.charAt(0).toUpperCase() + trip.status.slice(1);
+
+        let iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
+        if (isCompleted) {
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="20 6 9 17 4 12"/></svg>';
+        } else if (isCancelled) {
+            iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+        }
+
+        const dateObj = new Date(trip.created_at + 'Z');
+        const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' · ' + dateObj.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
+        const maxLocLen = 20;
+        const shortPickup = trip.pickup.length > maxLocLen ? trip.pickup.substring(0, maxLocLen) + '...' : trip.pickup;
+        const shortDropoff = trip.dropoff.length > maxLocLen ? trip.dropoff.substring(0, maxLocLen) + '...' : trip.dropoff;
+
+        html += `
+        <div class="trip-history-item" onclick="showToast('Receipt for trip #${trip.trip_ref} opened')">
+            <div class="trip-icon ${iconClass}">
+            ${iconSvg}
+            </div>
+            <div class="trip-details">
+            <div class="trip-route">${shortPickup} &rarr; ${shortDropoff}</div>
+            <div class="trip-meta">${dateStr} &middot; #${trip.trip_ref}</div>
+            </div>
+            <div>
+            <div class="trip-amount">${formatCurrency(trip.fare || 0)}</div>
+            <div class="trip-status ${statusClass}">${statusLabel}</div>
+            </div>
+        </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderCampaigns() {
+    const campaigns = driverInitialContext.active_campaigns || [];
+    const homeContainer = document.getElementById('home-active-campaigns');
+    const earningsContainer = document.getElementById('earnings-active-campaigns');
+
+    if (campaigns.length === 0) {
+        const emptyState = `<div style="text-align:center; padding: 20px; color: var(--slate); font-size: 13px;">No active campaigns at the moment. Keep driving to unlock new bonuses!</div>`;
+        if (homeContainer) homeContainer.innerHTML = emptyState;
+        if (earningsContainer) earningsContainer.innerHTML = emptyState;
+        return;
+    }
+
+    let html = '';
+    campaigns.forEach(c => {
+        const progressNum = Math.min(c.progress, c.target_trips);
+        html += `
+        <div class="campaign-card" style="margin-bottom:10px">
+            <div>
+                <div class="campaign-badge">⚡ ${c.title}</div>
+                <div class="campaign-text">${c.description}</div>
+            </div>
+            <div class="campaign-progress-wrap">
+                <div class="campaign-progress-num">${progressNum}/${c.target_trips}</div>
+                <div class="campaign-progress-label">done</div>
+            </div>
+        </div>
+        `;
+    });
+
+    if (homeContainer) homeContainer.innerHTML = html;
+    if (earningsContainer) earningsContainer.innerHTML = html;
+}
+
+function renderDashboardStats() {
+    if (!driverInitialContext.dashboard_stats) return;
+    const stats = driverInitialContext.dashboard_stats;
+
+    // Home
+    const homeTodayEarnings = document.getElementById('home-today-earnings');
+    if (homeTodayEarnings) {
+        if (stats.today_earnings > 0) {
+            homeTodayEarnings.textContent = formatCurrency(stats.today_earnings);
+        } else {
+            homeTodayEarnings.textContent = '-';
+        }
+    }
+
+    const homeTodayTrips = document.getElementById('home-today-trips');
+    if (homeTodayTrips) homeTodayTrips.textContent = stats.today_trips;
+
+    const homeRating = document.getElementById('home-rating');
+    if (homeRating) homeRating.textContent = stats.avg_rating.toFixed(1) + '★';
+
+    // Earnings
+    const earningsWeekTotal = document.getElementById('earnings-week-total');
+    if (earningsWeekTotal) {
+        if (stats.week_earnings > 0) {
+            earningsWeekTotal.textContent = Number(stats.week_earnings).toLocaleString('en-NG');
+        } else {
+            earningsWeekTotal.parentElement.innerHTML = '<span style="font-size:16px; font-weight:500; color:var(--slate);">No earnings this week</span>';
+        }
+    }
+
+    const earningsTodayTotal = document.getElementById('earnings-today-total');
+    if (earningsTodayTotal) {
+        if (stats.today_earnings > 0) {
+            earningsTodayTotal.textContent = formatCurrency(stats.today_earnings);
+        } else {
+            earningsTodayTotal.textContent = '-';
+        }
+    }
+
+    const earningsWeekTrips = document.getElementById('earnings-week-trips');
+    if (earningsWeekTrips) earningsWeekTrips.textContent = stats.week_trips;
+
+    const earningsRatingText = document.getElementById('earnings-rating-text');
+    if (earningsRatingText) earningsRatingText.textContent = stats.avg_rating.toFixed(1);
+
+    const earningsRatingStars = document.getElementById('earnings-rating-stars');
+    if (earningsRatingStars) earningsRatingStars.innerHTML = renderStars(stats.avg_rating);
+
+    renderWeeklyChart(stats.daily_breakdown);
+    renderTripHistory('all');
+    renderCampaigns();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderDashboardStats();
+});
