@@ -52,6 +52,7 @@ function nav(name,btn){
   if(name === 'users') loadCustomers();
   if(name === 'disputes') loadDisputes();
   if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
+  if(name === 'reconciliation') loadReconciliation();
 
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
@@ -65,7 +66,7 @@ let currentKycId = 0;
 let currentKycTab = 'under_review';
 let currentKycFilter = 'all';
 let kycDrivers = [];
-const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:''}, customers:{page:1, per_page:10, search:''} };
+const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:''}, customers:{page:1, per_page:10, search:''}, reconciliation:{page:1, per_page:10, search:'', status:'all', start_date:'', end_date:''} };
 let searchTimers = {};
 let currentDisputeId = 0;
 
@@ -255,7 +256,7 @@ async function loadManualPayments(){
   const list = document.getElementById('manualPaymentsList');
   if(!list) return;
   try {
-    const data = await adminApi('get_manual_payments', {status:'pending', per_page:20});
+    const data = await adminApi('get_manual_payments', {status:'proof_submitted', per_page:20});
     const payments = data.payments || [];
     if(!payments.length){
       list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No manual transfers waiting for review</div><div class="item-meta">Customer uploads will appear here.</div></div></div>';
@@ -460,6 +461,38 @@ function renderCustomerDirectoryItem(customer){
   return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="showUnavailableFeature('Customer profile', 'Customer detail screens need a dedicated customer-detail endpoint before opening full profiles.')">Profile</button></div></div>`;
 }
 function queueCustomerSearch(v){ clearTimeout(searchTimers.customers); searchTimers.customers=setTimeout(()=>{pageState.customers.search=v; loadCustomers(1);},300); }
+
+function queueReconciliationSearch(v){ clearTimeout(searchTimers.reconciliation); searchTimers.reconciliation=setTimeout(()=>{pageState.reconciliation.search=v; loadReconciliation(1);},300); }
+function setReconciliationStatus(v){ pageState.reconciliation.status=v; loadReconciliation(1); }
+function setReconciliationDateStart(v){ pageState.reconciliation.start_date=v; loadReconciliation(1); }
+function setReconciliationDateEnd(v){ pageState.reconciliation.end_date=v; loadReconciliation(1); }
+
+async function loadReconciliation(page=pageState.reconciliation.page) {
+  const st = pageState.reconciliation;
+  st.page = page;
+  const list = document.getElementById('reconciliationList');
+  if (!list) return;
+  list.innerHTML = '<div class="loading-state">Loading reconciliation data…</div>';
+  try {
+    const data = await adminApi('get_reconciliation_data', st);
+    const rows = data.reconciliation || [];
+    list.innerHTML = rows.length ? rows.map(r => `
+      <div class="list-item">
+        <div class="item-info">
+          <div class="item-name">${escapeHtml(r.trip_ref || ('Trip #' + r.trip_id))} · ₦${Number(r.amount || 0).toLocaleString()}</div>
+          <div class="item-meta">${escapeHtml(r.customer_name || 'Customer')} · ${escapeHtml(r.provider || 'Provider')} · ${dateLabel(r.reviewed_at || r.created_at)}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <span class="badge ${tripStatusClass(r.status)}">${escapeHtml(formatStatusLabel(r.status))}</span>
+          ${r.receipt_url ? `<a href="${escapeHtml(r.receipt_url)}" target="_blank" class="btn-sm btn-view" style="text-decoration:none;">Receipt</a>` : ''}
+        </div>
+      </div>
+    `).join('') : '<div class="empty-state">No payments match your filters.</div>';
+    renderPagination('reconciliationPagination', st, data.total, 'loadReconciliation');
+  } catch (e) {
+    list.innerHTML = '<div class="empty-state">Could not load reconciliation data: ' + escapeHtml(e.message) + '</div>';
+  }
+}
 
 async function loadDisputes(page=pageState.disputes.page){
   const st=pageState.disputes; st.page=page; const list=document.getElementById('disputeList'); if(!list) return; list.innerHTML='<div class="loading-state">Loading disputes…</div>';

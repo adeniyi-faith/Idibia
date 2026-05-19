@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 7;
+    $target_version = 8;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -49,7 +49,7 @@ function idibia_maybe_create_tables() {
             ADD COLUMN `final_fare` DECIMAL(10,2) NULL AFTER `fare_estimate`,
             ADD COLUMN `distance_km` DECIMAL(8,2) NULL AFTER `final_fare`,
             ADD COLUMN `duration_mins` INT UNSIGNED NULL AFTER `distance_km`,
-            ADD COLUMN `payment_status` ENUM('pending','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending' AFTER `duration_mins`,
+            ADD COLUMN `payment_status` ENUM('pending','pending_proof','proof_submitted','approved','rejected','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending' AFTER `duration_mins`,
             ADD COLUMN `dispatch_status` ENUM('searching','offered','accepted','arriving','arrived_pickup','picked_up','arrived_dropoff','completed','cancelled','no_driver') NOT NULL DEFAULT 'searching' AFTER `payment_status`,
             ADD COLUMN `cancellation_reason` VARCHAR(255) NULL AFTER `dispatch_status`,
             ADD COLUMN `delivery_pin` VARCHAR(10) NULL AFTER `cancellation_reason`,
@@ -101,7 +101,7 @@ function idibia_maybe_create_tables() {
             `provider` VARCHAR(50) NOT NULL,
             `provider_ref` VARCHAR(100) NULL,
             `proof_path` VARCHAR(255) NULL,
-            `status` ENUM('pending','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending',
+            `status` ENUM('pending','pending_proof','proof_submitted','approved','rejected','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending',
             `admin_notes` TEXT NULL,
             `reviewed_by` BIGINT UNSIGNED NULL,
             `reviewed_at` DATETIME NULL,
@@ -251,6 +251,14 @@ function idibia_maybe_create_tables() {
         ) $charset;" );
         update_option( 'idibia_db_version', 7 );
         $current_version = 7;
+    }
+
+    if ( $current_version < 8 ) {
+        global $wpdb;
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_trips` MODIFY COLUMN `payment_status` ENUM('pending','pending_proof','proof_submitted','approved','rejected','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending'" );
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_payments` MODIFY COLUMN `status` ENUM('pending','pending_proof','proof_submitted','approved','rejected','authorized','captured','failed','refunded') NOT NULL DEFAULT 'pending'" );
+        update_option( 'idibia_db_version', 8 );
+        $current_version = 8;
     }
 }
 
