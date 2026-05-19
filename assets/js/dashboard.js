@@ -1226,3 +1226,61 @@ function drawRouteOnMap(routeCoordinates) {
     currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
     currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
 }
+
+// ═══════════ PROFILE EDIT ═══════════
+async function submitProfileEdit(e) {
+  e.preventDefault();
+  const btn = document.getElementById('profileSaveBtn');
+  const initialText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const body = new FormData();
+    const newFullName = document.getElementById('profileFullName').value.trim();
+    body.append('_nonce', window.idibiaProfileNonce);
+    body.append('full_name', newFullName);
+
+    const json = await idibiaPost('profile-api.php', body);
+
+    if (json.success) {
+      showToast(json.data?.message || 'Profile updated successfully.');
+      closeModal(null, 'profile');
+
+      // Update DOM elements dynamically
+      const avatarName = document.querySelector('.avatar-name');
+      if (avatarName) avatarName.textContent = newFullName;
+
+      // Look for the "Profile Details" account row to update its meta element
+      const accountRows = document.querySelectorAll('.account-row');
+      accountRows.forEach(row => {
+          const label = row.querySelector('.account-row-label');
+          if (label && label.textContent === 'Profile Details') {
+              const meta = row.querySelector('.account-row-meta');
+              if (meta) meta.textContent = newFullName;
+          }
+      });
+
+      // Update initials
+      const parts = newFullName.split(' ').filter(p => p.length > 0);
+      let initials = '';
+      if (parts.length >= 2) {
+          initials = parts[0][0].toUpperCase() + parts[1][0].toUpperCase();
+      } else if (parts.length === 1) {
+          initials = parts[0].substring(0, 2).toUpperCase();
+      }
+      if (!initials) initials = 'CU';
+
+      const avatarIcon = document.querySelector('.avatar');
+      if (avatarIcon) avatarIcon.textContent = initials;
+
+    } else {
+      showToast(json.data?.message || 'Could not update profile.');
+    }
+  } catch (err) {
+    showToast('Connection error updating profile.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = initialText;
+  }
+}
