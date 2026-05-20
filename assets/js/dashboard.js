@@ -1177,7 +1177,8 @@ async function fetchRecentActivity() {
     const json = await res.json();
 
     if (json.success && json.data.trips.length > 0) {
-      container.innerHTML = '';
+      // ⚡ Bolt: Accumulate HTML in a string to avoid O(N^2) innerHTML reflows inside loop
+      let tripsHtml = '';
 
       json.data.trips.forEach(trip => {
         const date = new Date(trip.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -1186,7 +1187,7 @@ async function fetchRecentActivity() {
 
         const isTerm = trip.status === 'completed' || trip.status === 'cancelled';
         const clickAction = isTerm ? `showTripDetails(${trip.id})` : `startLiveTracking(${trip.id})`;
-        container.innerHTML += `
+        tripsHtml += `
         <div class="activity-card" onclick="${clickAction}">
           <div class="ac-icon">${iconHtml}</div>
           <div class="ac-details">
@@ -1196,6 +1197,8 @@ async function fetchRecentActivity() {
           <div class="ac-amt">₦${parseFloat(trip.fare).toLocaleString()}</div>
         </div>`;
       });
+
+      container.innerHTML = tripsHtml;
     } else {
        container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted)">No recent activity</div>';
     }
