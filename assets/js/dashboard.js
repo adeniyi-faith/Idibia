@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Load preferences initial state
-  idibiaPost('preferences-api.php', {}, 'GET').then(res => {
+  fetch(IDIBIA_API_BASE + '/preferences-api.php', { credentials: 'same-origin' }).then(r => r.json()).then(res => {
     if (res.success && res.data && res.data.preferences) {
       const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
       if (notifChip) {
@@ -433,6 +433,28 @@ async function submitSosReport() {
   } catch (err) {
     showToast('Connection error sending safety report.');
   }
+}
+
+function openPreferencesModal() {
+  fetch(IDIBIA_API_BASE + '/preferences-api.php', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success && res.data && res.data.preferences) {
+        const pref = res.data.preferences;
+        const tripUpdates = document.getElementById('pref_trip_updates');
+        const promotions = document.getElementById('pref_promotions');
+        const emailReceipts = document.getElementById('pref_email_receipts');
+
+        if (tripUpdates) tripUpdates.checked = !!pref.trip_updates;
+        if (promotions) promotions.checked = !!pref.promotions;
+        if (emailReceipts) emailReceipts.checked = !!pref.email_receipts;
+      }
+      openModal('preferences');
+    })
+    .catch(() => {
+      showToast('Could not load preferences.');
+      openModal('preferences');
+    });
 }
 
 function closeModalAndGoHome() {
@@ -1305,7 +1327,19 @@ async function submitProfileEdit(e) {
       if (!initials) initials = 'CU';
 
       const avatarIcon = document.querySelector('.avatar');
-      if (avatarIcon) avatarIcon.textContent = initials;
+      if (avatarIcon) {
+          let foundTextNode = false;
+          for (let node of avatarIcon.childNodes) {
+              if (node.nodeType === Node.TEXT_NODE) {
+                  node.nodeValue = initials;
+                  foundTextNode = true;
+                  break;
+              }
+          }
+          if (!foundTextNode) {
+              avatarIcon.appendChild(document.createTextNode(initials));
+          }
+      }
 
     } else {
       showToast(json.data?.message || 'Could not update profile.');
