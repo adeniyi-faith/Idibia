@@ -34,6 +34,9 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
     }
 
     if ( $action === 'admin_logout' ) {
+        if ( ! wp_verify_nonce( $_POST['_nonce'] ?? '', 'idibia_admin_action' ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid security token. Please refresh the page.' ] );
+        }
         wp_logout();
         wp_send_json_success( [ 'redirect' => '/admin.php' ] );
     }
@@ -102,6 +105,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 
 <script>
 let ADMIN_API_URL = "/admin/api.php";
+let ADMIN_API_NONCE = "<?php echo esc_js( wp_create_nonce( 'idibia_admin_action' ) ); ?>";
 </script>
 <script src="assets/js/admin.js"></script>
 </body>
