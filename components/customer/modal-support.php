@@ -23,6 +23,11 @@
         </div>
 
         <div class="fi-input">
+          <label>Subject</label>
+          <input type="text" id="support_subject" required placeholder="Brief summary of your issue">
+        </div>
+
+        <div class="fi-input">
           <label>Message</label>
           <textarea id="support_message" rows="5" required placeholder="Describe your issue here..."></textarea>
         </div>

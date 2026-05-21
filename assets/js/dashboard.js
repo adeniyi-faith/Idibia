@@ -1317,3 +1317,164 @@ async function submitProfileEdit(e) {
     btn.textContent = initialText;
   }
 }
+
+async function submitSupportTicket() {
+  const category = document.getElementById('support_category')?.value || 'general';
+  const subject = document.getElementById('support_subject')?.value?.trim() || '';
+  const messageText = document.getElementById('support_message')?.value?.trim() || '';
+
+  if (!messageText || !subject) {
+      showToast('Subject and message are required.');
+      return;
+  }
+
+  const combinedMessage = `Subject: ${subject}\n\n${messageText}`;
+
+  const body = new FormData();
+  body.append('action', 'create_ticket');
+  body.append('_nonce', window.idibiaSupportNonce);
+  body.append('category', category);
+  body.append('message', combinedMessage);
+
+  const btn = document.getElementById('btnSubmitSupport');
+  const oldText = btn.textContent;
+  btn.textContent = 'Submitting...';
+  btn.disabled = true;
+
+  try {
+    const json = await idibiaPost('/support-api.php', body);
+    if (json.success) {
+      showToast(json.data?.message || 'Support ticket opened.');
+      closeModal(null, 'support');
+      document.getElementById('supportForm')?.reset();
+    } else {
+      showToast(json.data?.message || 'Could not submit support ticket.');
+    }
+  } catch (e) {
+    showToast('Connection error submitting support ticket.');
+  } finally {
+    btn.textContent = oldText;
+    btn.disabled = false;
+  }
+}
+
+async function uploadCustomerAvatar(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('action', 'upload_avatar');
+    formData.append('avatar', file);
+    formData.append('_nonce', window.idibiaProfileNonce || '');
+
+    showToast('Uploading profile picture...');
+    try {
+        const response = await fetch('/profile-api.php', {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' }
+        });
+        const json = await response.json();
+        if (json.success) {
+            showToast('Profile picture updated.');
+            if (json.data?.avatar_path) {
+                window.idibiaCustomerAvatar = json.data.avatar_path;
+                // Update DOM directly since customer doesn't have a renderProfile function
+                const avatarWrap = document.querySelector('.avatar');
+                if (avatarWrap) {
+                    let img = avatarWrap.querySelector('img');
+                    if (!img) {
+                        // clear initials
+                        const contents = Array.from(avatarWrap.childNodes).filter(node =>
+                            node.nodeType === Node.TEXT_NODE ||
+                            (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains('camera-badge') && node.tagName !== 'INPUT')
+                        );
+                        contents.forEach(node => avatarWrap.removeChild(node));
+
+                        img = document.createElement('img');
+                        img.alt = 'Avatar';
+                        img.style.width = '100%';
+                        img.style.height = '100%';
+                        img.style.borderRadius = '50%';
+                        img.style.objectFit = 'cover';
+
+                        // Insert img before the camera badge
+                        const badge = avatarWrap.querySelector('.camera-badge');
+                        if (badge) {
+                            avatarWrap.insertBefore(img, badge);
+                        } else {
+                            avatarWrap.appendChild(img);
+                        }
+                    }
+                    img.src = '/wp/wp-content/uploads/' + json.data.avatar_path;
+                }
+            }
+        } else {
+            showToast(json.data?.message || 'Could not upload picture.');
+        }
+    } catch (err) {
+        showToast('Connection error uploading picture.');
+    }
+}
+
+async function savePreferences() {
+  const tripUpdates = document.getElementById('pref_trip_updates')?.checked ? 'true' : 'false';
+  const promotions = document.getElementById('pref_promotions')?.checked ? 'true' : 'false';
+  const emailReceipts = document.getElementById('pref_email_receipts')?.checked ? 'true' : 'false';
+
+  const body = new FormData();
+  body.append('_nonce', window.idibiaVerifyNonce); // Using an existing nonce, wait, preferences-api uses idibia_verify or idibia_profile_update.
+  body.append('trip_updates', tripUpdates);
+  body.append('promotions', promotions);
+  body.append('email_receipts', emailReceipts);
+
+  const btn = document.getElementById('btnSavePreferences');
+  const oldText = btn.textContent;
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  try {
+    const json = await idibiaPost('/preferences-api.php', body);
+    if (json.success) {
+      showToast('Preferences updated.');
+      closeModal(null, 'preferences');
+      // Update UI toggle
+      const notifChip = document.querySelector('.account-row[onclick="openPreferencesModal()"] .chip');
+      if (notifChip) {
+          if (tripUpdates === 'true') {
+              notifChip.innerText = 'On';
+              notifChip.className = 'chip chip-success';
+          } else {
+              notifChip.innerText = 'Off';
+              notifChip.className = 'chip chip-warning';
+          }
+      }
+    } else {
+      showToast(json.data?.message || 'Could not update preferences.');
+    }
+  } catch (e) {
+    showToast('Connection error updating preferences.');
+  } finally {
+    btn.textContent = oldText;
+    btn.disabled = false;
+  }
+}
+
+async function openPreferencesModal() {
+  openModal('preferences');
+  try {
+    const json = await idibiaPost('/preferences-api.php', new FormData(), { method: 'GET' });
+    if (json.success && json.data?.preferences) {
+      const prefs = json.data.preferences;
+      const tripUpdatesEl = document.getElementById('pref_trip_updates');
+      if (tripUpdatesEl) tripUpdatesEl.checked = prefs.trip_updates;
+      const promotionsEl = document.getElementById('pref_promotions');
+      if (promotionsEl) promotionsEl.checked = prefs.promotions;
+      const emailReceiptsEl = document.getElementById('pref_email_receipts');
+      if (emailReceiptsEl) emailReceiptsEl.checked = prefs.email_receipts;
+    }
+  } catch (e) {
+    // silently fail
+  }
+}

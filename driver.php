@@ -128,6 +128,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
   <?php require_once __DIR__ . '/components/driver/auth.php'; ?>
   <?php require_once __DIR__ . '/components/driver/main-app.php'; ?>
   <?php require_once __DIR__ . '/components/customer/modal-sos.php'; ?>
+  <?php require_once __DIR__ . '/components/driver/modal-faq.php'; ?>
 
   <input class="kyc-file-input" type="file" id="driverKycFileInput" accept="image/jpeg,image/png,application/pdf">
 

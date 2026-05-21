@@ -219,6 +219,16 @@
               </div>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
             </div>
+            <div class="help-category" onclick="openModal('modal-faq')">
+              <div class="help-cat-icon" style="background:rgba(100,100,100,0.1);color:var(--text-primary)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div class="help-cat-text">
+                <div class="help-cat-title">FAQs</div>
+                <div class="help-cat-sub">Frequently asked questions</div>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
           </div>
 
           <!-- PROFILE TAB -->

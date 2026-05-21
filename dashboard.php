@@ -17,6 +17,7 @@ $trips_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$wp
 $customer_full_name = $customer_row['full_name'] ?? $current_user->display_name;
 $customer_email = $customer_row['email'] ?? $current_user->user_email;
 $customer_referral_code = $customer_row['referral_code'] ?? '';
+$customer_avatar_path = $customer_row['avatar_path'] ?? '';
 $customer_rating = '5.0'; // Default placeholder, no rating system visible yet for customers
 $customer_initials = '';
 $name_parts = explode(' ', trim($customer_full_name));
@@ -36,6 +37,7 @@ if (!empty($customer_row['saved_addresses'])) {
 $register_nonce = wp_create_nonce( 'idibia_register' );
 $verify_nonce   = wp_create_nonce( 'idibia_verify' );
 $profile_nonce  = wp_create_nonce( 'idibia_profile_update' );
+$support_nonce  = wp_create_nonce( 'idibia_support_action' );
 $pusher_config  = idibia_pusher_public_config();
 
 $company_bank_name = idibia_get_setting('company_bank_name', 'Not Available');
@@ -97,9 +99,11 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <script>
 window.idibiaVerifyNonce = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
 window.idibiaProfileNonce = '<?php echo esc_js( $profile_nonce ?? '' ); ?>';
+window.idibiaSupportNonce = '<?php echo esc_js( $support_nonce ?? '' ); ?>';
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ); ?>;
 window.idibiaLogoutUrl = '<?php echo esc_url( wp_logout_url( home_url() ) ); ?>';
 window.idibiaCustomerRating = '<?php echo esc_js( $customer_rating ); ?>';
+window.idibiaCustomerAvatar = '<?php echo esc_js( $customer_avatar_path ); ?>';
 window.idibiaLegalContents = {
   legal_terms: <?php echo wp_json_encode( $legal_terms ); ?>,
   legal_privacy: <?php echo wp_json_encode( $legal_privacy ); ?>,
