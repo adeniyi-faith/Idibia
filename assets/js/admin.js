@@ -120,7 +120,10 @@ async function adminApi(action, params = {}, method = 'GET'){
     if(method === 'GET') url.searchParams.set(key, value);
     else body.append(key, value);
   });
-  if(method !== 'GET') body.append('action', action);
+  if(method !== 'GET') {
+    body.append('action', action);
+    body.append('_nonce', window.ADMIN_API_NONCE || '');
+  }
   const response = await fetch(url.toString(), {
     method,
     body: method === 'GET' ? undefined : body,
@@ -238,6 +241,7 @@ async function savePaymentSettings(){
       payload[el.getAttribute('data-setting')] = el.value;
     }
   });
+  payload['_nonce'] = window.ADMIN_API_NONCE || '';
   try {
     const response = await fetch(ADMIN_API_URL + '?action=save_settings', {
       method: 'POST',
@@ -584,6 +588,7 @@ async function adminLogout(btn){
   try{
     const body = new FormData();
     body.append('action','admin_logout');
+    body.append('_nonce', window.ADMIN_API_NONCE || '');
     const response = await fetch('/admin.php', { method:'POST', body, credentials:'same-origin', headers:{ 'Accept':'application/json' } });
     const data = await response.json();
     window.location.href = data.data?.redirect || '/admin.php';
