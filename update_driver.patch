@@ -1,0 +1,22 @@
+<<<<<<< SEARCH
+        case 'get_driver':
+            idibia_require_method( 'GET' );
+            $driver_id = absint( $_GET['driver_id'] ?? 0 );
+            $driver = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+            $driver ? wp_send_json_success( [ 'driver' => idibia_admin_prepare_driver( $driver ) ] ) : wp_send_json_error( [ 'message' => 'Driver not found.' ] );
+            break;
+=======
+        case 'get_driver':
+            idibia_require_method( 'GET' );
+            $driver_id = absint( $_GET['driver_id'] ?? 0 );
+            $driver = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+            if ( $driver ) {
+                $driver = idibia_admin_prepare_driver( $driver );
+                // Fetch extra details if needed (e.g. recent trips)
+                $driver['recent_trips'] = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d ORDER BY created_at DESC LIMIT 5", $driver_id ), ARRAY_A );
+                wp_send_json_success( [ 'driver' => $driver ] );
+            } else {
+                wp_send_json_error( [ 'message' => 'Driver not found.' ] );
+            }
+            break;
+>>>>>>> REPLACE
