@@ -506,7 +506,7 @@ async function loadDisputes(page=pageState.disputes.page){
   try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=rows.filter(d=>d.status==='open'||d.status==='escalated').length.toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=rows.filter(d=>d.status==='escalated').length.toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):'<div class="empty-state">No disputes match your filters.</div>'; renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
   catch(e){ list.innerHTML='<div class="empty-state">Could not load disputes: '+escapeHtml(e.message)+'</div>'; }
 }
-function renderDisputeItem(d){ const status=d.status||'open'; const title='#D-'+String(d.id).padStart(4,'0')+' · '+(d.category||'Dispute'); const meta=status==='resolved'?`Resolved · ${formatMoney(d.refund_amount)} refunded · ${d.resolution||''}`:`Customer: ${d.customer_name||'Unknown'} · Driver: ${d.driver_name||'Unassigned'} · ${dateLabel(d.created_at)}`; return `<div class="list-item" data-dispute="${escapeHtml(status)}"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">${status==='resolved'?'✓':(status==='escalated'?'🔴':'!')}</div><div class="item-info"><div class="item-name">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div><div class="item-actions"><button class="btn-sm ${status==='escalated'?'btn-reject':'btn-view'}" onclick="openDisputeModal('${escapeHtml(title).replace(/'/g,'&#39;')}', ${Number(d.id)})">${status==='resolved'?'View':'Handle'}</button></div></div>`; }
+function renderDisputeItem(d){ const status=d.status||'open'; const title='#D-'+String(d.id).padStart(4,'0')+' · '+(d.category||'Dispute'); const meta=status==='resolved'?`Resolved · ${formatMoney(d.refund_amount)} refunded · ${d.resolution||''}`:`Customer: ${d.customer_name||'Unknown'} · Driver: ${d.driver_name||'Unassigned'} · ${dateLabel(d.created_at)}`; return `<div class="list-item" data-dispute="${escapeHtml(status)}"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">${status==='resolved'?'✓':(status==='escalated'?'🔴':'!')}</div><div class="item-info"><div class="item-name">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div><div class="item-actions"><button class="btn-sm ${status==='escalated'?'btn-reject':'btn-view'}" onclick="openDisputeModal('${escapeHtml(title).replace(/'/g,'&#39;')}', ${Number(d.id)}, '${escapeHtml(status)}')">${status==='resolved'?'View':'Handle'}</button></div></div>`; }
 function queuePayoutSearch(v){ clearTimeout(searchTimers.payouts); searchTimers.payouts=setTimeout(()=>{pageState.payouts.search=v; loadPayouts(1);},300); }
 function setPayoutStatus(v){ pageState.payouts.status=v; loadPayouts(1); }
 function queueDisputeSearch(v){ clearTimeout(searchTimers.disputes); searchTimers.disputes=setTimeout(()=>{pageState.disputes.search=v; loadDisputes(1);},300); }
@@ -554,70 +554,94 @@ function filterOps(type,btn){
 }
 function filterTripStatus(status,btn){ document.querySelectorAll('#panel-trips .filter-row .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); pageState.trips.status=status==='all'?'':status; loadTrips(1); }
 function filterDisputes(type,btn){ pageState.disputes.status=type; loadDisputes(1); }
+async function loadDriverDetail(driverId) {
+  try {
+    const data = await adminApi('get_driver', { driver_id: driverId });
+    const driver = data.driver;
+
+    document.getElementById('driverModalTitle').textContent = driver.full_name || 'Driver Details';
+
+    let html = `<div style="display:flex;gap:16px;margin-bottom:16px;">`;
+    html += `<div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info);width:64px;height:64px;font-size:24px;">${escapeHtml(initials(driver.full_name))}</div>`;
+    html += `<div>`;
+    html += `<div style="font-weight:600;font-size:16px;">${escapeHtml(driver.full_name || 'Unnamed driver')}</div>`;
+    html += `<div style="color:var(--text-secondary);font-size:13px;margin-top:4px;">${escapeHtml(driver.email || 'No email')} · ${escapeHtml(driver.phone || 'No phone')}</div>`;
+    html += `<div style="margin-top:8px;"><span class="badge ${driver.status === 'suspended' ? 'badge-danger' : 'badge-success'}">${escapeHtml(formatStatusLabel(driver.status))}</span></div>`;
+    html += `</div></div>`;
+
+    html += `<div class="metrics-grid" style="margin-bottom:16px">`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">VEHICLE</div><div style="font-size:13px;font-weight:600">${vehicleIcon(driver.vehicle_type)} ${escapeHtml(vehicleLabel(driver.vehicle_type))}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">PLATE</div><div style="font-size:13px;font-weight:600">${escapeHtml(driver.vehicle_plate || 'Not set')}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">TRIPS</div><div style="font-size:13px;font-weight:600">${Number(driver.total_trips || 0).toLocaleString()}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">RATING</div><div style="font-size:13px;font-weight:600">${driver.rating ? Number(driver.rating).toFixed(1)+'★' : '--'}</div></div>`;
+    html += `</div>`;
+
+    document.getElementById('driverModalBody').innerHTML = html;
+    document.getElementById('driverModal').classList.add('open');
+  } catch(e) {
+    toast('Could not load driver: ' + e.message);
+  }
+}
+function closeDriverModal() {
+  document.getElementById('driverModal').classList.remove('open');
+}
+
+async function loadPaymentDetail(paymentId) {
+  try {
+    const data = await adminApi('get_payment', { payment_id: paymentId });
+    const p = data.payment;
+
+    document.getElementById('paymentModalTitle').textContent = `Payment for ${escapeHtml(p.trip_ref || ('Trip #' + p.trip_id))}`;
+
+    let html = `<div class="metrics-grid" style="margin-bottom:16px">`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">AMOUNT</div><div style="font-size:13px;font-weight:600">₦${Number(p.amount || 0).toLocaleString()}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">STATUS</div><div style="font-size:13px;font-weight:600"><span class="badge ${tripStatusClass(p.status)}">${escapeHtml(formatStatusLabel(p.status))}</span></div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">PROVIDER</div><div style="font-size:13px;font-weight:600">${escapeHtml(p.provider || 'Unknown')}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">REFERENCE</div><div style="font-size:13px;font-weight:600" style="word-break: break-all;">${escapeHtml(p.provider_ref || 'No ref')}</div></div>`;
+    html += `</div>`;
+
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px;">`;
+    html += `<div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">CUSTOMER</div>`;
+    html += `<div style="font-size:13px;font-weight:600">${escapeHtml(p.customer_name || 'Customer')}</div>`;
+    html += `</div>`;
+
+    if (p.receipt_url) {
+      html += `<div style="margin-top: 16px;"><a href="${escapeHtml(p.receipt_url)}" target="_blank" class="btn-primary" style="display:inline-block;text-align:center;text-decoration:none;font-size:13px;">View Receipt</a></div>`;
+    }
+
+    document.getElementById('paymentModalBody').innerHTML = html;
+    document.getElementById('paymentModal').classList.add('open');
+  } catch(e) {
+    toast('Could not load payment: ' + e.message);
+  }
+}
+
+function closePaymentModal() {
+  document.getElementById('paymentModal').classList.remove('open');
+}
+
+
 function openTripDetail(id,cat,from,to,fare,driver,status){
   document.getElementById('tripModalTitle').textContent='Trip '+id;
   document.getElementById('tripModalBody').innerHTML=`<div class="metrics-grid" style="margin-bottom:16px"><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">CATEGORY</div><div style="font-size:13px;font-weight:600">${cat}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">STATUS</div><div style="font-size:13px;font-weight:600">${status}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">PICKUP</div><div style="font-size:13px;font-weight:600">${from}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">DROP-OFF</div><div style="font-size:13px;font-weight:600">${to}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">FARE</div><div style="font-size:13px;font-weight:600">${fare}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">DRIVER</div><div style="font-size:13px;font-weight:600">${driver}</div></div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">PAYMENT BREAKDOWN</div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Base fare</span><span>${fare}</span></div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:var(--success)"><span>Platform comm.</span><span>-20%</span></div><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-top:6px;padding-top:6px;border-top:1px solid var(--surface-2)"><span>Driver payout</span><span style="color:var(--success)">80%</span></div></div>`;
   document.getElementById('tripModal').classList.add('open');
 }
 function closeTripModal(){document.getElementById('tripModal').classList.remove('open');}
-
-async function loadDriverDetail(driverId) {
-  try {
-    const data = await adminApi('get_driver', { driver_id: driverId });
-    const d = data.driver;
-    if (!d) throw new Error('Driver not found');
-
-    document.getElementById('driverModalTitle').textContent = `Driver: ${d.full_name || 'Unnamed'}`;
-    document.getElementById('driverModalBody').innerHTML = `
-      <div class="metrics-grid" style="margin-bottom:16px">
-        <div style="background:var(--surface);border-radius:10px;padding:12px">
-          <div style="font-size:10px;color:var(--text-muted)">STATUS</div>
-          <div style="font-size:13px;font-weight:600">${escapeHtml(d.status || 'Active')}</div>
-        </div>
-        <div style="background:var(--surface);border-radius:10px;padding:12px">
-          <div style="font-size:10px;color:var(--text-muted)">KYC</div>
-          <div style="font-size:13px;font-weight:600">${escapeHtml(d.kyc_status || 'Pending')}</div>
-        </div>
-        <div style="background:var(--surface);border-radius:10px;padding:12px">
-          <div style="font-size:10px;color:var(--text-muted)">RATING</div>
-          <div style="font-size:13px;font-weight:600">${d.rating ? Number(d.rating).toFixed(1) + '★' : '--'}</div>
-        </div>
-        <div style="background:var(--surface);border-radius:10px;padding:12px">
-          <div style="font-size:10px;color:var(--text-muted)">TRIPS</div>
-          <div style="font-size:13px;font-weight:600">${Number(d.total_trips || 0).toLocaleString()}</div>
-        </div>
-      </div>
-      <div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px">
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">CONTACT INFO</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Email</span><span>${escapeHtml(d.email || '--')}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Phone</span><span>${escapeHtml(d.phone || '--')}</span></div>
-      </div>
-      <div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px">
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">VEHICLE INFO</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Type</span><span>${escapeHtml(vehicleLabel(d.vehicle_type || 'bike'))}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Plate</span><span>${escapeHtml(d.plate_number || '--')}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Make/Model</span><span>${escapeHtml(d.vehicle_make || '--')} ${escapeHtml(d.vehicle_model || '')}</span></div>
-      </div>
-      <div style="background:var(--surface);border-radius:10px;padding:12px">
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">FINANCIALS</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Wallet Balance</span><span style="color:var(--success)">${formatMoney(d.wallet_balance || 0)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Bank Name</span><span>${escapeHtml(d.bank_name || 'Not set')}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Account No</span><span>${escapeHtml(maskAccount(d.account_number || '')) || '--'}</span></div>
-      </div>
-    `;
-    document.getElementById('driverModal').classList.add('open');
-  } catch (e) {
-    toast('Could not load driver details: ' + escapeHtml(e.message));
-  }
-}
-
-function closeDriverModal() {
-  document.getElementById('driverModal').classList.remove('open');
-}
-
-function openDisputeModal(desc, disputeId=0){
+function openDisputeModal(desc, disputeId=0, status='open'){
   currentDisputeId=Number(disputeId||0);
   document.getElementById('modalDesc').textContent=desc;
+
+  const actionArea = document.getElementById('disputeActionArea');
+  const resolveBtn = document.getElementById('resolveDisputeBtn');
+
+  if (status === 'resolved') {
+    if (actionArea) actionArea.style.display = 'none';
+    if (resolveBtn) resolveBtn.style.display = 'none';
+  } else {
+    if (actionArea) actionArea.style.display = 'block';
+    if (resolveBtn) resolveBtn.style.display = 'inline-block';
+  }
+
   document.getElementById('disputeModal').classList.add('open');
 }
 function closeModal(){document.getElementById('disputeModal').classList.remove('open');}
