@@ -1444,7 +1444,7 @@ async function uploadCustomerAvatar(event) {
                             avatarWrap.appendChild(img);
                         }
                     }
-                    img.src = '/wp/wp-content/uploads/' + json.data.avatar_path;
+                    img.src = window.idibiaUploadBaseUrl + '/' + json.data.avatar_path;
                 }
             }
         } else {
