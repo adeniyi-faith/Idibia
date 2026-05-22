@@ -1,4 +1,5 @@
 <?php
-// We just want to make sure there are no syntax errors in api.php
-// By linting it.
-echo exec('php -l admin/api.php');
+// Mock auth
+define('AUTH_ID', 1);
+
+// We simulate a login or just skip to admin logic

@@ -560,6 +560,61 @@ function openTripDetail(id,cat,from,to,fare,driver,status){
   document.getElementById('tripModal').classList.add('open');
 }
 function closeTripModal(){document.getElementById('tripModal').classList.remove('open');}
+
+async function loadDriverDetail(driverId) {
+  try {
+    const data = await adminApi('get_driver', { driver_id: driverId });
+    const d = data.driver;
+    if (!d) throw new Error('Driver not found');
+
+    document.getElementById('driverModalTitle').textContent = `Driver: ${d.full_name || 'Unnamed'}`;
+    document.getElementById('driverModalBody').innerHTML = `
+      <div class="metrics-grid" style="margin-bottom:16px">
+        <div style="background:var(--surface);border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:var(--text-muted)">STATUS</div>
+          <div style="font-size:13px;font-weight:600">${escapeHtml(d.status || 'Active')}</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:var(--text-muted)">KYC</div>
+          <div style="font-size:13px;font-weight:600">${escapeHtml(d.kyc_status || 'Pending')}</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:var(--text-muted)">RATING</div>
+          <div style="font-size:13px;font-weight:600">${d.rating ? Number(d.rating).toFixed(1) + '★' : '--'}</div>
+        </div>
+        <div style="background:var(--surface);border-radius:10px;padding:12px">
+          <div style="font-size:10px;color:var(--text-muted)">TRIPS</div>
+          <div style="font-size:13px;font-weight:600">${Number(d.total_trips || 0).toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">CONTACT INFO</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Email</span><span>${escapeHtml(d.email || '--')}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Phone</span><span>${escapeHtml(d.phone || '--')}</span></div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">VEHICLE INFO</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Type</span><span>${escapeHtml(vehicleLabel(d.vehicle_type || 'bike'))}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Plate</span><span>${escapeHtml(d.plate_number || '--')}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Make/Model</span><span>${escapeHtml(d.vehicle_make || '--')} ${escapeHtml(d.vehicle_model || '')}</span></div>
+      </div>
+      <div style="background:var(--surface);border-radius:10px;padding:12px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">FINANCIALS</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Wallet Balance</span><span style="color:var(--success)">${formatMoney(d.wallet_balance || 0)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Bank Name</span><span>${escapeHtml(d.bank_name || 'Not set')}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Account No</span><span>${escapeHtml(maskAccount(d.account_number || '')) || '--'}</span></div>
+      </div>
+    `;
+    document.getElementById('driverModal').classList.add('open');
+  } catch (e) {
+    toast('Could not load driver details: ' + escapeHtml(e.message));
+  }
+}
+
+function closeDriverModal() {
+  document.getElementById('driverModal').classList.remove('open');
+}
+
 function openDisputeModal(desc, disputeId=0){
   currentDisputeId=Number(disputeId||0);
   document.getElementById('modalDesc').textContent=desc;
