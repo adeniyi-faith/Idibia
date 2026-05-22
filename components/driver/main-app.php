@@ -130,6 +130,34 @@
               </div>
             </div>
 
+            <!-- Wallet & Payouts -->
+            <div class="card" style="margin-top:20px;">
+              <div class="card-title">Wallet & Payouts</div>
+              <div style="background:var(--surface); border-radius:12px; padding:16px; display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div>
+                  <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Available Balance</div>
+                  <div style="font-size:24px; font-weight:700;" id="wallet-balance-display">₦0</div>
+                </div>
+                <button class="global-btn" style="padding:8px 16px; font-size:14px;" onclick="openPayoutModal()">Request Payout</button>
+              </div>
+
+              <div class="section-head" style="margin-bottom:12px;">
+                <div class="section-head-title" style="font-size:14px;">Recent Transactions</div>
+              </div>
+              <div id="wallet-ledger-list">
+                <!-- Ledger entries via JS -->
+                <div class="info-note">Loading transactions...</div>
+              </div>
+
+              <div class="section-head" style="margin-top:24px; margin-bottom:12px;">
+                <div class="section-head-title" style="font-size:14px;">Payout History</div>
+              </div>
+              <div id="wallet-payouts-list">
+                <!-- Payout entries via JS -->
+                <div class="info-note">Loading payouts...</div>
+              </div>
+            </div>
+
           </div>
 
           <!-- TRIPS TAB -->
@@ -333,6 +361,27 @@
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-personal')">Cancel</button>
               <button type="submit" class="global-btn" style="flex:1;justify-content:center">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Request Payout Modal -->
+      <div class="modal" id="modal-request-payout" onclick="closeModal('modal-request-payout')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+          <h3>Request Payout</h3>
+          <p class="modal-sub">Transfer funds to your bank account.</p>
+          <div id="payout-bank-info" style="background:var(--surface); border-radius:8px; padding:12px; margin-bottom:16px; font-size:14px;">
+            <!-- Populated via JS -->
+          </div>
+          <form onsubmit="requestPayout(event)">
+            <div class="form-group">
+              <label class="form-label">Amount (₦)</label>
+              <input type="number" step="0.01" class="form-input" id="inputPayoutAmount" required>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:24px">
+              <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-request-payout')">Cancel</button>
+              <button type="submit" class="global-btn" style="flex:1;justify-content:center" id="btnRequestPayout">Withdraw</button>
             </div>
           </form>
         </div>
