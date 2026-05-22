@@ -25,6 +25,9 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
 
     $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $current_user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
+
+    $upload_dir = wp_upload_dir();
+    $upload_baseurl = $upload_dir['baseurl'];
     $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
     $email_verified = ! empty( $driver_row['email_verified'] );
     $driver_nonces = [
@@ -104,6 +107,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'emergency_phone' => $driver_row['emergency_phone'] ?? '',
         'selfie_path' => $driver_row['selfie_path'] ?? '',
         'avatar_path' => $driver_row['avatar_path'] ?? '',
+        'upload_baseurl' => $upload_baseurl ?? '',
         'nonces'      => $driver_nonces,
     ];
 }

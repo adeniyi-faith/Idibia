@@ -327,7 +327,7 @@
           <div class="avatar-wrap">
             <div class="avatar" style="position: relative;">
               <?php if ( ! empty( $customer_avatar_path ) ) : ?>
-                <img src="/wp/wp-content/uploads/<?php echo esc_attr( $customer_avatar_path ); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                <img src="<?php echo esc_url( $upload_baseurl . '/' . $customer_avatar_path ); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
               <?php else : ?>
                 <?php echo esc_html($customer_initials); ?>
               <?php endif; ?>

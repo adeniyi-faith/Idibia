@@ -33,10 +33,11 @@
             <!-- Clean, minimal Top Bar restricted to Home Tab -->
             <div class="home-top-bar">
               <div class="dash-top-left">
-                <img class="dash-avatar-img" src="https://app.oaglobalstandardservice.com/wp/wp-content/uploads/2026/04/1725853367655.jpg" alt="Profile">
+                <img class="dash-avatar-img" src="" alt="Profile" id="dashHomeAvatar" style="display:none; object-fit: cover;">
+                <div class="dash-avatar-img" id="dashHomeAvatarInitials" style="display:none; align-items:center; justify-content:center; background:rgba(255,255,255,0.2); color:white; font-size:16px; font-weight:600;"></div>
                 <div>
                   <div class="dash-greeting" id="dashGreeting">Good afternoon,</div>
-                  <div class="dash-name">Chidi Nwosu 👋</div>
+                  <div class="dash-name"><span id="dashHomeName">Loading...</span> 👋</div>
                 </div>
               </div>
               <div class="online-pill online" id="onlineToggle" onclick="toggleOnline()">

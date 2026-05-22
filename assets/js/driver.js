@@ -717,23 +717,44 @@ function renderDriverProfile() {
 
     const imgDisplay = document.getElementById('profileAvatarImg');
     const initialsDisplay = document.getElementById('profileAvatarInitials');
+    const dashHomeAvatar = document.getElementById('dashHomeAvatar');
+    const dashHomeAvatarInitials = document.getElementById('dashHomeAvatarInitials');
+    const dashHomeName = document.getElementById('dashHomeName');
+
+    if (dashHomeName) dashHomeName.textContent = ctx.full_name;
+
     const avatarToUse = ctx.avatar_path || ctx.selfie_path;
+    const baseUploadUrl = window.driverInitialContext.upload_baseurl || '';
 
     if (avatarToUse) {
         if (imgDisplay) {
-            imgDisplay.src = `/wp/wp-content/uploads/${avatarToUse}`;
+            imgDisplay.src = `${baseUploadUrl}/${avatarToUse}`;
             imgDisplay.style.display = 'block';
         }
         if (initialsDisplay) initialsDisplay.style.display = 'none';
+
+        if (dashHomeAvatar) {
+            dashHomeAvatar.src = `${baseUploadUrl}/${avatarToUse}`;
+            dashHomeAvatar.style.display = 'block';
+        }
+        if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'none';
     } else {
         if (imgDisplay) imgDisplay.style.display = 'none';
+        if (dashHomeAvatar) dashHomeAvatar.style.display = 'none';
+
+        const parts = (ctx.full_name || '').trim().split(' ');
+        let initials = '';
+        if (parts.length > 0 && parts[0]) initials += parts[0][0];
+        if (parts.length > 1 && parts[parts.length - 1]) initials += parts[parts.length - 1][0];
+        initials = initials.toUpperCase() || '?';
+
         if (initialsDisplay) {
-            const parts = (ctx.full_name || '').trim().split(' ');
-            let initials = '';
-            if (parts.length > 0 && parts[0]) initials += parts[0][0];
-            if (parts.length > 1 && parts[parts.length - 1]) initials += parts[parts.length - 1][0];
-            initialsDisplay.textContent = initials.toUpperCase() || '?';
+            initialsDisplay.textContent = initials;
             initialsDisplay.style.display = 'flex';
+        }
+        if (dashHomeAvatarInitials) {
+            dashHomeAvatarInitials.textContent = initials;
+            dashHomeAvatarInitials.style.display = 'flex';
         }
     }
 
