@@ -104,6 +104,22 @@ try {
                 }
             }
             wp_send_json_success( [ 'settings' => $settings, 'payment' => idibia_payment_settings() ] );
+            break;
+
+        case 'export_tax_summary':
+            idibia_require_method( 'GET' );
+            idibia_admin_export_tax_summary();
+            break;
+
+        case 'export_driver_wht':
+            idibia_require_method( 'GET' );
+            idibia_admin_export_driver_wht();
+            break;
+
+        case 'export_vat_schedule':
+            idibia_require_method( 'GET' );
+            idibia_admin_export_vat_schedule();
+            break;
 
         case 'get_manual_payments':
             idibia_require_method( 'GET' );
@@ -611,6 +627,57 @@ function idibia_admin_resolve_dispute(): void {
     idibia_admin_audit_log( 'resolve_dispute', 'dispute', $dispute_id, [ 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes ] );
     if ( $refund > 0 ) idibia_admin_audit_log( 'refund', 'dispute', $dispute_id, [ 'refund_amount' => $refund, 'resolution' => $resolution ] );
     wp_send_json_success( [ 'message' => 'Dispute resolved.' ] );
+}
+
+function idibia_admin_export_tax_summary(): void {
+    global $wpdb;
+    $rows = $wpdb->get_results( "SELECT d.full_name, d.email, COALESCE(SUM(p.amount), 0) as total_payouts FROM `{$wpdb->prefix}sd_drivers` d LEFT JOIN `{$wpdb->prefix}sd_payouts` p ON p.driver_id = d.id AND p.status = 'paid' GROUP BY d.id", ARRAY_A );
+
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="tax_summary.csv"');
+
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['Driver Name', 'Email', 'Total Payouts']);
+    foreach ($rows as $row) {
+        fputcsv($output, [$row['full_name'], $row['email'], $row['total_payouts']]);
+    }
+    fclose($output);
+    exit;
+}
+
+function idibia_admin_export_driver_wht(): void {
+    global $wpdb;
+    $rows = $wpdb->get_results( "SELECT d.full_name, d.email, d.bank_name, d.account_number, COALESCE(SUM(p.amount), 0) as total_payouts FROM `{$wpdb->prefix}sd_drivers` d LEFT JOIN `{$wpdb->prefix}sd_payouts` p ON p.driver_id = d.id AND p.status = 'paid' GROUP BY d.id", ARRAY_A );
+
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="driver_wht.csv"');
+
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['Driver Name', 'Email', 'Bank Name', 'Account Number', 'Total Payouts', 'WHT Withheld (e.g. 5%)']);
+    foreach ($rows as $row) {
+        $wht = $row['total_payouts'] * 0.05;
+        fputcsv($output, [$row['full_name'], $row['email'], $row['bank_name'], $row['account_number'], $row['total_payouts'], $wht]);
+    }
+    fclose($output);
+    exit;
+}
+
+function idibia_admin_export_vat_schedule(): void {
+    global $wpdb;
+    $rows = $wpdb->get_results( "SELECT id, trip_ref, fare, platform_pct FROM `{$wpdb->prefix}sd_trips` WHERE status = 'completed'", ARRAY_A );
+
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="vat_schedule.csv"');
+
+    $output = fopen('php://output', 'w');
+    fputcsv($output, ['Trip Ref', 'Total Fare', 'Platform Commission', 'VAT (e.g. 7.5% of Commission)']);
+    foreach ($rows as $row) {
+        $commission = $row['fare'] * ($row['platform_pct'] / 100);
+        $vat = $commission * 0.075;
+        fputcsv($output, [$row['trip_ref'], $row['fare'], $commission, $vat]);
+    }
+    fclose($output);
+    exit;
 }
 
 function idibia_admin_save_settings(): void {

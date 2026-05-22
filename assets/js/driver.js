@@ -872,6 +872,11 @@ function switchTab(tab) {
   document.querySelectorAll('.dash-panel').forEach(p => p.classList.remove('active'));
   const panel = document.getElementById('panel-' + tab);
   if (panel) panel.classList.add('active');
+
+  if (tab === 'earnings') {
+    loadWalletData();
+  }
+
   // bottom nav
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navItem = document.getElementById('nav-' + tab);
@@ -1166,6 +1171,132 @@ function renderCampaigns() {
 
     if (homeContainer) homeContainer.innerHTML = html;
     if (earningsContainer) earningsContainer.innerHTML = html;
+}
+
+async function loadWalletData() {
+  try {
+    const formData = new URLSearchParams();
+    formData.append('action', 'get_wallet');
+    const response = await fetch('driver-wallet-api.php', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if (result.success) {
+      const data = result.data;
+
+      const balanceDisplay = document.getElementById('wallet-balance-display');
+      if (balanceDisplay) balanceDisplay.textContent = formatCurrency(data.wallet_balance);
+
+      window.driverWalletBalance = data.wallet_balance;
+      window.driverBankName = data.bank_name;
+      window.driverAccountNumber = data.account_number;
+
+      const ledgerList = document.getElementById('wallet-ledger-list');
+      if (ledgerList) {
+        if (data.ledger && data.ledger.length > 0) {
+          ledgerList.innerHTML = data.ledger.map(entry => `
+            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--surface-2);">
+              <div>
+                <div style="font-size:14px;">${escapeHtml(entry.description || entry.entry_type)}</div>
+                <div style="font-size:12px; color:var(--text-muted);">${new Date(entry.created_at).toLocaleString()}</div>
+              </div>
+              <div style="font-weight:600; color:${parseFloat(entry.amount) > 0 ? 'var(--success)' : 'inherit'}">
+                ${parseFloat(entry.amount) > 0 ? '+' : ''}${formatCurrency(parseFloat(entry.amount))}
+              </div>
+            </div>
+          `).join('');
+        } else {
+          ledgerList.innerHTML = '<div class="info-note">No transactions yet.</div>';
+        }
+      }
+
+      const payoutsList = document.getElementById('wallet-payouts-list');
+      if (payoutsList) {
+        if (data.payouts && data.payouts.length > 0) {
+          payoutsList.innerHTML = data.payouts.map(payout => `
+            <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--surface-2);">
+              <div>
+                <div style="font-size:14px;">Payout Request</div>
+                <div style="font-size:12px; color:var(--text-muted);">${new Date(payout.created_at).toLocaleString()}</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:600;">${formatCurrency(parseFloat(payout.amount))}</div>
+                <div style="font-size:12px; color:${payout.status === 'paid' ? 'var(--success)' : payout.status === 'failed' ? 'var(--danger)' : 'var(--warning)'}; text-transform:capitalize;">${payout.status}</div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          payoutsList.innerHTML = '<div class="info-note">No payouts yet.</div>';
+        }
+      }
+    } else {
+      showToast(result.data?.message || 'Could not load wallet data.');
+    }
+  } catch (err) {
+    showToast('Connection error loading wallet data.');
+  }
+}
+
+function openPayoutModal() {
+  if (!window.driverBankName || !window.driverAccountNumber) {
+    showToast('Please add bank details in Profile first.');
+    openModal('modal-edit-bank');
+    return;
+  }
+
+  if (parseFloat(window.driverWalletBalance) <= 0) {
+    showToast('Insufficient balance for payout.');
+    return;
+  }
+
+  const bankInfo = document.getElementById('payout-bank-info');
+  if (bankInfo) {
+    bankInfo.innerHTML = `<strong>${escapeHtml(window.driverBankName)}</strong><br>${escapeHtml(window.driverAccountNumber)}`;
+  }
+
+  const amountInput = document.getElementById('inputPayoutAmount');
+  if (amountInput) {
+    amountInput.value = window.driverWalletBalance;
+    amountInput.max = window.driverWalletBalance;
+  }
+
+  openModal('modal-request-payout');
+}
+
+async function requestPayout(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btnRequestPayout');
+  const originalText = btn.textContent;
+  btn.textContent = 'Processing...';
+  btn.disabled = true;
+
+  try {
+    const amount = document.getElementById('inputPayoutAmount').value;
+    const formData = new URLSearchParams();
+    formData.append('action', 'request_payout');
+    formData.append('amount', amount);
+    formData.append('idempotency_key', 'req-' + window.driverInitialContext.driver_id + '-' + Date.now());
+
+    const response = await fetch('driver-wallet-api.php', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+
+    if (result.success) {
+      showToast('Payout requested successfully');
+      closeModal('modal-request-payout');
+      loadWalletData();
+    } else {
+      showToast(result.data?.message || 'Failed to request payout');
+    }
+  } catch (err) {
+    showToast('Connection error requesting payout');
+  } finally {
+    btn.textContent = originalText;
+    btn.disabled = false;
+  }
 }
 
 function renderDashboardStats() {

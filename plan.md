@@ -1,20 +1,40 @@
-1. **Add `data-setting` attributes in `admin.php` for all settings**
-   - The admin UI has fields for pricing (commission, min fare, etc.), KYC policies, and notification policies that are currently hardcoded or missing `data-setting` attributes. I will update `admin.php` to add these attributes to all input fields, matching the keys in `sd_settings` (e.g., `platform_commission_pct`, `surge_multiplier_cap`, `min_fare`, `max_delivery_radius_km`, `kyc_auto_flag_blurry`, `notif_kyc_queue`, etc.).
+1. **Explore and set up tools (no-op action step)**
+   - Initial exploration is done, setting up detailed steps below.
 
-2. **Implement `idibia_payment_settings` and `idibia_payment_public_payload`**
-   - Define these functions in `wp/wp-content/mu-plugins/idibia-helpers.php`.
-   - `idibia_payment_settings()` should read the payment-related rows from `sd_settings` and structure them (masking secret keys).
-   - `idibia_payment_public_payload($trip_id)` should return the payment settings safe for public consumption (e.g., bank details, instructions) by fetching them from `sd_settings`.
+2. **Create driver-wallet-api.php**
+   - Use `write_file` to create `driver-wallet-api.php` containing logic for 'get_wallet' (fetching wallet balance, ledger entries, and payout history) and 'request_payout' (validating balance and bank details, inserting into sd_payouts, deducting from sd_drivers wallet, and inserting an earning deduction ledger entry into sd_wallet_ledger).
+   - Require `wp-auth-config.php` and `idibia-helpers.php`.
+   - Validate `$GLOBALS['auth_driver_id']` is set.
 
-3. **Update `quote-api.php` to use dynamic pricing settings**
-   - Replace the hardcoded `min_fare` default and retrieve `min_fare`, `max_delivery_radius_km`, etc., using `get_option` or querying `sd_settings` directly using a new helper function or `wpdb` to ensure quotes respect the admin configuration.
-   - For `sd_settings`, since it's a custom table, I need a helper `idibia_get_setting($key, $default)` in `idibia-helpers.php` to fetch values easily. I will implement this function.
+3. **Verify driver-wallet-api.php creation**
+   - Use `read_file` to verify `driver-wallet-api.php` was created correctly.
 
-4. **Mask secrets in responses**
-   - In `idibia_payment_settings()` or `api.php`, ensure `paystack_secret_key` and `flutterwave_secret_key` are masked when sent to the frontend `get_settings` action. The save endpoint should check if the secret is masked (e.g. `********`) and ignore updating it if it hasn't changed.
+4. **Update Driver UI for Earnings and Payouts**
+   - Use `replace_with_git_merge_diff` to edit `components/driver/main-app.php`. Add a 'Wallet & Payouts' section in the Earnings tab, displaying current wallet balance and a 'Request Payout' button. Add a modal (`modal-request-payout`) for payout requests. Add tables/lists to display wallet ledger and payout history.
+   - Use `replace_with_git_merge_diff` to edit `assets/js/driver.js`. Add functions `loadWalletData` and `requestPayout`. Wire the 'Request Payout' button to the `request_payout` action. Ensure `switchTab('earnings')` also fetches wallet data.
 
-5. **Ensure field validation in `idibia_admin_save_settings`**
-   - Add validation logic in `admin/api.php` -> `idibia_admin_save_settings()` to reject invalid pricing values (e.g., negative commission or fare) and return field-level error messages. Ensure secret keys left blank or masked aren't overwritten.
+5. **Verify Driver UI updates**
+   - Use `read_file` on `components/driver/main-app.php` and `assets/js/driver.js` to ensure edits were applied correctly.
 
-6. **Pre-commit and submit**
-   - Run pre-commit instructions, test, and submit.
+6. **Refactor Admin Payout Execution**
+   - Use `replace_with_git_merge_diff` to modify `admin/api.php`. In `idibia_admin_process_payout`, update the logic so that if a payout is marked as 'failed', the amount is refunded to the driver's `wallet_balance` in `sd_drivers` and a 'refund' entry is inserted into `sd_wallet_ledger`. Remove the logic that deducts the wallet balance *only* when the payout is marked as 'paid', because the deduction now happens when the payout is *requested*.
+   - Modify `idibia_admin_sync_pending_payouts` to deduct the wallet balance and create a 'payout' ledger entry when it automatically generates pending payouts.
+
+7. **Verify Admin Payout Execution modifications**
+   - Use `read_file` on `admin/api.php` to verify the refactoring is correct.
+
+8. **Implement Admin Tax/Withholding Reports**
+   - Use `replace_with_git_merge_diff` to add new switch cases in `admin/api.php` for `export_tax_summary`, `export_driver_wht`, and `export_vat_schedule`. These will generate and return CSV data.
+   - Use `replace_with_git_merge_diff` in `assets/js/admin.js` to add functions `downloadTaxSummary`, `downloadDriverWht`, and `downloadVatSchedule` that fetch the CSVs and trigger browser downloads. Wire these up to the existing buttons in `components/admin/panel-payouts.php`.
+
+9. **Verify Admin Tax Reports modifications**
+   - Use `read_file` to verify changes in `admin/api.php`, `assets/js/admin.js`, and `components/admin/panel-payouts.php`.
+
+10. **Run Tests**
+   - Run all standalone PHP tests using `find tests -name "*.php" -exec php {} +` to verify correctness.
+
+11. **Pre commit steps**
+   - Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+
+12. **Submit**
+   - Submit the change with branch name, commit message, title, and description.
