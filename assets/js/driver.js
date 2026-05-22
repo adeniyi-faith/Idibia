@@ -1376,3 +1376,17 @@ function renderDashboardStats() {
 document.addEventListener('DOMContentLoaded', () => {
   renderDashboardStats();
 });
+
+async function doDriverLogout() {
+  const btn = document.querySelector('button[onclick="doDriverLogout()"]');
+  if (btn) btn.textContent = 'Logging out...';
+  try {
+    const body = new FormData();
+    body.append("_nonce", window.driverInitialContext.nonces?.logout || "");
+    await fetch("driver-logout-handler.php", { method: "POST", body });
+    window.location.href = window.idibiaLogoutUrl || "/";
+  } catch (err) {
+    showToast('Logout failed. Please try again.');
+    if (btn) btn.textContent = 'Log Out';
+  }
+}
