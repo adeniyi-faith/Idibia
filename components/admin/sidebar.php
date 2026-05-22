@@ -55,6 +55,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     Disputes <span class="nav-warn-badge" id="dispute-badge">0</span>
   </button>
+  <button class="nav-btn" onclick="nav('admin-users',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 11c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z"/><path d="M18 21c0-3.87-3.13-7-7-7s-7 3.13-7 7"/></svg>
+    Staff
+  </button>
 
   <div class="sidebar-bottom">
     <div class="nav-section-label" style="margin:0 0 4px;">System</div>

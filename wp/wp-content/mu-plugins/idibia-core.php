@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 10;
+    $target_version = 11;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -288,6 +288,122 @@ function idibia_maybe_create_tables() {
         $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers` ADD COLUMN IF NOT EXISTS `avatar_path` VARCHAR(255) NULL AFTER `saved_addresses`" );
         update_option( 'idibia_db_version', 10 );
         $current_version = 10;
+    }
+
+    if ( $current_version < 11 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_admin_users` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `full_name` VARCHAR(120) NOT NULL,
+            `email` VARCHAR(180) NOT NULL,
+            `password_hash` VARCHAR(255) NOT NULL,
+            `avatar_path` VARCHAR(255) NULL,
+            `role_id` BIGINT UNSIGNED NOT NULL,
+            `status` ENUM('active', 'inactive', 'suspended') NOT NULL DEFAULT 'active',
+            `force_password_change` TINYINT(1) NOT NULL DEFAULT 1,
+            `last_login` DATETIME NULL,
+            `last_login_ip` VARCHAR(45) NULL,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `email` (`email`),
+            KEY `role_id` (`role_id`),
+            KEY `status` (`status`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_roles` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name` VARCHAR(80) NOT NULL,
+            `description` TEXT NULL,
+            `is_system` TINYINT(1) NOT NULL DEFAULT 0,
+            `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `name` (`name`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_role_permissions` (
+            `role_id` BIGINT UNSIGNED NOT NULL,
+            `permission` VARCHAR(80) NOT NULL,
+            PRIMARY KEY (`role_id`, `permission`),
+            KEY `permission` (`permission`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_user_permission_overrides` (
+            `admin_id` BIGINT UNSIGNED NOT NULL,
+            `permission` VARCHAR(80) NOT NULL,
+            `is_granted` TINYINT(1) NOT NULL DEFAULT 1,
+            PRIMARY KEY (`admin_id`, `permission`),
+            KEY `permission` (`permission`)
+        ) $charset;" );
+
+        // Insert default roles
+        $wpdb->query( "INSERT IGNORE INTO `{$wpdb->prefix}sd_roles` (`id`, `name`, `description`, `is_system`) VALUES
+            (1, 'Super Admin', 'Unrestricted access. Cannot be edited, demoted, or deleted by anyone below Super Admin level.', 1),
+            (2, 'Admin', 'Broad operational access. Cannot manage Super Admins or touch financial execution controls.', 1),
+            (3, 'Moderator', 'Operational and review access.', 1),
+            (4, 'Staff', 'Limited, read-heavy access for day-to-day monitoring.', 1);"
+        );
+
+        // Define permissions array for default roles
+        $permissions = [
+            'Super Admin' => [
+                'view_live_map', 'filter_intervene_trips', 'force_redispatch', 'force_cancel_trip',
+                'view_trips', 'admin_cancel_trip', 'correct_trip_status', 'export_trips',
+                'view_kyc', 'approve_reject_kyc', 'config_kyc_policy',
+                'view_customers', 'suspend_customer', 'view_customer_history',
+                'view_drivers', 'suspend_reinstate_driver', 'view_driver_wallet',
+                'view_payments', 'approve_reject_payment', 'execute_payouts', 'view_export_revenue', 'issue_refunds',
+                'view_disputes', 'assign_resolve_disputes', 'view_download_evidence',
+                'view_notifications', 'send_manual_notifications',
+                'view_settings', 'edit_pricing_commission', 'edit_payment_credentials', 'edit_kyc_notif_policies', 'edit_legal_docs',
+                'view_admin_users', 'create_admin_users', 'edit_admin_users', 'suspend_delete_admin_users'
+            ],
+            'Admin' => [
+                'view_live_map', 'filter_intervene_trips', 'force_redispatch', 'force_cancel_trip',
+                'view_trips', 'admin_cancel_trip', 'correct_trip_status', 'export_trips',
+                'view_kyc', 'approve_reject_kyc', 'config_kyc_policy',
+                'view_customers', 'suspend_customer', 'view_customer_history',
+                'view_drivers', 'suspend_reinstate_driver', 'view_driver_wallet',
+                'view_payments', 'approve_reject_payment', 'view_export_revenue', 'issue_refunds',
+                'view_disputes', 'assign_resolve_disputes', 'view_download_evidence',
+                'view_notifications', 'send_manual_notifications',
+                'view_settings', 'edit_pricing_commission', 'edit_kyc_notif_policies', 'edit_legal_docs',
+                'view_admin_users'
+            ],
+            'Moderator' => [
+                'view_live_map', 'filter_intervene_trips',
+                'view_trips',
+                'view_kyc', 'approve_reject_kyc',
+                'view_customers', 'view_customer_history',
+                'view_drivers', 'view_driver_wallet',
+                'view_payments', 'approve_reject_payment',
+                'view_disputes', 'assign_resolve_disputes', 'view_download_evidence',
+                'view_notifications', 'send_manual_notifications'
+            ],
+            'Staff' => [
+                'view_live_map',
+                'view_trips',
+                'view_kyc',
+                'view_customers',
+                'view_drivers',
+                'view_disputes',
+                'view_notifications'
+            ]
+        ];
+
+        foreach ($permissions as $role_name => $perms) {
+            $role_id = $wpdb->get_var($wpdb->prepare("SELECT id FROM `{$wpdb->prefix}sd_roles` WHERE name = %s", $role_name));
+            if ($role_id) {
+                foreach ($perms as $perm) {
+                    $wpdb->query($wpdb->prepare("INSERT IGNORE INTO `{$wpdb->prefix}sd_role_permissions` (`role_id`, `permission`) VALUES (%d, %s)", $role_id, $perm));
+                }
+            }
+        }
+
+        update_option( 'idibia_db_version', 11 );
+        $current_version = 11;
     }
 }
 
