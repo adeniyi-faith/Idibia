@@ -131,6 +131,22 @@ try {
             idibia_admin_reconciliation_data();
             break;
 
+        case 'get_payment':
+            idibia_require_method( 'GET' );
+            $payment_id = absint( $_GET['payment_id'] ?? 0 );
+            $payment = $wpdb->get_row( $wpdb->prepare( "SELECT p.*, t.trip_ref, t.status AS trip_status, c.full_name AS customer_name FROM `{$wpdb->prefix}sd_payments` p LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = p.trip_id LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = p.customer_id WHERE p.id = %d LIMIT 1", $payment_id ), ARRAY_A );
+            if ( $payment ) {
+                if ( in_array( $payment['status'], [ 'approved', 'captured' ], true ) ) {
+                    $token = hash_hmac( 'sha256', $payment['trip_id'], wp_salt( 'auth' ) );
+                    $payment['receipt_url'] = '/receipt-handler.php?trip_id=' . $payment['trip_id'] . '&token=' . $token;
+                } else {
+                    $payment['receipt_url'] = null;
+                }
+                wp_send_json_success( [ 'payment' => $payment ] );
+            } else {
+                wp_send_json_error( [ 'message' => 'Payment not found.' ] );
+            }
+            break;
 
         case 'review_manual_payment':
             idibia_require_method( 'POST' );
@@ -619,6 +635,12 @@ function idibia_admin_process_payout(): void {
 function idibia_admin_resolve_dispute(): void {
     global $wpdb;
     $dispute_id = absint( $_POST['dispute_id'] ?? 0 );
+
+    $current_status = $wpdb->get_var( $wpdb->prepare( "SELECT status FROM `{$wpdb->prefix}sd_disputes` WHERE id = %d LIMIT 1", $dispute_id ) );
+    if ( $current_status === 'resolved' ) {
+        wp_send_json_error( [ 'message' => 'This dispute has already been resolved.' ] );
+    }
+
     $resolution = sanitize_text_field( wp_unslash( $_POST['resolution_action'] ?? '' ) );
     $refund = (float) ( $_POST['refund_amount'] ?? 0 );
     $notes = sanitize_textarea_field( wp_unslash( $_POST['admin_notes'] ?? '' ) );
