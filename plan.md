@@ -1,13 +1,7 @@
-1. **Implement `loadDriverDetail` in `assets/js/admin.js`:**
-   - Define `loadDriverDetail(driverId)` which calls `adminApi('get_driver', {driver_id: driverId})`.
-   - Populate `driverModalTitle` with "Driver Details" and driver's name or ID.
-   - Construct `driverModalBody` using driver's details (name, email, phone, status, kyc, vehicle info, rating, trips, wallet balance, bank details, etc.). Use nice CSS grids similar to `openTripDetail`.
-   - Add `closeDriverModal()` to handle modal close: `document.getElementById('driverModal').classList.remove('open');`
-   - Show the modal: `document.getElementById('driverModal').classList.add('open');`
-2. **Review existing HTML in `components/admin/modals.php`:**
-   - The modal with `id="driverModal"` exists in `components/admin/modals.php` as verified.
-3. **Test code logic locally**
-   - Run unit tests or local server script using `find tests -name "*.php" -exec php {} +` to ensure no syntax errors.
-4. **Pre-commit step:**
-   - Complete pre commit steps to ensure proper testing, verification, review, and reflection are done by calling the pre commit instruction tool.
-5. **Submit changes.**
+1. **Optimize Cron N+1 Query in `cron.php`**
+   - The cron job `cron.php` queries for trips to redispatch, and then inside a loop, queries the database for pending offers for each trip to ensure it shouldn't be skipped.
+   - This creates an N+1 query bottleneck which degrades performance as the number of pending trips increases.
+   - We will replace this loop with a single query using `NOT EXISTS` to fetch only the trips that are eligible for redispatch directly.
+2. Complete pre-commit steps to ensure proper testing, verification, review, and reflection are done.
+3. **Submit**
+   - I will submit the PR with clear documentation on the performance impact.

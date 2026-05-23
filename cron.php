@@ -19,21 +19,22 @@ global $wpdb;
 idibia_expire_dispatch_offers();
 
 // 2. Automatically redispatch `no_driver` trips or trips with expired offers
+// ⚡ Bolt Optimization: Eliminated N+1 query. Replaced fetching all pending trips and then
+// checking pending offers in a loop with a single query using NOT EXISTS.
 $trips_to_redispatch = $wpdb->get_results(
-    "SELECT id FROM `{$wpdb->prefix}sd_trips` WHERE dispatch_status IN ('no_driver', 'searching', 'offered') AND status = 'pending'", ARRAY_A
+    "SELECT t.id FROM `{$wpdb->prefix}sd_trips` t
+     WHERE t.dispatch_status IN ('no_driver', 'searching', 'offered')
+       AND t.status = 'pending'
+       AND NOT EXISTS (
+           SELECT 1 FROM `{$wpdb->prefix}sd_dispatch_offers` o
+           WHERE o.trip_id = t.id AND o.status = 'pending'
+       )",
+    ARRAY_A
 );
 
 foreach ($trips_to_redispatch as $trip) {
-    // Only redispatch if there are no pending offers for this trip
-    $pending_offers = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_dispatch_offers` WHERE trip_id = %d AND status = 'pending'",
-        $trip['id']
-    ) );
-
-    if ($pending_offers === 0) {
-        // Try to dispatch again
-        idibia_dispatch_trip((int)$trip['id']);
-    }
+    // Try to dispatch again
+    idibia_dispatch_trip((int)$trip['id']);
 }
 
 // 3. Stale driver locations (Drivers who haven't updated location in 15 mins)
