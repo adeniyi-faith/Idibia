@@ -31,6 +31,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
     $email_verified = ! empty( $driver_row['email_verified'] );
     $driver_nonces = [
+        'logout' => wp_create_nonce( 'idibia_logout' ),
         'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
         'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
         'support_action' => wp_create_nonce( 'idibia_support_action' ),

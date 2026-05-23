@@ -8,6 +8,7 @@ let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
 const IDIBIA_VERIFY_NONCE = '' + window.idibiaVerifyNonce + '';
 const IDIBIA_SUPPORT_NONCE = '' + window.idibiaSupportNonce + '';
+const IDIBIA_PAYMENT_NONCE = '' + window.idibiaPaymentNonce + '';
 const IDIBIA_PUSHER_CONFIG = window.idibiaPusherConfig;
 const CUSTOMER_RATING = window.idibiaCustomerRating || '5.0';
 
