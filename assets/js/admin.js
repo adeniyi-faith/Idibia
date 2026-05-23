@@ -707,11 +707,7 @@ async function loadAdminUsers() {
     tbody.innerHTML = '<tr><td colspan="5" class="loading-state">Loading users...</td></tr>';
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'list_admin_users');
-        formData.append('_nonce', ADMIN_API_NONCE);
-
-        const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
+        const res = await fetch(ADMIN_API_URL + '?action=list_admin_users&_nonce=' + ADMIN_API_NONCE);
         const json = await res.json();
 
         if ( ! json.success ) {
@@ -768,11 +764,7 @@ async function loadAdminUsers() {
 
 async function loadRolesForDropdown() {
     try {
-        const formData = new FormData();
-        formData.append('action', 'get_roles');
-        formData.append('_nonce', ADMIN_API_NONCE);
-
-        const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
+        const res = await fetch(ADMIN_API_URL + '?action=get_roles&_nonce=' + ADMIN_API_NONCE);
         const json = await res.json();
 
         if ( json.success ) {
