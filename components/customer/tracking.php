@@ -1,7 +1,7 @@
 <!-- ══════════ TRACKING SCREEN ══════════ -->
 <div class="screen" id="screen-tracking">
   <div class="tracking-header">
-    <button class="back-btn" onclick="goBack()">
+    <button class="back-btn" aria-label="Go back" onclick="goBack()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
     </button>
     <h3>Live Tracking</h3>

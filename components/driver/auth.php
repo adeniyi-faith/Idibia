@@ -323,7 +323,7 @@
     </div>
 
     <div class="driver-footer" id="driverFooterWrap">
-      <button class="btn-back" id="driverBack" onclick="driverPrev()">
+      <button class="btn-back" aria-label="Go back" id="driverBack" onclick="driverPrev()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
       </button>
       <button class="btn-primary" id="driverNext" onclick="driverNext()" style="flex:1">

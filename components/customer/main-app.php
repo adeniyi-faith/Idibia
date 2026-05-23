@@ -20,7 +20,7 @@
         </button>
       </div>
     </div>
-    <button class="sidebar-exit" onclick="confirmLogout()" title="Sign Out">
+    <button class="sidebar-exit" aria-label="Sign out" onclick="confirmLogout()" title="Sign Out">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
     </button>
   </nav>
@@ -33,7 +33,7 @@
         <div class="map-area" id="home-map-container" style="z-index: 1;">
           <!-- Map controls -->
           <div class="map-float" style="z-index: 1000;">
-            <button class="map-btn" onclick="showToast('Location updated')">
+            <button class="map-btn" aria-label="Update location" onclick="showToast('Location updated')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
             </button>
           </div>
@@ -71,7 +71,7 @@
                   <div id="dropoffChips" style="display:flex;gap:8px;margin-top:8px;overflow-x:auto;"></div>
                 </div>
               </div>
-              <button class="loc-swap" onclick="swapLocations()" title="Swap locations">
+              <button class="loc-swap" aria-label="Swap locations" onclick="swapLocations()" title="Swap locations">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
               </button>
             </div>

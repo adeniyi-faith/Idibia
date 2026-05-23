@@ -52,7 +52,7 @@
           <div class="form-input-wrap">
             <svg class="fi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <input class="form-input has-pw-toggle" type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password">
-            <button type="button" class="pw-toggle" onclick="togglePassword(this)" title="Toggle password visibility">
+            <button type="button" class="pw-toggle" aria-label="Toggle password visibility" onclick="togglePassword(this)" title="Toggle password visibility">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
@@ -107,7 +107,7 @@
           <div class="form-input-wrap">
             <svg class="fi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             <input class="form-input has-pw-toggle" type="password" id="regPassword" placeholder="Min. 8 characters" autocomplete="new-password">
-            <button type="button" class="pw-toggle" onclick="togglePassword(this)" title="Toggle password visibility">
+            <button type="button" class="pw-toggle" aria-label="Toggle password visibility" onclick="togglePassword(this)" title="Toggle password visibility">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
           </div>
