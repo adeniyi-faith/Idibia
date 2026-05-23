@@ -70,12 +70,29 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $active_campaigns_raw = $wpdb->get_results($wpdb->prepare("SELECT * FROM `{$wpdb->prefix}sd_campaigns` WHERE status = 'active' AND start_time <= %s AND end_time >= %s ORDER BY end_time ASC", $now, $now), ARRAY_A);
 
     $active_campaigns = [];
-    foreach ($active_campaigns_raw as $campaign) {
-        // Count driver's completed trips within the campaign window
-        $completed_trips = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s", $driver_id, $campaign['start_time'], $campaign['end_time']));
+    if (!empty($active_campaigns_raw)) {
+        // ⚡ Bolt: Fix N+1 query problem by batching trip lookups
+        // Fetch all relevant trips in a single query based on the bounding time window
+        // of all active campaigns, then count in memory to avoid multiple DB calls.
+        $min_time = $active_campaigns_raw[0]['start_time'];
+        $max_time = $active_campaigns_raw[0]['end_time'];
+        foreach ($active_campaigns_raw as $c) {
+            if ($c['start_time'] < $min_time) $min_time = $c['start_time'];
+            if ($c['end_time'] > $max_time) $max_time = $c['end_time'];
+        }
 
-        $campaign['progress'] = $completed_trips;
-        $active_campaigns[] = $campaign;
+        $trip_dates = $wpdb->get_col($wpdb->prepare("SELECT completed_at FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s", $driver_id, $min_time, $max_time));
+
+        foreach ($active_campaigns_raw as $campaign) {
+            $completed_trips = 0;
+            foreach ($trip_dates as $date) {
+                if ($date >= $campaign['start_time'] && $date <= $campaign['end_time']) {
+                    $completed_trips++;
+                }
+            }
+            $campaign['progress'] = $completed_trips;
+            $active_campaigns[] = $campaign;
+        }
     }
 
     $driver_initial_context = [
