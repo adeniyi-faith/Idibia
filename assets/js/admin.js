@@ -693,3 +693,333 @@ function animateRiders(){
   });
 }
 setInterval(animateRiders,4000);
+
+// --- ADMIN USERS (RBAC) ---
+
+let currentRoles = [];
+let rolePermissionsMap = {};
+let currentUserOverrides = {};
+
+async function loadAdminUsers() {
+    const search = document.getElementById('adminUserSearch').value;
+    const tbody = document.getElementById('adminUsersTbody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" class="loading-state">Loading users...</td></tr>';
+
+    try {
+        const formData = new FormData();
+        formData.append('action', 'list_admin_users');
+        formData.append('_nonce', ADMIN_API_NONCE);
+
+        const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
+        const json = await res.json();
+
+        if ( ! json.success ) {
+            tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Error loading users: ${json.data?.message || 'Unknown error'}</td></tr>`;
+            return;
+        }
+
+        const users = json.data;
+        if ( users.length === 0 ) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No admin users found.</td></tr>';
+            return;
+        }
+
+        let html = '';
+        users.forEach( u => {
+            if ( search && !u.full_name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase()) ) {
+                return;
+            }
+            const avatar = u.avatar_path ? `<img src="${u.avatar_path}" class="avatar">` : `<div class="avatar placeholder"></div>`;
+            const statusClass = u.status === 'active' ? 'success' : 'danger';
+
+            let overridesCount = 0;
+            if (u.overrides) {
+                 overridesCount = Object.keys(u.overrides).length;
+            }
+
+            html += `
+            <tr>
+                <td>
+                    <div class="user-cell">
+                        ${avatar}
+                        <div>
+                            <div class="strong">${u.full_name}</div>
+                            <div class="sub-text">${u.email}</div>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="badge neutral">${u.role_name}</span> ${overridesCount > 0 ? `<span style="font-size:10px;color:var(--text-light)">(+${overridesCount} overrides)</span>` : ''}</td>
+                <td><span class="status-dot ${statusClass}"></span>${u.status}</td>
+                <td>${u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
+                <td>
+                    <button class="btn-secondary" style="padding:4px 8px; font-size:12px" onclick='editAdminUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Edit</button>
+                    ${u.role_name !== 'Super Admin' ? `<button class="btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--danger); border-color:var(--danger)" onclick="toggleAdminUserStatus(${u.id}, '${u.status}')">${u.status === 'active' ? 'Suspend' : 'Activate'}</button>` : ''}
+                </td>
+            </tr>`;
+        });
+
+        tbody.innerHTML = html || '<tr><td colspan="5" class="empty-state">No matches found.</td></tr>';
+
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Network error loading users.</td></tr>';
+    }
+}
+
+async function loadRolesForDropdown() {
+    try {
+        const formData = new FormData();
+        formData.append('action', 'get_roles');
+        formData.append('_nonce', ADMIN_API_NONCE);
+
+        const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
+        const json = await res.json();
+
+        if ( json.success ) {
+            currentRoles = json.data;
+            rolePermissionsMap = {};
+            const select = document.getElementById('adminUserRole');
+            if (!select) return;
+            select.innerHTML = '<option value="">Select a role...</option>';
+
+            currentRoles.forEach(r => {
+                rolePermissionsMap[r.id] = r.permissions || [];
+                select.innerHTML += `<option value="${r.id}">${r.name}</option>`;
+            });
+        }
+    } catch(e) {
+        console.error("Failed to load roles", e);
+    }
+}
+
+const allPermissions = [
+    { key: 'view_live_map', label: 'View Live Map' },
+    { key: 'filter_intervene_trips', label: 'Filter & Intervene Trips' },
+    { key: 'force_redispatch', label: 'Force Redispatch' },
+    { key: 'force_cancel_trip', label: 'Force Cancel Trip' },
+    { key: 'view_trips', label: 'View Trips' },
+    { key: 'admin_cancel_trip', label: 'Admin Cancel Trip' },
+    { key: 'correct_trip_status', label: 'Correct Trip Status' },
+    { key: 'export_trips', label: 'Export Trips' },
+    { key: 'view_kyc', label: 'View KYC' },
+    { key: 'approve_reject_kyc', label: 'Approve/Reject KYC' },
+    { key: 'config_kyc_policy', label: 'Configure KYC Policy' },
+    { key: 'view_customers', label: 'View Customers' },
+    { key: 'suspend_customer', label: 'Suspend Customer' },
+    { key: 'view_customer_history', label: 'View Customer History' },
+    { key: 'view_drivers', label: 'View Drivers' },
+    { key: 'suspend_reinstate_driver', label: 'Suspend/Reinstate Driver' },
+    { key: 'view_driver_wallet', label: 'View Driver Wallet' },
+    { key: 'view_payments', label: 'View Payments' },
+    { key: 'approve_reject_payment', label: 'Approve/Reject Payments' },
+    { key: 'execute_payouts', label: 'Execute Payouts' },
+    { key: 'view_export_revenue', label: 'View/Export Revenue' },
+    { key: 'issue_refunds', label: 'Issue Refunds' },
+    { key: 'view_disputes', label: 'View Disputes' },
+    { key: 'assign_resolve_disputes', label: 'Assign/Resolve Disputes' },
+    { key: 'view_download_evidence', label: 'View Evidence' },
+    { key: 'view_notifications', label: 'View Notifications' },
+    { key: 'send_manual_notifications', label: 'Send Manual Notifications' },
+    { key: 'view_settings', label: 'View Settings' },
+    { key: 'edit_pricing_commission', label: 'Edit Pricing & Commission' },
+    { key: 'edit_payment_credentials', label: 'Edit Payment Credentials' },
+    { key: 'edit_kyc_notif_policies', label: 'Edit KYC/Notif Policies' },
+    { key: 'edit_legal_docs', label: 'Edit Legal Docs' },
+    { key: 'view_admin_users', label: 'View Admin Users' },
+    { key: 'create_admin_users', label: 'Create Admin Users' },
+    { key: 'edit_admin_users', label: 'Edit Admin Users' },
+    { key: 'suspend_delete_admin_users', label: 'Suspend/Delete Admin Users' }
+];
+
+let myPermissions = null;
+
+async function loadMyPermissions() {
+    if (myPermissions) return; // already loaded
+    try {
+        const res = await fetch(ADMIN_API_URL + '?action=get_my_permissions&_nonce=' + ADMIN_API_NONCE);
+        const json = await res.json();
+        if (json.success) {
+            myPermissions = json.data;
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
+function iHavePermission(key) {
+    if (!myPermissions) return false;
+    if (myPermissions.is_super) return true;
+
+    const isRoleDefault = myPermissions.role_perms && myPermissions.role_perms.includes(key);
+    if (myPermissions.overrides && myPermissions.overrides[key] !== undefined) {
+        return myPermissions.overrides[key];
+    }
+    return isRoleDefault;
+}
+
+function renderPermissionToggles() {
+    const roleId = document.getElementById('adminUserRole')?.value;
+    const container = document.getElementById('adminUserPermissionsContainer');
+    if (!container) return;
+
+    if ( ! roleId ) {
+        container.innerHTML = '<div class="empty-state">Select a role to see permissions.</div>';
+        return;
+    }
+
+    const role = currentRoles.find(r => r.id == roleId);
+    if ( role ) {
+        document.getElementById('adminUserRoleDesc').innerText = role.description;
+    }
+
+    const defaultPerms = rolePermissionsMap[roleId] || [];
+
+    let html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">';
+
+    allPermissions.forEach(p => {
+        const isDefault = defaultPerms.includes(p.key);
+        const isGranted = currentUserOverrides[p.key] !== undefined ? currentUserOverrides[p.key] : isDefault;
+        const isOverridden = isGranted !== isDefault;
+
+        // Disable toggle if current user doesn't have the permission themselves
+        const canEdit = iHavePermission(p.key);
+        const disabledAttr = !canEdit ? 'disabled' : '';
+        const opacityStyle = !canEdit ? 'opacity:0.5; cursor:not-allowed;' : '';
+
+        html += `
+        <label class="toggle-row" style="margin-bottom:8px; padding:8px; background:var(--bg-secondary); border-radius:8px; border:1px solid ${isOverridden ? 'var(--primary)' : 'transparent'}; ${opacityStyle}" ${!canEdit ? 'title="You lack this permission"' : ''}>
+            <span style="display:flex;align-items:center;">
+                ${p.label}
+                ${isOverridden ? '<span style="display:inline-block;width:6px;height:6px;background:var(--primary);border-radius:50%;margin-left:8px;"></span>' : ''}
+            </span>
+            <input type="checkbox" id="perm_${p.key}" ${isGranted ? 'checked' : ''} ${disabledAttr} onchange="updateOverride('${p.key}', this.checked, ${isDefault})">
+            <span class="toggle-slider"></span>
+        </label>`;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function updateOverride(permKey, checked, isDefault) {
+    if ( checked === isDefault ) {
+        delete currentUserOverrides[permKey]; // Reverted to default
+    } else {
+        currentUserOverrides[permKey] = checked;
+    }
+    renderPermissionToggles(); // Re-render to show/hide the override indicator
+}
+
+async function openAdminUserPanel() {
+    if (!myPermissions) await loadMyPermissions();
+    document.getElementById('adminUserId').value = '';
+    document.getElementById('adminUserFullName').value = '';
+    document.getElementById('adminUserEmail').value = '';
+    document.getElementById('adminUserPassword').value = '';
+    document.getElementById('adminUserRole').value = '';
+    document.getElementById('adminUserRoleDesc').innerText = 'Select a role to see default permissions.';
+    document.getElementById('adminUserPasswordGroup').style.display = 'block';
+
+    currentUserOverrides = {};
+    document.getElementById('adminUserPermissionsContainer').innerHTML = '';
+
+    document.getElementById('adminUserSlideTitle').innerText = 'Create Admin User';
+
+    if ( currentRoles.length === 0 ) {
+        loadRolesForDropdown();
+    }
+
+    document.getElementById('adminUserSlidePanel').classList.add('show');
+}
+
+function editAdminUser(u) {
+    openAdminUserPanel();
+    setTimeout(() => {
+        document.getElementById('adminUserId').value = u.id;
+        document.getElementById('adminUserFullName').value = u.full_name;
+        document.getElementById('adminUserEmail').value = u.email;
+        document.getElementById('adminUserPasswordGroup').style.display = 'none'; // Don't show password field on edit
+        document.getElementById('adminUserRole').value = u.role_id;
+
+        currentUserOverrides = u.overrides || {};
+
+        document.getElementById('adminUserSlideTitle').innerText = 'Edit ' + u.full_name;
+        renderPermissionToggles();
+    }, 100); // Small delay to ensure roles are loaded if it's the first time
+}
+
+function closeAdminUserPanel() {
+    document.getElementById('adminUserSlidePanel').classList.remove('show');
+}
+
+async function saveAdminUser(e) {
+    e.preventDefault();
+    const btn = document.getElementById('adminUserSaveBtn');
+    btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;"></span> Saving...';
+    btn.disabled = true;
+
+    const id = document.getElementById('adminUserId').value;
+    const action = id ? 'update_admin_user' : 'create_admin_user';
+
+    const payload = {
+        action: action,
+        _nonce: ADMIN_API_NONCE,
+        id: id,
+        full_name: document.getElementById('adminUserFullName').value,
+        email: document.getElementById('adminUserEmail').value,
+        role_id: document.getElementById('adminUserRole').value,
+        overrides: currentUserOverrides
+    };
+
+    if ( !id ) {
+        payload.password = document.getElementById('adminUserPassword').value;
+    }
+
+    try {
+        const res = await fetch(ADMIN_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+
+        if ( json.success ) {
+            closeAdminUserPanel();
+            loadAdminUsers();
+            toast('User saved successfully');
+        } else {
+            alert('Error: ' + (json.data?.message || 'Unknown error'));
+        }
+    } catch(err) {
+        alert('Network error.');
+    }
+
+    btn.innerHTML = 'Save User';
+    btn.disabled = false;
+}
+
+async function toggleAdminUserStatus(id, currentStatus) {
+    if ( ! confirm(`Are you sure you want to ${currentStatus === 'active' ? 'suspend' : 'activate'} this user?`) ) return;
+
+    try {
+        const payload = {
+            action: 'suspend_admin_user',
+            _nonce: ADMIN_API_NONCE,
+            id: id,
+            action_type: currentStatus === 'active' ? 'suspend' : 'activate'
+        };
+        const res = await fetch(ADMIN_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if ( json.success ) {
+            loadAdminUsers();
+        } else {
+            alert('Error: ' + (json.data?.message || 'Unknown error'));
+        }
+    } catch(err) {
+        alert('Network error.');
+    }
+}

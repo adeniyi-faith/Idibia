@@ -592,3 +592,102 @@ function idibia_payment_public_payload( int $trip_id ): array {
         'receipt_url'  => $receipt_url,
     ] );
 }
+
+/**
+ * Checks if a specific admin user has a given permission.
+ */
+function idibia_admin_has_permission( string $permission, int $admin_id = 0 ): bool {
+    global $wpdb;
+
+    // Special rule for system bootstrap: Legacy WP admins with 'manage_options' bypass all checks
+    // This ensures they can set up the first custom admin users.
+    if ( ! $admin_id && current_user_can('manage_options') && ! isset($_COOKIE['idibia_admin_auth']) ) {
+        return true;
+    }
+
+    // If no specific admin_id passed, try to figure it out from cookie
+    if ( ! $admin_id && isset($_COOKIE['idibia_admin_auth']) ) {
+        $decoded = base64_decode($_COOKIE['idibia_admin_auth']);
+        $parts = explode('|', $decoded);
+        if ( count($parts) === 2 ) {
+            $hash = hash_hmac('sha256', $parts[0], wp_salt('auth'));
+            if ( hash_equals($hash, $parts[1]) ) {
+                $payload = json_decode($parts[0], true);
+                if ( $payload && isset($payload['id']) ) {
+                    $admin_id = (int) $payload['id'];
+                }
+            }
+        }
+    }
+
+    if ( ! $admin_id ) {
+        return false;
+    }
+
+    // Get the user and their role
+    $admin = $wpdb->get_row( $wpdb->prepare( "
+        SELECT u.role_id, r.name as role_name
+        FROM `{$wpdb->prefix}sd_admin_users` u
+        JOIN `{$wpdb->prefix}sd_roles` r ON u.role_id = r.id
+        WHERE u.id = %d AND u.status = 'active'
+    ", $admin_id ) );
+
+    if ( ! $admin ) {
+        return false;
+    }
+
+    // Super Admins have unrestricted access
+    if ( $admin->role_name === 'Super Admin' ) {
+        return true;
+    }
+
+    // Check for user-specific override first
+    $override = $wpdb->get_var( $wpdb->prepare( "
+        SELECT is_granted
+        FROM `{$wpdb->prefix}sd_user_permission_overrides`
+        WHERE admin_id = %d AND permission = %s
+    ", $admin_id, $permission ) );
+
+    if ( $override !== null ) {
+        return (bool) $override;
+    }
+
+    // Fall back to role default
+    $has_role_perm = $wpdb->get_var( $wpdb->prepare( "
+        SELECT 1
+        FROM `{$wpdb->prefix}sd_role_permissions`
+        WHERE role_id = %d AND permission = %s
+    ", $admin->role_id, $permission ) );
+
+    return (bool) $has_role_perm;
+}
+
+/**
+ * Records an admin action in the audit log.
+ */
+function idibia_admin_audit_log( string $action, string $entity_type, int $entity_id, array $metadata = [] ): void {
+    global $wpdb, $admin_id;
+
+    // We try to grab the global $admin_id set by the auth check
+    $current_admin_id = isset($admin_id) && $admin_id ? $admin_id : 0;
+
+    if ( ! $current_admin_id && is_user_logged_in() ) {
+        // Fallback if legacy WP admin is taking action
+        $current_admin_id = 0; // 0 usually means legacy/system in this context
+    }
+
+    $wpdb->insert(
+        "{$wpdb->prefix}sd_admin_audit_logs",
+        [
+            'admin_id'    => $current_admin_id,
+            'action'      => substr( $action, 0, 80 ),
+            'entity_type' => substr( $entity_type, 0, 80 ),
+            'entity_id'   => $entity_id,
+            'metadata'    => empty( $metadata ) ? null : wp_json_encode( $metadata ),
+            'ip'          => $_SERVER['REMOTE_ADDR'] ?? null,
+            'user_agent'  => isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( $_SERVER['HTTP_USER_AGENT'], 0, 255 ) : null,
+            'created_at'  => gmdate( 'Y-m-d H:i:s' )
+        ],
+        [ '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%s' ]
+    );
+}
