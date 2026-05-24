@@ -5,3 +5,7 @@
 ## 2026-05-21 - Fix N+1 query in driver campaign progress
 **Learning:** The driver dashboard (`driver.php`) originally calculated campaign progress by issuing a `SELECT COUNT(id)` query against `sd_trips` inside a loop iterating over active campaigns. This resulted in an N+1 query problem, heavily degrading performance when multiple campaigns run simultaneously.
 **Action:** Replaced the loop-based queries with a single query that fetches the `completed_at` timestamps for all relevant trips within the min(start_time) and max(end_time) bounds of all active campaigns. Count logic is now handled in-memory within PHP, vastly reducing database round-trips.
+
+## 2025-05-24 - [Refactored N+1 loop in cron.php]
+**Learning:** Found an N+1 performance bottleneck in cron.php where SELECT COUNT(*) was executed in a foreach loop on sd_dispatch_offers.
+**Action:** Combined the queries into a single SQL statement using NOT EXISTS to avoid repeated database calls inside the loop.
