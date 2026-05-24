@@ -4,6 +4,12 @@ require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 
 idibia_require_method('POST');
 
+$nonce = isset($_POST['_nonce']) ? sanitize_text_field($_POST['_nonce']) : '';
+if (!wp_verify_nonce($nonce, 'idibia_driver_wallet')) {
+    http_response_code(403);
+    wp_send_json_error(['message' => 'Security check failed. Please refresh and try again.']);
+}
+
 if (empty($GLOBALS['auth_driver_id'])) {
     wp_send_json_error(['message' => 'Unauthorized access'], 401);
 }

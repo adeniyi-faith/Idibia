@@ -36,6 +36,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
         'support_action' => wp_create_nonce( 'idibia_support_action' ),
         'driver_profile_update' => wp_create_nonce( 'idibia_driver_profile_update' ),
+        'driver_wallet' => wp_create_nonce( 'idibia_driver_wallet' ),
     ];
     if ( $email_verified ) {
         $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );

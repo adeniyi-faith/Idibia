@@ -1198,6 +1198,7 @@ async function loadWalletData() {
   try {
     const formData = new URLSearchParams();
     formData.append('action', 'get_wallet');
+    formData.append('_nonce', window.driverInitialContext.nonces?.driver_wallet || '');
     const response = await fetch('driver-wallet-api.php', {
       method: 'POST',
       body: formData
@@ -1298,6 +1299,7 @@ async function requestPayout(e) {
     formData.append('action', 'request_payout');
     formData.append('amount', amount);
     formData.append('idempotency_key', 'req-' + window.driverInitialContext.driver_id + '-' + Date.now());
+    formData.append('_nonce', window.driverInitialContext.nonces?.driver_wallet || '');
 
     const response = await fetch('driver-wallet-api.php', {
       method: 'POST',
