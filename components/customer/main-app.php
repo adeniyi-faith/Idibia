@@ -218,103 +218,8 @@
         </div>
 
         <div id="trips-container">
-          <!-- In Transit -->
-          <div class="trip-card" data-status="in-transit" onclick="startLiveTracking(1)">
-            <div class="trip-top">
-              <div><div class="trip-id">#SD-00928</div><div class="trip-date">Today · 2:14 PM</div></div>
-              <span class="trip-status in-transit">In Transit</span>
-            </div>
-            <div class="trip-route">
-              <div class="trip-point"><div class="trip-point-dot from"></div> Agip Junction, Port Harcourt</div>
-              <div class="trip-line"></div>
-              <div class="trip-point"><div class="trip-point-dot to"></div> D-Line, Rumuola Road</div>
-            </div>
-            <div class="trip-meta">
-              <span class="trip-price">₦2,800</span>
-              <div class="trip-actions">
-                <button class="trip-action-btn primary" onclick="event.stopPropagation();startLiveTracking(1)">Track Live</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Scheduled -->
-          <div class="trip-card" data-status="scheduled" onclick="showToast('Scheduled pickup details')">
-            <div class="trip-top">
-              <div><div class="trip-id">#SD-00940</div><div class="trip-date">Tomorrow · 9:00 AM</div></div>
-              <span class="trip-status scheduled">Scheduled</span>
-            </div>
-            <div class="trip-route">
-              <div class="trip-point"><div class="trip-point-dot from"></div> Woji Market, Port Harcourt</div>
-              <div class="trip-line"></div>
-              <div class="trip-point"><div class="trip-point-dot to"></div> Rumuomasi, PH</div>
-            </div>
-            <div class="trip-meta">
-              <span class="trip-price">₦1,900</span>
-              <div class="trip-actions">
-                <button class="trip-action-btn" onclick="event.stopPropagation();showToast('Pickup cancelled')">Cancel</button>
-                <button class="trip-action-btn primary" onclick="event.stopPropagation();showToast('Editing pickup...')">Edit</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Delivered -->
-          <div class="trip-card" data-status="delivered" onclick="openModal('post-trip')">
-            <div class="trip-top">
-              <div><div class="trip-id">#SD-00871</div><div class="trip-date">Yesterday · 11:30 AM</div></div>
-              <span class="trip-status delivered">Delivered</span>
-            </div>
-            <div class="trip-route">
-              <div class="trip-point"><div class="trip-point-dot from"></div> Ada George Road</div>
-              <div class="trip-line"></div>
-              <div class="trip-point"><div class="trip-point-dot to"></div> GRA Phase 2, PH</div>
-            </div>
-            <div class="trip-meta">
-              <span class="trip-price">₦4,200</span>
-              <div class="trip-actions">
-                <button class="trip-action-btn" onclick="event.stopPropagation();showToast('Receipt downloaded')">Receipt</button>
-                <button class="trip-action-btn primary" onclick="event.stopPropagation();showToast('Booking again...')">Re-book</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Delivered 2 -->
-          <div class="trip-card" data-status="delivered">
-            <div class="trip-top">
-              <div><div class="trip-id">#SD-00803</div><div class="trip-date">Apr 7 · 9:00 AM</div></div>
-              <span class="trip-status delivered">Delivered</span>
-            </div>
-            <div class="trip-route">
-              <div class="trip-point"><div class="trip-point-dot from"></div> Trans-Amadi Industrial Layout</div>
-              <div class="trip-line"></div>
-              <div class="trip-point"><div class="trip-point-dot to"></div> Woji, Off Peter Odili</div>
-            </div>
-            <div class="trip-meta">
-              <span class="trip-price">₦1,500</span>
-              <div class="trip-actions">
-                <button class="trip-action-btn" onclick="showToast('Receipt downloaded')">Receipt</button>
-                <button class="trip-action-btn primary" onclick="showToast('Booking again...')">Re-book</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Cancelled -->
-          <div class="trip-card" data-status="cancelled">
-            <div class="trip-top">
-              <div><div class="trip-id">#SD-00791</div><div class="trip-date">Apr 5 · 4:45 PM</div></div>
-              <span class="trip-status cancelled">Cancelled</span>
-            </div>
-            <div class="trip-route">
-              <div class="trip-point"><div class="trip-point-dot from"></div> Eleme Junction</div>
-              <div class="trip-line"></div>
-              <div class="trip-point"><div class="trip-point-dot to"></div> Borokiri, PH</div>
-            </div>
-            <div class="trip-meta">
-              <span class="trip-price" style="color:var(--text-muted);font-size:14px">Refunded</span>
-              <div class="trip-actions">
-                <button class="trip-action-btn primary" onclick="showToast('Booking again...')">Re-book</button>
-              </div>
-            </div>
-          </div>
+          <!-- Empty state -->
+          <div class="empty-state" style="text-align:center; padding: 40px 20px; color: var(--text-muted);">No trips yet. Book a delivery to get started!</div>
         </div>
       </div>
     </div>
@@ -327,7 +232,7 @@
           <div class="avatar-wrap">
             <div class="avatar" style="position: relative;">
               <?php if ( ! empty( $customer_avatar_path ) ) : ?>
-                <img src="<?php echo esc_url( $upload_baseurl . '/' . $customer_avatar_path ); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                <img src="<?php echo esc_url( strpos($customer_avatar_path, 'http') === 0 ? $customer_avatar_path : ( $upload_baseurl ? $upload_baseurl . '/' . $customer_avatar_path : '/' . $customer_avatar_path ) ); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
               <?php else : ?>
                 <?php echo esc_html($customer_initials); ?>
               <?php endif; ?>

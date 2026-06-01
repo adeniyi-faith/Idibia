@@ -309,27 +309,82 @@ async function submitDriverKyc() {
   return false;
 }
 
+function validateDriverStep(step) {
+  if (step === 2) {
+    if (!driverFiles['id_front']) {
+      showToast("Please upload your Identity Document (Front).");
+      return false;
+    }
+    if (!driverFiles['id_back']) {
+      showToast("Please upload your Identity Document (Back).");
+      return false;
+    }
+    if (!driverFiles['selfie']) {
+      showToast("Please upload a Selfie.");
+      return false;
+    }
+  }
+  if (step === 3) {
+    if (!document.getElementById('driverVehicleYear').value.trim() ||
+        !document.getElementById('driverVehicleManufacturer').value.trim() ||
+        !document.getElementById('driverVehiclePlate').value.trim() ||
+        !document.getElementById('driverVehicleColor').value.trim()) {
+      showToast("Please complete all vehicle information fields.");
+      return false;
+    }
+    if (!driverFiles['vehicle_photo'] || !driverFiles['vehicle_interior_photo'] || !driverFiles['vehicle_front_photo'] || !driverFiles['vehicle_rear_photo'] || !driverFiles['vehicle_license_doc']) {
+      showToast("Please upload all required vehicle photos.");
+      return false;
+    }
+  }
+  if (step === 4) {
+    if (!document.getElementById('driverAccountHolder').value.trim() ||
+        !document.getElementById('driverAccountNumber').value.trim() ||
+        !document.getElementById('driverBankName').value.trim()) {
+      showToast("Please complete your primary bank account details.");
+      return false;
+    }
+    if (!document.getElementById('driverEmergencyName').value.trim() ||
+        !document.getElementById('driverEmergencyPhone').value.trim() ||
+        !document.getElementById('driverEmergencyAddress').value.trim() ||
+        !document.getElementById('driverEmergencyRelationship').value) {
+      showToast("Please complete your emergency contact details.");
+      return false;
+    }
+  }
+  return true;
+}
+
 async function driverNext() {
+  const nextBtn = document.getElementById('driverNext');
+  const initialHtml = nextBtn.innerHTML;
+  nextBtn.classList.add('btn-loading');
   if (driverStep === 1 && !driverAuthenticated) {
     if (driverAwaitingEmailVerification) {
       await verifyDriverEmail();
+      nextBtn.classList.remove('btn-loading');
+      nextBtn.innerHTML = initialHtml;
       return;
     }
     if (driverAuthMode === 'login') {
       await driverLogin();
+      nextBtn.classList.remove('btn-loading');
+      nextBtn.innerHTML = initialHtml;
       return;
     }
 
     await submitDriverSignup();
+    nextBtn.classList.remove('btn-loading');
+    nextBtn.innerHTML = initialHtml;
     return;
   }
 
-  if (driverStep >= 2 && driverStep <= 3 && !validateDriverStep(driverStep)) return;
+  if (driverStep >= 2 && driverStep <= 3 && !validateDriverStep(driverStep)) { nextBtn.classList.remove('btn-loading'); nextBtn.innerHTML = initialHtml; return; }
 
   if (driverStep === 4) {
-    if (!validateDriverStep(4)) return;
+    if (!validateDriverStep(4)) { nextBtn.classList.remove('btn-loading'); nextBtn.innerHTML = initialHtml; return; }
     const kycSubmitted = await submitDriverKyc();
-    if (!kycSubmitted) return;
+    if (!kycSubmitted) { nextBtn.classList.remove('btn-loading'); nextBtn.innerHTML = initialHtml; return; }
   }
 
   if (driverStep < 5) {
@@ -337,6 +392,8 @@ async function driverNext() {
     updateDriver();
     document.getElementById('driverContent').scrollTop = 0;
   }
+  nextBtn.classList.remove('btn-loading');
+  nextBtn.innerHTML = initialHtml;
 }
 function driverPrev() {
   if (driverStep > 1) {
@@ -364,17 +421,50 @@ function chooseKycFile(el) {
   const input = document.getElementById('driverKycFileInput');
   input.onchange = function(e) {
     const file = e.target.files[0];
-    if (file) { driverFiles[fieldName] = file; el.classList.remove('error'); markDone(el, file.name); }
+    if (file) {
+        driverFiles[fieldName] = file;
+        el.classList.remove('error');
+        markDone(el, file.name, file);
+    }
     input.value = '';
   };
   input.click();
 }
 
-function markDone(el, filename = '') {
+function markDone(el, filename = '', file = null) {
   el.classList.add('done');
   el.querySelector('p').innerHTML = '<strong style="color:var(--success)">✓ File selected</strong>';
   const small = el.querySelector('small');
   if (small) small.textContent = filename || 'Tap to replace';
+
+  if (file && file.type.startsWith('image/')) {
+    let imgPreview = el.querySelector('img.kyc-preview');
+    if (!imgPreview) {
+        imgPreview = document.createElement('img');
+        imgPreview.className = 'kyc-preview';
+        imgPreview.style.width = '100%';
+        imgPreview.style.height = '100%';
+        imgPreview.style.objectFit = 'cover';
+        imgPreview.style.position = 'absolute';
+        imgPreview.style.top = '0';
+        imgPreview.style.left = '0';
+        imgPreview.style.borderRadius = 'var(--radius-sm)';
+        imgPreview.style.opacity = '0.3';
+        imgPreview.style.zIndex = '0';
+        el.style.position = 'relative';
+        el.style.overflow = 'hidden';
+        el.appendChild(imgPreview);
+    }
+    imgPreview.src = URL.createObjectURL(file);
+
+    // ensure text content sits above the image preview
+    Array.from(el.children).forEach(child => {
+        if (!child.classList.contains('kyc-preview')) {
+            child.style.position = 'relative';
+            child.style.zIndex = '1';
+        }
+    });
+  }
 }
 
 function goToDashboard() {
@@ -725,16 +815,17 @@ function renderDriverProfile() {
 
     const avatarToUse = ctx.avatar_path || ctx.selfie_path;
     const baseUploadUrl = window.driverInitialContext.upload_baseurl || '';
+    const fullAvatarUrl = (avatarToUse && avatarToUse.startsWith('http')) ? avatarToUse : (baseUploadUrl ? `${baseUploadUrl}/${avatarToUse}` : `/${avatarToUse}`);
 
     if (avatarToUse) {
         if (imgDisplay) {
-            imgDisplay.src = `${baseUploadUrl}/${avatarToUse}`;
+            imgDisplay.src = fullAvatarUrl;
             imgDisplay.style.display = 'block';
         }
         if (initialsDisplay) initialsDisplay.style.display = 'none';
 
         if (dashHomeAvatar) {
-            dashHomeAvatar.src = `${baseUploadUrl}/${avatarToUse}`;
+            dashHomeAvatar.src = fullAvatarUrl;
             dashHomeAvatar.style.display = 'block';
         }
         if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'none';
@@ -800,6 +891,9 @@ function renderDriverProfile() {
     const bankSub = document.getElementById('profileBankSub');
     if (bankSub) bankSub.textContent = `${ctx.bank_name || 'No Bank'} · ${ctx.account_number ? '****' + ctx.account_number.slice(-4) : 'No Account'}`;
 
+    const bankSub = document.getElementById('profileBankSub');
+    if (bankSub) bankSub.textContent = `${ctx.bank_name || 'Bank Name'} · ${ctx.account_number || 'Account'}`;
+
     const emergencySub = document.getElementById('profileEmergencySub');
     if (emergencySub) emergencySub.textContent = `${ctx.emergency_name || 'No Name'} · ${ctx.emergency_phone || 'No Phone'}`;
 
@@ -812,9 +906,16 @@ function renderDriverProfile() {
 
     const bankNameInput = document.getElementById('inputProfileBankName');
     if (bankNameInput) bankNameInput.value = ctx.bank_name || '';
-
+    const accHolderInput = document.getElementById('inputProfileAccountHolder');
+    if (accHolderInput) accHolderInput.value = ctx.account_holder_name || '';
     const accNumInput = document.getElementById('inputProfileAccountNumber');
     if (accNumInput) accNumInput.value = ctx.account_number || '';
+    const secBankNameInput = document.getElementById('inputProfileSecondaryBankName');
+    if (secBankNameInput) secBankNameInput.value = ctx.secondary_bank_name || '';
+    const secAccHolderInput = document.getElementById('inputProfileSecondaryAccountHolder');
+    if (secAccHolderInput) secAccHolderInput.value = ctx.secondary_account_holder || '';
+    const secAccNumInput = document.getElementById('inputProfileSecondaryAccountNumber');
+    if (secAccNumInput) secAccNumInput.value = ctx.secondary_account_number || '';
 
     const emerNameInput = document.getElementById('inputProfileEmergencyName');
     if (emerNameInput) emerNameInput.value = ctx.emergency_name || '';
@@ -831,9 +932,9 @@ async function submitProfileForm(event, action) {
     formData.append('_nonce', window.driverInitialContext.nonces?.driver_profile_update || '');
 
     const btn = form.querySelector('button[type="submit"]');
-    const originalText = btn.textContent;
+    const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.textContent = 'Saving...';
+    btn.classList.add('btn-loading');
 
     try {
         const response = await fetch('/driver-profile-api.php', { method: 'POST', body: formData, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
@@ -856,7 +957,8 @@ async function submitProfileForm(event, action) {
         showToast('Connection error updating profile.');
     } finally {
         btn.disabled = false;
-        btn.textContent = originalText;
+        btn.classList.remove('btn-loading');
+        btn.innerHTML = originalText;
     }
 }
 
@@ -910,6 +1012,18 @@ function switchTab(tab) {
   if (sidebarItems[idx]) sidebarItems[idx].classList.add('active');
 
   document.getElementById('dashBody').scrollTop = 0;
+}
+
+function togglePasswordVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+  } else {
+    input.type = 'password';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+  }
 }
 
 // Timer countdown
@@ -1115,7 +1229,7 @@ function renderTripHistory(filterStatus = 'all', filterStartDate = null, filterE
     if (filteredTrips.length === 0) {
         let msg = `No trips found`;
         if (filterStatus !== 'all') msg = `No ${filterStatus} trips found`;
-        container.innerHTML = `<div style="text-align:center; padding: 40px 20px; color: var(--slate);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="margin-bottom:12px;opacity:0.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><p>${msg}.</p></div>`;
+        container.innerHTML = `<div class="empty-state" style="text-align:center; padding: 40px 20px; color: var(--text-muted);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="margin-bottom:12px;opacity:0.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><p>${msg}.</p></div>`;
         return;
     }
 
@@ -1228,7 +1342,7 @@ async function loadWalletData() {
             </div>
           `).join('');
         } else {
-          ledgerList.innerHTML = '<div class="info-note">No transactions yet.</div>';
+          ledgerList.innerHTML = '<div class="info-note" style="text-align:center; padding: 20px; color: var(--text-muted);">No transactions yet.</div>';
         }
       }
 
@@ -1248,7 +1362,7 @@ async function loadWalletData() {
             </div>
           `).join('');
         } else {
-          payoutsList.innerHTML = '<div class="info-note">No payouts yet.</div>';
+          payoutsList.innerHTML = '<div class="info-note" style="text-align:center; padding: 20px; color: var(--text-muted);">No payouts yet.</div>';
         }
       }
     } else {

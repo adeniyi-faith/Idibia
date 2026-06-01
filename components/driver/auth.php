@@ -57,14 +57,22 @@
             </div>
             <div class="form-group" style="margin-bottom:0">
               <label class="form-label">Password</label>
-              <input class="form-input" type="password" id="driverPassword" placeholder="Min. 6 characters" autocomplete="new-password">
+              <div style="position:relative">
+                <input class="form-input" type="password" id="driverPassword" placeholder="Min. 6 characters" autocomplete="new-password" style="padding-right:40px">
+                <button type="button" onclick="togglePasswordVisibility('driverPassword', this)" aria-label="Toggle password visibility" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+              </div>
             </div>
           </div>
 
           <div class="driver-auth-panel" id="driverLoginPanel" role="tabpanel" aria-labelledby="driverLoginTab">
             <p class="driver-auth-help">Already registered? Sign in with your phone/email and password to open your driver dashboard.</p>
             <div class="form-group"><label class="form-label">Phone or Email</label><input class="form-input" type="text" id="driverLoginPhone" placeholder="Phone or email" autocomplete="username"></div>
-            <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password"></div>
+            <div class="form-group"><label class="form-label">Password</label>
+              <div style="position:relative">
+                <input class="form-input" type="password" id="driverLoginPassword" placeholder="Password" autocomplete="current-password" style="padding-right:40px">
+                <button type="button" onclick="togglePasswordVisibility('driverLoginPassword', this)" aria-label="Toggle password visibility" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted);display:flex"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+              </div>
+            </div>
 
           </div>
         </div>
@@ -75,9 +83,8 @@
             <label class="form-label">Email Verification Code</label>
             <input class="form-input" type="tel" id="driverVerifyCode" inputmode="numeric" maxlength="5" placeholder="12345" autocomplete="one-time-code">
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button class="btn-secondary" type="button" onclick="resendDriverVerifyCode()">Resend code</button>
-            <button class="btn-primary" type="button" onclick="verifyDriverEmail()">Verify email</button>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;align-items:center;justify-content:space-between;">
+            <button type="button" onclick="resendDriverVerifyCode()" style="background:none;border:none;color:var(--info);font-weight:600;font-size:14px;cursor:pointer;padding:8px 0;transition:opacity 0.2s;">Resend code</button>
           </div>
         </div>
 

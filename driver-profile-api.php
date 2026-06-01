@@ -53,17 +53,28 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
 
     if ( $action === 'update_bank' ) {
         $bank_name = sanitize_text_field( wp_unslash( $_POST['bank_name'] ?? '' ) );
+        $account_holder_name = sanitize_text_field( wp_unslash( $_POST['account_holder_name'] ?? '' ) );
         $account_number = preg_replace( '/\D+/', '', sanitize_text_field( wp_unslash( $_POST['account_number'] ?? '' ) ) );
+        $secondary_bank_name = sanitize_text_field( wp_unslash( $_POST['secondary_bank_name'] ?? '' ) );
+        $secondary_account_holder = sanitize_text_field( wp_unslash( $_POST['secondary_account_holder'] ?? '' ) );
+        $secondary_account_number = preg_replace( '/\D+/', '', sanitize_text_field( wp_unslash( $_POST['secondary_account_number'] ?? '' ) ) );
 
-        if ( empty( $bank_name ) || empty( $account_number ) ) {
-            wp_send_json_error( [ 'message' => 'Bank name and account number are required.' ] );
+        if ( empty( $bank_name ) || empty( $account_number ) || empty( $account_holder_name ) ) {
+            wp_send_json_error( [ 'message' => 'Primary Bank name, Account Name, and Account Number are required.' ] );
         }
 
         $wpdb->update(
             $wpdb->prefix . 'sd_drivers',
-            [ 'bank_name' => $bank_name, 'account_number' => $account_number ],
+            [
+                'bank_name' => $bank_name,
+                'account_holder_name' => $account_holder_name,
+                'account_number' => $account_number,
+                'secondary_bank_name' => $secondary_bank_name,
+                'secondary_account_holder' => $secondary_account_holder,
+                'secondary_account_number' => $secondary_account_number
+            ],
             [ 'id' => $driver_id ],
-            [ '%s', '%s' ],
+            [ '%s', '%s', '%s', '%s', '%s', '%s' ],
             [ '%d' ]
         );
 

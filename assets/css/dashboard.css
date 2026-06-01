@@ -91,6 +91,23 @@ a { color: inherit; }
 .btn-primary { width: 100%; height: 54px; background: var(--gold); color: var(--navy); border: none; border-radius: var(--radius-sm); font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s, transform 0.15s, box-shadow 0.2s; letter-spacing: 0.3px; box-shadow: var(--shadow-gold); user-select: none; }
 .btn-primary:hover { background: var(--gold-dark); box-shadow: 0 6px 28px rgba(245,200,66,0.4); }
 .btn-primary:active { transform: scale(0.97); }
+
+.btn-loading { pointer-events: none; opacity: 0.8; position: relative; color: transparent !important; }
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  top: 50%;
+  left: 50%;
+  margin-top: -10px;
+  margin-left: -10px;
+  border: 3px solid rgba(0, 0, 0, 0.2);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spinner 0.6s linear infinite;
+}
+@keyframes spinner { to { transform: rotate(360deg); } }
 .btn-outline { width: 100%; height: 52px; background: transparent; color: var(--text-primary); border: 1.5px solid var(--surface-3); border-radius: var(--radius-sm); font-size: 15px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: background 0.2s, border-color 0.2s; margin-top: 10px; user-select: none; }
 .btn-outline:hover { background: var(--surface-2); border-color: var(--surface-2); }
 .btn-outline:active { transform: scale(0.98); }
