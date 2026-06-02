@@ -63,6 +63,14 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
             wp_send_json_error( [ 'message' => 'Primary Bank name, Account Name, and Account Number are required.' ] );
         }
 
+        $table = $wpdb->prefix . 'sd_drivers';
+        $columns = $wpdb->get_col( "SHOW COLUMNS FROM `$table`", 0 );
+        if ( is_array( $columns ) && ! in_array( 'secondary_bank_name', $columns, true ) ) {
+            $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_bank_name` VARCHAR(120) NULL" );
+            $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_account_holder` VARCHAR(120) NULL" );
+            $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_account_number` VARCHAR(20) NULL" );
+        }
+
         $wpdb->update(
             $wpdb->prefix . 'sd_drivers',
             [

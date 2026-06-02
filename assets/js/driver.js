@@ -891,9 +891,6 @@ function renderDriverProfile() {
     const bankSub = document.getElementById('profileBankSub');
     if (bankSub) bankSub.textContent = `${ctx.bank_name || 'No Bank'} · ${ctx.account_number ? '****' + ctx.account_number.slice(-4) : 'No Account'}`;
 
-    const bankSub = document.getElementById('profileBankSub');
-    if (bankSub) bankSub.textContent = `${ctx.bank_name || 'Bank Name'} · ${ctx.account_number || 'Account'}`;
-
     const emergencySub = document.getElementById('profileEmergencySub');
     if (emergencySub) emergencySub.textContent = `${ctx.emergency_name || 'No Name'} · ${ctx.emergency_phone || 'No Phone'}`;
 
