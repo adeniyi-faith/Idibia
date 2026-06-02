@@ -106,6 +106,7 @@ wp_send_json_success( [
     'nonces'      => [
         'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
         'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
+        'driver_kyc' => wp_create_nonce( 'idibia_driver_kyc' ),
     ],
     'message'    => 'Driver account created. Please verify your email.',
 ] );
