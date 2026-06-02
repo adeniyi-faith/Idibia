@@ -37,7 +37,7 @@
                 <div class="dash-avatar-img" id="dashHomeAvatarInitials" style="display:none; align-items:center; justify-content:center; background:rgba(255,255,255,0.2); color:white; font-size:16px; font-weight:600;"></div>
                 <div>
                   <div class="dash-greeting" id="dashGreeting">Good afternoon,</div>
-                  <div class="dash-name"><span id="dashHomeName">Loading...</span> 👋</div>
+                  <div class="dash-name"><span id="dashHomeName"><?php echo esc_html($driver_row['full_name'] ?? 'Loading...'); ?></span> 👋</div>
                 </div>
               </div>
               <div class="online-pill online" id="onlineToggle" onclick="toggleOnline()">
@@ -271,7 +271,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 </div>
               </div>
-              <div class="profile-name" id="profileNameDisplay">Driver Name</div>
+              <div class="profile-name" id="profileNameDisplay"><?php echo esc_html($driver_row['full_name'] ?? 'Driver Name'); ?></div>
               <div class="profile-rating" id="profileStatsDisplay">
                 <span class="profile-star">★★★★★</span>
                 0.0 · 0 trips total
@@ -394,12 +394,29 @@
           <p class="modal-sub">Update where you receive your payouts.</p>
           <form onsubmit="submitProfileForm(event, 'update_bank')">
             <div class="form-group">
-              <label class="form-label">Bank Name</label>
+              <label class="form-label">Account Name (Primary)</label>
+              <input type="text" class="form-input" name="account_holder_name" id="inputProfileAccountHolder" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bank Name (Primary)</label>
               <input type="text" class="form-input" name="bank_name" id="inputProfileBankName" required>
             </div>
             <div class="form-group">
-              <label class="form-label">Account Number</label>
+              <label class="form-label">Account Number (Primary)</label>
               <input type="text" class="form-input" name="account_number" id="inputProfileAccountNumber" required>
+            </div>
+            <hr style="margin:20px 0; border: none; border-top: 1px solid var(--surface-3);">
+            <div class="form-group">
+              <label class="form-label">Account Name (Secondary - Optional)</label>
+              <input type="text" class="form-input" name="secondary_account_holder" id="inputProfileSecondaryAccountHolder">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bank Name (Secondary - Optional)</label>
+              <input type="text" class="form-input" name="secondary_bank_name" id="inputProfileSecondaryBankName">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Account Number (Secondary - Optional)</label>
+              <input type="text" class="form-input" name="secondary_account_number" id="inputProfileSecondaryAccountNumber">
             </div>
             <div style="display:flex;gap:12px;margin-top:24px">
               <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-edit-bank')">Cancel</button>

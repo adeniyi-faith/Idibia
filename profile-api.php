@@ -76,6 +76,7 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
     }
 
     $full_name = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );
+    $phone = sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) );
     if ( ! empty( $full_name ) ) {
         $user_id = get_current_user_id();
         wp_update_user( [ 'ID' => $user_id, 'display_name' => $full_name ] );
@@ -87,9 +88,9 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
         $customer_id = $GLOBALS['auth_customer_id'];
         $wpdb->update(
             $wpdb->prefix . 'sd_customers',
-            [ 'full_name' => $full_name ],
+            [ 'full_name' => $full_name, 'phone' => $phone ],
             [ 'id' => $customer_id ],
-            [ '%s' ],
+            [ '%s', '%s' ],
             [ '%d' ]
         );
     }

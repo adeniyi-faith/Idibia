@@ -57,7 +57,7 @@ if ( strlen( $account_number ) < 10 ) $errors[] = 'Enter a valid bank account nu
 if ( $bank_name === '' ) $errors[] = 'Select your bank.';
 if ( $emergency_name === '' || $emergency_phone === '' ) $errors[] = 'Enter your emergency contact details.';
 
-$required_files = [ 'selfie', 'id_front', 'id_back', 'vehicle_photo', 'vehicle_license_doc' ];
+$required_files = [ 'selfie', 'id_front', 'id_back', 'vehicle_photo', 'vehicle_license_doc', 'vehicle_interior_photo', 'vehicle_front_photo', 'vehicle_rear_photo' ];
 foreach ( $required_files as $required_file ) {
     if ( empty( $_FILES[ $required_file ] ) || ! empty( $_FILES[ $required_file ]['error'] ) ) {
         $errors[] = 'Upload all required identity and vehicle documents.';

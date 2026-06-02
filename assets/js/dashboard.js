@@ -219,6 +219,9 @@ function enterCustomerApp(message = 'Welcome back 👋') {
 }
 
 async function doLogin() {
+  const btn = document.querySelector('button[onclick="doLogin()"]');
+  const initialHtml = btn.innerHTML;
+  btn.classList.add('btn-loading');
   const errorBox  = document.getElementById('authError');
   const errorText = document.getElementById('authErrorText');
   const identifier = document.getElementById('loginEmail').value.trim();
@@ -229,6 +232,8 @@ async function doLogin() {
   if (!identifier || !password) {
     errorText.textContent = 'Enter your email/phone and password.';
     errorBox.classList.add('show');
+    btn.classList.remove('btn-loading');
+    btn.innerHTML = initialHtml;
     return;
   }
 
@@ -322,13 +327,27 @@ function filterTrips(btn, status) {
   document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   const cards = document.querySelectorAll('.trip-card');
+  let anyVisible = false;
   cards.forEach(card => {
     if (status === 'all') {
       card.style.display = '';
+      anyVisible = true;
     } else {
-      card.style.display = card.dataset.status === status ? '' : 'none';
+      if (card.dataset.status === status) {
+        card.style.display = '';
+        anyVisible = true;
+      } else {
+        card.style.display = 'none';
+      }
     }
   });
+
+  const emptyState = document.querySelector('#trips-container .empty-state');
+  if (!anyVisible) {
+    if (emptyState) emptyState.style.display = '';
+  } else {
+    if (emptyState) emptyState.style.display = 'none';
+  }
 }
 
 // ═══════════ MODALS ═══════════
@@ -469,10 +488,17 @@ function closeModalAndGoHome() {
 
 function confirmLogout() { openModal('logout'); }
 
-function doLogout() {
-  closeAllModals();
-  showToast('Signed out successfully');
-  setTimeout(() => location.reload(), 1200);
+async function doLogout() {
+  try {
+    const body = new FormData();
+    body.append("_nonce", window.idibiaLogoutNonce || "");
+    await fetch("logout-handler.php", { method: "POST", body });
+    closeAllModals();
+    showToast('Signed out successfully');
+    window.location.href = window.idibiaLogoutUrl || "/";
+  } catch (err) {
+    showToast('Logout failed. Please try again.');
+  }
 }
 
 // ═══════════ STAR RATING ═══════════
@@ -836,6 +862,8 @@ document.addEventListener('keydown', e => {
 // \u2500\u2500 REGISTRATION \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 async function doRegister() {
   const btn       = document.getElementById('regBtn');
+  const initialHtml = btn.innerHTML;
+  btn.classList.add('btn-loading');
   const errorBox  = document.getElementById('regError');
   const errorText = document.getElementById('regErrorText');
 
@@ -851,6 +879,8 @@ async function doRegister() {
   if ( ! full_name || ! phone || ! email || ! password ) {
     errorText.textContent = 'Please fill in all fields.';
     errorBox.classList.add('show');
+    btn.classList.remove('btn-loading');
+    btn.innerHTML = initialHtml;
     return;
   }
 
@@ -869,7 +899,15 @@ async function doRegister() {
     const json = await idibiaPost( 'register-handler.php', body );
 
     if ( json.success ) {
-      enterCustomerApp( json.data?.first_name ? `Welcome, ${json.data.first_name}! 🎉` : 'Account created successfully.' );
+      if (json.data?.message && json.data.message.includes('verify')) {
+        document.getElementById('screen-auth').classList.remove('active');
+        document.getElementById('screen-otp').classList.add('active');
+        const otpHelp = document.getElementById('otpEmailDisplay');
+        if (otpHelp) otpHelp.textContent = `We sent a 5-digit code to ${email}.`;
+        showToast(json.data.message);
+      } else {
+        enterCustomerApp( json.data?.first_name ? `Welcome, ${json.data.first_name}! 🎉` : 'Account created successfully.' );
+      }
     } else {
       errorText.textContent = json.data?.message || 'Registration failed. Please try again.';
       errorBox.classList.add('show');
@@ -915,6 +953,8 @@ async function doVerify() {
   if ( code.length < 5 ) {
     errorText.textContent = 'Enter all 5 digits of the code.';
     errorBox.classList.add('show');
+    btn.classList.remove('btn-loading');
+    btn.innerHTML = initialHtml;
     return;
   }
 
@@ -1290,15 +1330,17 @@ function drawRouteOnMap(routeCoordinates) {
 async function submitProfileEdit(e) {
   e.preventDefault();
   const btn = document.getElementById('profileSaveBtn');
-  const initialText = btn.textContent;
+  const initialText = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = 'Saving...';
+  btn.classList.add('btn-loading');
 
   try {
     const body = new FormData();
     const newFullName = document.getElementById('profileFullName').value.trim();
+    const newPhone = document.getElementById('profilePhone').value.trim();
     body.append('_nonce', window.idibiaProfileNonce);
     body.append('full_name', newFullName);
+    body.append('phone', newPhone);
 
     const json = await idibiaPost('profile-api.php', body);
 
@@ -1352,7 +1394,8 @@ async function submitProfileEdit(e) {
     showToast('Connection error updating profile.');
   } finally {
     btn.disabled = false;
-    btn.textContent = initialText;
+    btn.classList.remove('btn-loading');
+    btn.innerHTML = initialText;
   }
 }
 
@@ -1445,7 +1488,7 @@ async function uploadCustomerAvatar(event) {
                             avatarWrap.appendChild(img);
                         }
                     }
-                    img.src = window.idibiaUploadBaseUrl + '/' + json.data.avatar_path;
+                    img.src = json.data.avatar_path.startsWith('http') ? json.data.avatar_path : ((window.idibiaUploadBaseUrl ? window.idibiaUploadBaseUrl + '/' : '/') + json.data.avatar_path);
                 }
             }
         } else {
