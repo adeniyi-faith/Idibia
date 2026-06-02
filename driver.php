@@ -27,7 +27,7 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $current_user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
 
     $upload_dir = wp_upload_dir();
-    $upload_baseurl = $upload_dir['baseurl'];
+    $upload_baseurl = '/wp/wp-content/uploads';
     $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
     $email_verified = ! empty( $driver_row['email_verified'] );
     $driver_nonces = [
@@ -167,7 +167,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <script>
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ?? null ); ?>;
 window.driverInitialContext = <?php echo wp_json_encode( $driver_initial_context ?? [] ); ?>;
-window.idibiaLogoutUrl = '<?php echo esc_url( wp_logout_url( home_url() ) ); ?>';
+window.idibiaLogoutUrl = '/';
 </script>
 <script src="assets/js/driver.js"></script>
 

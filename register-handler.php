@@ -105,10 +105,6 @@ $customer_row = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}
 $_SESSION['sd_pending_customer_id'] = $customer_row->id;
 $_SESSION['sd_pending_email']       = $email;
 
-if ( ! idibia_wants_json_response() ) {
-    header( 'Location: index.php' );
-    die();
-}
 
 wp_send_json_success( [
     'first_name' => $first_name,

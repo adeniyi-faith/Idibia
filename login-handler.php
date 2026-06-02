@@ -64,10 +64,6 @@ if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' )
 idibia_finish_wordpress_login( $user );
 idibia_find_or_create_profile_row( $user->ID, 'customer' );
 
-if ( ! idibia_wants_json_response() ) {
-    header( 'Location: dashboard.php' );
-    exit;
-}
 
 wp_send_json_success( [
     'redirect'   => 'dashboard.php',

@@ -30,7 +30,7 @@ if (count($name_parts) >= 2) {
 if (!$customer_initials) $customer_initials = 'CU';
 
 $upload_dir = wp_upload_dir();
-$upload_baseurl = $upload_dir['baseurl'];
+$upload_baseurl = '/wp/wp-content/uploads';
 
 $saved_addresses_count = 0;
 if (!empty($customer_row['saved_addresses'])) {
@@ -109,7 +109,7 @@ window.idibiaSupportNonce = '<?php echo esc_js( $support_nonce ?? '' ); ?>';
 window.idibiaPaymentNonce = '<?php echo esc_js( $payment_nonce ?? '' ); ?>';
 window.idibiaLogoutNonce = '<?php echo esc_js( $logout_nonce ?? '' ); ?>';
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ); ?>;
-window.idibiaLogoutUrl = '<?php echo esc_url( wp_logout_url( home_url() ) ); ?>';
+window.idibiaLogoutUrl = '/';
 window.idibiaCustomerRating = '<?php echo esc_js( $customer_rating ); ?>';
 window.idibiaCustomerAvatar = '<?php echo esc_js( $customer_avatar_path ); ?>';
 window.idibiaUploadBaseUrl = '<?php echo esc_url( $upload_baseurl ); ?>';
