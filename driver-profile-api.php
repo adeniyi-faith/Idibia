@@ -65,10 +65,16 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
 
         $table = $wpdb->prefix . 'sd_drivers';
         $columns = $wpdb->get_col( "SHOW COLUMNS FROM `$table`", 0 );
-        if ( is_array( $columns ) && ! in_array( 'secondary_bank_name', $columns, true ) ) {
-            $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_bank_name` VARCHAR(120) NULL" );
-            $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_account_holder` VARCHAR(120) NULL" );
-            $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_account_number` VARCHAR(20) NULL" );
+        if ( is_array( $columns ) ) {
+            if ( ! in_array( 'secondary_bank_name', $columns, true ) ) {
+                $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_bank_name` VARCHAR(120) NULL" );
+            }
+            if ( ! in_array( 'secondary_account_holder', $columns, true ) ) {
+                $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_account_holder` VARCHAR(120) NULL" );
+            }
+            if ( ! in_array( 'secondary_account_number', $columns, true ) ) {
+                $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `secondary_account_number` VARCHAR(20) NULL" );
+            }
         }
 
         $wpdb->update(
