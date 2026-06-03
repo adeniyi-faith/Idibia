@@ -62,6 +62,7 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
         }
 
         $path = 'idibia-avatars/customer-' . $customer_id . '/' . $filename;
+        $avatar_url = wp_make_link_relative( trailingslashit( $upload['baseurl'] ) . $path ) ?: ( trailingslashit( $upload['baseurl'] ) . $path );
 
         global $wpdb;
         $wpdb->update(
@@ -72,7 +73,7 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
             [ '%d' ]
         );
 
-        wp_send_json_success( [ 'message' => 'Avatar updated successfully.', 'avatar_path' => $path ] );
+        wp_send_json_success( [ 'message' => 'Avatar updated successfully.', 'avatar_path' => $path, 'avatar_url' => $avatar_url ] );
     }
 
     $full_name = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );

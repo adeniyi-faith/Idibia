@@ -27,7 +27,15 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $current_user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
 
     $upload_dir = wp_upload_dir();
-    $upload_baseurl = wp_make_link_relative( rtrim( $upload_dir['baseurl'], '/' ) );
+    $_upload_base = rtrim( $upload_dir['baseurl'], '/' );
+    $driver_avatar_path = $driver_row['avatar_path'] ?? '';
+    $driver_selfie_path = $driver_row['selfie_path'] ?? '';
+    $driver_avatar_url = $driver_avatar_path
+        ? ( wp_make_link_relative( $_upload_base . '/' . $driver_avatar_path ) ?: ( $_upload_base . '/' . $driver_avatar_path ) )
+        : '';
+    $driver_selfie_url = $driver_selfie_path
+        ? ( wp_make_link_relative( $_upload_base . '/' . $driver_selfie_path ) ?: ( $_upload_base . '/' . $driver_selfie_path ) )
+        : '';
     $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
     $email_verified = ! empty( $driver_row['email_verified'] );
     $driver_nonces = [
@@ -125,9 +133,10 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'secondary_bank_details' => $driver_row['secondary_bank_details'] ?? '',
         'emergency_name' => $driver_row['emergency_name'] ?? '',
         'emergency_phone' => $driver_row['emergency_phone'] ?? '',
-        'selfie_path' => $driver_row['selfie_path'] ?? '',
-        'avatar_path' => $driver_row['avatar_path'] ?? '',
-        'upload_baseurl' => $upload_baseurl ?? '',
+        'selfie_path' => $driver_selfie_path,
+        'avatar_path' => $driver_avatar_path,
+        'avatar_url'  => $driver_avatar_url,
+        'selfie_url'  => $driver_selfie_url,
         'nonces'      => $driver_nonces,
     ];
 }

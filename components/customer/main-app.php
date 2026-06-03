@@ -231,8 +231,8 @@
           <div class="account-hero-bg"></div>
           <div class="avatar-wrap">
             <div class="avatar" style="position: relative;">
-              <?php if ( ! empty( $customer_avatar_path ) ) : ?>
-                <img src="<?php echo esc_url( strpos($customer_avatar_path, 'http') === 0 ? $customer_avatar_path : ( $upload_baseurl ? $upload_baseurl . '/' . $customer_avatar_path : '/' . $customer_avatar_path ) ); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+              <?php if ( ! empty( $customer_avatar_url ) ) : ?>
+                <img src="<?php echo esc_url( $customer_avatar_url ); ?>" alt="Avatar" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
               <?php else : ?>
                 <?php echo esc_html($customer_initials); ?>
               <?php endif; ?>

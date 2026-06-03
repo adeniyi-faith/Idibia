@@ -813,9 +813,8 @@ function renderDriverProfile() {
 
     if (dashHomeName) dashHomeName.textContent = ctx.full_name;
 
-    const avatarToUse = ctx.avatar_path || ctx.selfie_path;
-    const baseUploadUrl = window.driverInitialContext.upload_baseurl || '';
-    const fullAvatarUrl = (avatarToUse && avatarToUse.startsWith('http')) ? avatarToUse : (baseUploadUrl ? `${baseUploadUrl}/${avatarToUse}` : `/${avatarToUse}`);
+    const fullAvatarUrl = ctx.avatar_url || ctx.selfie_url || '';
+    const avatarToUse = fullAvatarUrl;
 
     if (avatarToUse) {
         if (imgDisplay) {
@@ -974,8 +973,9 @@ async function uploadDriverAvatar(event) {
         const json = await parseDriverJson(response);
         if (json.success) {
             showToast('Profile picture updated.');
-            if (json.data?.avatar_path) {
-                window.driverInitialContext.avatar_path = json.data.avatar_path;
+            if (json.data?.avatar_url || json.data?.avatar_path) {
+                window.driverInitialContext.avatar_url = json.data.avatar_url || '';
+                window.driverInitialContext.avatar_path = json.data.avatar_path || '';
                 renderDriverProfile();
             }
         } else {

@@ -1459,8 +1459,9 @@ async function uploadCustomerAvatar(event) {
         const json = await response.json();
         if (json.success) {
             showToast('Profile picture updated.');
-            if (json.data?.avatar_path) {
-                window.idibiaCustomerAvatar = json.data.avatar_path;
+            const newAvatarUrl = json.data?.avatar_url || '';
+            if (newAvatarUrl) {
+                window.idibiaCustomerAvatarUrl = newAvatarUrl;
                 // Update DOM directly since customer doesn't have a renderProfile function
                 const avatarWrap = document.querySelector('.avatar');
                 if (avatarWrap) {
@@ -1488,7 +1489,7 @@ async function uploadCustomerAvatar(event) {
                             avatarWrap.appendChild(img);
                         }
                     }
-                    img.src = json.data.avatar_path.startsWith('http') ? json.data.avatar_path : ((window.idibiaUploadBaseUrl ? window.idibiaUploadBaseUrl + '/' : '/') + json.data.avatar_path);
+                    img.src = newAvatarUrl;
                 }
             }
         } else {
