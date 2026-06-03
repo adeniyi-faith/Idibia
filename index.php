@@ -149,10 +149,10 @@ a { color: inherit; }
 .brand-feat-icon { width: 38px; height: 38px; border-radius: 11px; background: rgba(245,200,66,0.1); display: flex; align-items: center; justify-content: center; color: var(--gold); flex-shrink: 0; border: 1px solid rgba(245,200,66,0.15); }
 .brand-feat span { font-size: 14px; color: var(--slate-light); font-weight: 400; }
 .brand-copy { font-size: 12px; color: var(--slate); margin-top: 28px; }
-.auth-form-panel { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: max(32px, env(safe-area-inset-top)) 24px; overflow-y: auto; background: var(--surface); -webkit-overflow-scrolling: touch; }
+.auth-form-panel { flex: 1; display: flex; flex-direction: column; padding: max(32px, env(safe-area-inset-top)) 24px max(32px, env(safe-area-inset-bottom)); overflow-y: auto; background: var(--surface); -webkit-overflow-scrolling: touch; }
 .auth-mobile-logo { display: flex; align-items: center; gap: 10px; font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: var(--navy); margin-bottom: 36px; }
 @media(min-width:768px){.auth-mobile-logo{display:none;}}
-.auth-inner { max-width: 420px; width: 100%; margin: 0 auto; }
+.auth-inner { max-width: 420px; width: 100%; margin: auto; }
 .auth-title { font-size: 28px; color: var(--text-primary); margin-bottom: 6px; }
 .auth-sub { font-size: 15px; color: var(--text-secondary); margin-bottom: 32px; }
 .form-group { margin-bottom: 18px; }
@@ -915,6 +915,7 @@ function otpNext(el, idx) {
 function switchAuth(login) {
   document.getElementById('loginView').style.display = login ? '' : 'none';
   document.getElementById('registerView').style.display = login ? 'none' : '';
+  document.querySelector('.auth-form-panel').scrollTop = 0;
 }
 
 function enterCustomerApp(message = 'Welcome back 👋', redirect = 'dashboard.php') {
