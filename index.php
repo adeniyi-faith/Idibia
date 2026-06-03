@@ -1183,7 +1183,10 @@ async function doRegister(event) {
     const json = await idibiaPost( 'register-handler.php', body );
 
     if ( json.success ) {
-      enterCustomerApp( json.data?.first_name ? `Welcome, ${json.data.first_name}! 🎉` : 'Account created successfully.', json.data?.redirect );
+      goTo('screen-otp');
+      const otpHelp = document.getElementById('otpEmailDisplay');
+      if (otpHelp) otpHelp.textContent = `We sent a 5-digit code to ${email}.`;
+      showToast(json.data?.message || 'Check your email for the verification code.');
     } else {
       errorText.textContent = json.data?.message || 'Registration failed. Please try again.';
       errorBox.classList.add('show');
