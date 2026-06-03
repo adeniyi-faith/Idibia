@@ -30,7 +30,7 @@ if (count($name_parts) >= 2) {
 if (!$customer_initials) $customer_initials = 'CU';
 
 $upload_dir = wp_upload_dir();
-$upload_baseurl = '/wp/wp-content/uploads';
+$upload_baseurl = wp_make_link_relative( rtrim( $upload_dir['baseurl'], '/' ) );
 
 $saved_addresses_count = 0;
 if (!empty($customer_row['saved_addresses'])) {
