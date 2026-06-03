@@ -10,6 +10,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           Home
         </button>
+        <button class="sidebar-btn" onclick="switchTab('map',this,'map')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Map
+        </button>
         <button class="sidebar-btn" onclick="switchTab('activity',this,'activity')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           Activity
@@ -88,8 +92,21 @@
               </button>
             </div>
 
+            <!-- Options toggle (collapsed by default) -->
+            <div class="options-toggle" onclick="toggleBookingOptions()" id="optionsToggle">
+              <div style="display:flex;align-items:center;gap:9px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" style="color:var(--text-muted);flex-shrink:0"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                <span id="optionsLabel">Package · Same Day</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--gold-dark);font-weight:700;">
+                Options
+                <svg id="optionsChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" style="transition:transform 0.25s"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
+            <div id="bookingOptions" style="display:none;">
+
             <!-- Category Selection with fade hint -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-shrink:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-shrink:0; margin-top:14px;">
               <p class="section-label" style="margin-bottom:0;">What are you sending?</p>
               <span class="swipe-hint">Swipe <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="10" height="10"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
             </div>
@@ -190,6 +207,8 @@
                 <div class="toggle-wrap"><div class="toggle-knob"></div></div>
               </div>
             </div>
+
+            </div><!-- /bookingOptions -->
           </div>
           <div class="panel-footer">
             <button class="find-btn" onclick="requestQuote()">
@@ -364,12 +383,35 @@
     </div>
   </div>
 
+    <!-- MAP TAB -->
+    <div class="tab-view" id="tab-map">
+      <div style="position:relative;flex:1;overflow:hidden;min-height:0;">
+        <div id="explore-map-container" style="position:absolute;inset:0;z-index:1;"></div>
+        <div class="map-float" style="z-index:1000;">
+          <button class="map-btn" onclick="centerExploreMap()" title="My location">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          </button>
+        </div>
+        <div style="position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1000;">
+          <button onclick="switchTab('home',null,'home')" class="explore-book-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Book a Delivery
+          </button>
+        </div>
+      </div>
+    </div>
+
   <!-- Bottom Nav -->
   <nav class="bottom-nav">
     <button class="bnav-btn active" id="bnav-home" onclick="switchTab('home',null,'home')">
       <div class="bnav-indicator"></div>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Home
+    </button>
+    <button class="bnav-btn" id="bnav-map" onclick="switchTab('map',null,'map')">
+      <div class="bnav-indicator"></div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Map
     </button>
     <button class="bnav-btn" id="bnav-activity" onclick="switchTab('activity',null,'activity')">
       <div class="bnav-indicator"></div>

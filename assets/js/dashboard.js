@@ -260,7 +260,6 @@ function switchTab(name, sideBtn, bnavId) {
   document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
   if (sideBtn) sideBtn.classList.add('active');
   else {
-    // Find matching sidebar btn
     document.querySelectorAll('.sidebar-btn').forEach(b => {
       if (b.textContent.trim().toLowerCase().includes(name)) b.classList.add('active');
     });
@@ -270,6 +269,61 @@ function switchTab(name, sideBtn, bnavId) {
   const id = bnavId || name;
   const bnav = document.getElementById('bnav-' + id);
   if (bnav) bnav.classList.add('active');
+
+  if (name === 'home' && currentMap) {
+    setTimeout(() => currentMap.invalidateSize(), 50);
+  }
+  if (name === 'map') {
+    setTimeout(() => initOrShowExploreMap(), 50);
+  }
+}
+
+// ═══════════ EXPLORE MAP (MAP TAB) ═══════════
+let exploreMap = null;
+
+function initOrShowExploreMap() {
+  const el = document.getElementById('explore-map-container');
+  if (!el) return;
+  if (!window.L) { setTimeout(() => initOrShowExploreMap(), 800); return; }
+  if (exploreMap) { exploreMap.invalidateSize(); return; }
+  exploreMap = L.map('explore-map-container', { zoomControl: true }).setView([6.5244, 3.3792], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(exploreMap);
+  setTimeout(() => exploreMap && exploreMap.invalidateSize(), 150);
+  setTimeout(() => exploreMap && exploreMap.invalidateSize(), 700);
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      if (exploreMap) exploreMap.setView([pos.coords.latitude, pos.coords.longitude], 14);
+    }, () => {});
+  }
+}
+
+function centerExploreMap() {
+  if (!navigator.geolocation) { showToast('Location not available'); return; }
+  showToast('Locating you...');
+  navigator.geolocation.getCurrentPosition(pos => {
+    if (exploreMap) exploreMap.setView([pos.coords.latitude, pos.coords.longitude], 15);
+  }, () => showToast('Could not get location'));
+}
+
+// ═══════════ BOOKING OPTIONS TOGGLE ═══════════
+function toggleBookingOptions() {
+  const panel = document.getElementById('bookingOptions');
+  const chevron = document.getElementById('optionsChevron');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function updateOptionsLabel() {
+  const label = document.getElementById('optionsLabel');
+  if (!label) return;
+  const activeService = document.querySelector('.service-flag.active .sf-title');
+  const serviceName = activeService ? activeService.textContent : 'Standard';
+  label.textContent = selectedCategory + ' · ' + serviceName;
 }
 
 // ═══════════ HOME PANEL ═══════════
@@ -292,6 +346,7 @@ function selCat(el, name) {
   el.classList.add('active');
   selectedCategory = name;
   showToast(`"${name}" selected`);
+  updateOptionsLabel();
 }
 
 function toggleFlag(el) {
@@ -301,6 +356,7 @@ function toggleFlag(el) {
   const title = el.querySelector('.sf-title').textContent;
   const on = toggle.classList.contains('on');
   showToast(on ? `"${title}" enabled` : `"${title}" disabled`);
+  updateOptionsLabel();
 }
 
 function findRider() {
@@ -1271,7 +1327,7 @@ window.enterCustomerApp = function(msg) {
     if(origEnter) origEnter(msg);
     fetchRecentActivity();
     fetchSavedAddresses();
-    setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 300);
+    setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 500);
 };
 
 // ═══════════ LEAFLET MAP INTEGRATION ═══════════
@@ -1280,20 +1336,26 @@ let currentMarker = null;
 let currentRouteLayer = null;
 let currentReceiptUrl = null;
 
-function initLeafletMap(containerId, lat, lng, isTracking = false) {
+function initLeafletMap(containerId, lat, lng, isTracking = false, _retries = 6) {
   if (currentMap) {
     currentMap.remove();
     currentMap = null;
   }
 
   const el = document.getElementById(containerId);
-  if (!el || !window.L) return;
+  if (!el) return;
+  if (!window.L) {
+    if (_retries > 0) setTimeout(() => initLeafletMap(containerId, lat, lng, isTracking, _retries - 1), 800);
+    return;
+  }
 
   currentMap = L.map(containerId, { zoomControl: false }).setView([lat, lng], 14);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19
   }).addTo(currentMap);
+  setTimeout(() => currentMap && currentMap.invalidateSize(), 150);
+  setTimeout(() => currentMap && currentMap.invalidateSize(), 700);
 
   const iconHtml = `<div class="rider-avatar" style="width: 32px; height: 32px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);"><div class="rider-online"></div></div>`;
   const icon = L.divIcon({ html: iconHtml, className: 'leaflet-custom-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
