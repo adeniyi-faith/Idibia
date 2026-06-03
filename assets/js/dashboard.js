@@ -103,6 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(start).classList.add('active');
   buildDateGrid();
+  setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 500);
   // Trip progress is driven by trip-feed-api.php and driver actions; no demo countdown runs in production.
 });
 
@@ -274,7 +275,7 @@ function switchTab(name, sideBtn, bnavId) {
     setTimeout(() => currentMap.invalidateSize(), 50);
   }
   if (name === 'map') {
-    setTimeout(() => initOrShowExploreMap(), 50);
+    requestAnimationFrame(() => requestAnimationFrame(() => initOrShowExploreMap()));
   }
 }
 
@@ -285,7 +286,20 @@ function initOrShowExploreMap() {
   const el = document.getElementById('explore-map-container');
   if (!el) return;
   if (!window.L) { setTimeout(() => initOrShowExploreMap(), 800); return; }
-  if (exploreMap) { exploreMap.invalidateSize(); return; }
+  if (exploreMap) {
+    exploreMap.invalidateSize();
+    setTimeout(() => {
+      if (exploreMap) {
+        exploreMap.invalidateSize();
+        exploreMap.setView(exploreMap.getCenter(), exploreMap.getZoom(), { animate: false });
+      }
+    }, 200);
+    return;
+  }
+  if (!el.offsetWidth || !el.offsetHeight) {
+    setTimeout(() => initOrShowExploreMap(), 100);
+    return;
+  }
   exploreMap = L.map('explore-map-container', { zoomControl: true }).setView([6.5244, 3.3792], 13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
@@ -1346,6 +1360,10 @@ function initLeafletMap(containerId, lat, lng, isTracking = false, _retries = 6)
   if (!el) return;
   if (!window.L) {
     if (_retries > 0) setTimeout(() => initLeafletMap(containerId, lat, lng, isTracking, _retries - 1), 800);
+    return;
+  }
+  if (!el.offsetWidth || !el.offsetHeight) {
+    if (_retries > 0) setTimeout(() => initLeafletMap(containerId, lat, lng, isTracking, _retries - 1), 200);
     return;
   }
 
