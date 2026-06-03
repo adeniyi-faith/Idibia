@@ -515,6 +515,7 @@ async function toggleOnline() {
     toggle.classList.toggle('offline', !isOnline);
     document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
     showToast(isOnline ? '✓ You are now online' : 'You are now offline');
+    if (isOnline) startLocationWatch(); else stopLocationWatch();
     subscribeToDriverRealtime();
     fetchDriverOffers();
   } catch (err) {
@@ -532,10 +533,19 @@ async function fetchDriverOffers() {
     const body = new FormData();
     body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
 
-    // Attempt to get real location if browser supports it; never send a fake GPS location.
-    if (navigator.geolocation) {
+    if (latestDriverCoords) {
+      // watchPosition already has a fresh position — use it directly.
+      body.append('lat', latestDriverCoords.latitude);
+      body.append('lng', latestDriverCoords.longitude);
+      body.append('heading', latestDriverCoords.heading || 0);
+      const response = await fetch('/driver-heartbeat-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+      const json = await parseDriverJson(response);
+      if (json.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
+    } else if (navigator.geolocation) {
+      // watchPosition hasn't fired yet — fall back to a one-shot request.
       navigator.geolocation.getCurrentPosition(
         async (position) => {
+          latestDriverCoords = position.coords;
           body.append('lat', position.coords.latitude);
           body.append('lng', position.coords.longitude);
           body.append('heading', position.coords.heading || 0);
@@ -544,7 +554,7 @@ async function fetchDriverOffers() {
           const json = await parseDriverJson(response);
           if (json.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
         },
-        async (err) => {
+        async () => {
           showToast('Location permission is needed for nearby dispatch. Turn it on to receive distance-based offers.');
           const response = await fetch('/driver-heartbeat-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
           const json = await parseDriverJson(response);
@@ -1068,6 +1078,7 @@ if (driverInitialContext.logged_in) {
   } else {
     goToDashboard();
     subscribeToDriverRealtime();
+    startLocationWatch();
     fetchDriverOffers();
     setInterval(fetchDriverOffers, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 15000);
   }
@@ -1099,6 +1110,49 @@ renderDriverProfile();
 let currentMap = null;
 let currentMarker = null;
 
+let driverWatchId = null;
+let latestDriverCoords = null;
+let _lastLocationPingTs = 0;
+
+function startLocationWatch() {
+  if (!navigator.geolocation || driverWatchId !== null) return;
+  driverWatchId = navigator.geolocation.watchPosition(
+    (position) => {
+      latestDriverCoords = position.coords;
+      updateMapLocation(position.coords.latitude, position.coords.longitude);
+      // Throttle server pings to once every 8 s so we don't flood the heartbeat API.
+      const now = Date.now();
+      if (now - _lastLocationPingTs > 8000) {
+        _lastLocationPingTs = now;
+        _sendLocationPing(position.coords.latitude, position.coords.longitude, position.coords.heading || 0);
+      }
+    },
+    () => { /* silent — fetchDriverOffers toasts on permission denial */ },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function stopLocationWatch() {
+  if (driverWatchId !== null) {
+    navigator.geolocation.clearWatch(driverWatchId);
+    driverWatchId = null;
+  }
+  latestDriverCoords = null;
+}
+
+async function _sendLocationPing(lat, lng, heading) {
+  const body = new FormData();
+  body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
+  body.append('lat', lat);
+  body.append('lng', lng);
+  body.append('heading', heading);
+  try {
+    const res = await fetch('/driver-heartbeat-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const json = await res.json().catch(() => null);
+    if (json?.success) renderDriverOffers(json.data?.offers || [], json.data?.active_trip || null);
+  } catch (e) { /* silent */ }
+}
+
 function initLeafletMap(containerId, lat, lng) {
   if (currentMap) {
     currentMap.remove();
@@ -1128,13 +1182,30 @@ function updateMapLocation(lat, lng) {
 }
 
 let currentRouteLayer = null;
-function drawRouteOnMap(routeCoordinates) {
-    if (!currentMap) return;
+async function drawRouteOnMap(routeCoordinates) {
+    if (!currentMap || !routeCoordinates || routeCoordinates.length < 2) return;
     if (currentRouteLayer) {
         currentMap.removeLayer(currentRouteLayer);
+        currentRouteLayer = null;
     }
 
-    currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
+    const [from, to] = routeCoordinates;
+    try {
+        // OSRM uses lng,lat order (opposite of Leaflet's lat,lng).
+        const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates?.length) {
+                const coords = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+                currentRouteLayer = L.polyline(coords, { color: 'var(--navy)', weight: 5, opacity: 0.7 }).addTo(currentMap);
+                currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
+                return;
+            }
+        }
+    } catch (e) { /* fall through to straight-line fallback */ }
+
+    currentRouteLayer = L.polyline(routeCoordinates, { color: 'var(--navy)', weight: 5, opacity: 0.7 }).addTo(currentMap);
     currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
 }
 

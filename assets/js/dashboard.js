@@ -767,8 +767,16 @@ function updateTrackingUI(trip) {
       updateMapLocation(trip.driver.location.lat, trip.driver.location.lng);
   }
 
-  if (trip.pickup_location && trip.dropoff_location) {
-     drawRouteOnMap([[trip.pickup_location.lat, trip.pickup_location.lng], [trip.dropoff_location.lat, trip.dropoff_location.lng]]);
+  // Draw the relevant road segment based on where the driver is in the trip.
+  const driverLoc = trip.driver?.location;
+  const enRoute = ['accepted', 'arriving', 'arrived_pickup'].includes(trip.dispatch_status);
+  const inTransit = ['picked_up', 'arrived_dropoff'].includes(trip.dispatch_status);
+  if (driverLoc && enRoute && trip.pickup_location?.lat != null) {
+    drawRouteOnMap([[driverLoc.lat, driverLoc.lng], [trip.pickup_location.lat, trip.pickup_location.lng]]);
+  } else if (driverLoc && inTransit && trip.dropoff_location?.lat != null) {
+    drawRouteOnMap([[driverLoc.lat, driverLoc.lng], [trip.dropoff_location.lat, trip.dropoff_location.lng]]);
+  } else if (trip.pickup_location?.lat != null && trip.dropoff_location?.lat != null) {
+    drawRouteOnMap([[trip.pickup_location.lat, trip.pickup_location.lng], [trip.dropoff_location.lat, trip.dropoff_location.lng]]);
   }
 
   const etaMinutes = document.getElementById('etaMinutes');
@@ -1316,13 +1324,30 @@ function updateMapLocation(lat, lng) {
   }
 }
 
-function drawRouteOnMap(routeCoordinates) {
-    if (!currentMap) return;
+async function drawRouteOnMap(routeCoordinates) {
+    if (!currentMap || !routeCoordinates || routeCoordinates.length < 2) return;
     if (currentRouteLayer) {
         currentMap.removeLayer(currentRouteLayer);
+        currentRouteLayer = null;
     }
 
-    currentRouteLayer = L.polyline(routeCoordinates, {color: 'var(--navy)', weight: 5, opacity: 0.7}).addTo(currentMap);
+    const [from, to] = routeCoordinates;
+    try {
+        // OSRM uses lng,lat order (opposite of Leaflet's lat,lng).
+        const url = `https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            if (data.code === 'Ok' && data.routes?.[0]?.geometry?.coordinates?.length) {
+                const coords = data.routes[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+                currentRouteLayer = L.polyline(coords, { color: 'var(--navy)', weight: 5, opacity: 0.7 }).addTo(currentMap);
+                currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
+                return;
+            }
+        }
+    } catch (e) { /* fall through to straight-line fallback */ }
+
+    currentRouteLayer = L.polyline(routeCoordinates, { color: 'var(--navy)', weight: 5, opacity: 0.7 }).addTo(currentMap);
     currentMap.fitBounds(currentRouteLayer.getBounds(), { padding: [50, 50] });
 }
 
