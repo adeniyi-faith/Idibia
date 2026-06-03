@@ -20,7 +20,7 @@ function idibia_geocode_address( string $address ) {
 
     $base_url = function_exists('idibia_get_setting') ? idibia_get_setting('nominatim_url', IDIBIA_NOMINATIM_URL) : IDIBIA_NOMINATIM_URL;
     $url = add_query_arg( [
-        'q'      => urlencode( $address ),
+        'q'      => $address,
         'format' => 'json',
         'limit'  => 1
     ], $base_url );
