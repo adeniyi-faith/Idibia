@@ -29,6 +29,7 @@
   --radius-lg: 24px;
   --radius-xl: 32px;
   --sidebar: 72px;
+  --primary: #333333;
   --shadow-sm: 0 2px 8px rgba(11,22,40,0.08);
   --shadow-md: 0 4px 20px rgba(11,22,40,0.12);
   --shadow-lg: 0 8px 40px rgba(11,22,40,0.16);
@@ -43,7 +44,7 @@ button { font-family: 'DM Sans', sans-serif; user-select: none; }
 input, textarea, select { font-family: 'DM Sans', sans-serif; }
 svg { display: block; flex-shrink: 0; }
 a { color: inherit; }
-#app { width: 100%; height: 100%; height: 100dvh; position: relative; overflow: hidden; }
+#app { width: 100%; height: 100%; height: 100dvh; min-height: 100dvh; position: relative; overflow: hidden; }
 
 /* ═══════════════════════ SCREEN ROUTING ═══════════════════════ */
 .screen {
@@ -231,7 +232,7 @@ a { color: inherit; }
 
 /* Location box */
 .location-box { background:var(--surface); border-radius:var(--radius); padding:6px; margin-bottom:18px; position:relative; border:1px solid var(--surface-2); }
-.loc-row { display:flex; align-items:center; gap:10px; padding:8px 10px; }
+.loc-row { display:flex; align-items:center; gap:10px; padding:8px 52px 8px 10px; }
 .loc-dot { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .loc-dot.pickup { background:var(--info-soft); }
 .loc-dot.dropoff { background:rgba(245,200,66,0.12); }
@@ -388,7 +389,7 @@ a { color: inherit; }
 .explore-book-btn:active { transform:scale(0.97); }
 
 /* ═══════════════════════ BOTTOM NAV ═══════════════════════ */
-.bottom-nav { display:flex; background:var(--white); border-top:1px solid var(--surface-2); padding:6px 0; padding-bottom:max(8px, env(safe-area-inset-bottom)); flex-shrink:0; z-index:20; box-shadow:0 -4px 20px rgba(11,22,40,0.06); }
+.bottom-nav { display:flex; background:var(--white); border-top:1px solid var(--surface-2); padding:6px 0; padding-bottom:max(8px, env(safe-area-inset-bottom)); flex-shrink:0; z-index:999; box-shadow:0 -4px 20px rgba(11,22,40,0.06); position:relative; }
 @media(min-width:768px){.bottom-nav{display:none;}}
 .bnav-btn { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; background:none; border:none; cursor:pointer; padding:6px 4px; font-size:10px; font-weight:600; color:var(--text-muted); transition:color 0.2s; position:relative; user-select: none; }
 .bnav-btn svg { width:22px; height:22px; transition:transform 0.2s; }
@@ -523,3 +524,29 @@ a { color: inherit; }
 .section-divider { height:1px; background:var(--surface-2); margin:20px 0; }
 /* Rider dot on map */
 .rider-dot { width:38px; height:38px; background:var(--white); border-radius:50%; border:3px solid var(--success); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-md); }
+
+/* ═══════════════════════ MOBILE LAYOUT FIXES ═══════════════════════ */
+@media(max-width: 767px) {
+  /* Fix 1 — Remove ghost map container so booking panel anchors to top */
+  #home-map-container { display: none; }
+
+  /* Booking panel fills the full viewport height (minus bottom nav) */
+  .booking-panel {
+    max-height: none;
+    flex: 1;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* Fix 2 — Belt-and-suspenders: sidebar must never appear on mobile */
+  .sidebar { display: none !important; }
+
+  /* Fix 3 — Scrollable content: respect notch at top, give breathing room at bottom */
+  .panel-scroll {
+    padding-top: max(14px, env(safe-area-inset-top));
+    padding-bottom: 88px;
+  }
+
+  /* Fix 4 — Swap icon gets its own clear column; no longer overlaps inputs */
+  /* (padding-right on .loc-row is already applied globally above) */
+}
