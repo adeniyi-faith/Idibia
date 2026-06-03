@@ -17,8 +17,6 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     header( 'Location: dashboard.php' );
     exit;
 }
-$register_nonce = wp_create_nonce( 'idibia_register' );
-$verify_nonce   = wp_create_nonce( 'idibia_verify' );
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
@@ -720,8 +718,6 @@ a { color: inherit; }
           <input type="checkbox" id="termsCheck" name="terms" value="1" checked required>
           <label for="termsCheck">I agree to Idibia's <a href="#">Terms of Service</a>, <a href="#">Privacy Policy</a>, and <a href="#">Location Data Policy</a></label>
         </div>
-        <!-- Hidden nonce — PHP outputs this value -->
-        <input type="hidden" id="regNonce" name="_nonce" value="<?php echo esc_attr( $register_nonce ?? '' ); ?>">
         <button type="submit" class="btn-primary" style="margin-top:18px" id="regBtn">
           Create Account &amp; Verify
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
@@ -783,7 +779,6 @@ let selectedCategory = 'Package';
 let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
-const IDIBIA_VERIFY_NONCE = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
 
 async function idibiaPost(endpoint, body = null) {
   const res = await fetch(`${IDIBIA_API_BASE}/${endpoint}`, {
@@ -1159,7 +1154,6 @@ async function doRegister(event) {
   const email     = document.getElementById('regEmail').value.trim();
   const password  = document.getElementById('regPassword').value;
   const terms     = document.getElementById('termsCheck').checked;
-  const nonce     = document.getElementById('regNonce').value;
 
   errorBox.classList.remove('show');
 
@@ -1174,7 +1168,6 @@ async function doRegister(event) {
 
   try {
     const body = new FormData();
-    body.append( '_nonce',    nonce );
     body.append( 'full_name', full_name );
     body.append( 'phone',     phone );
     body.append( 'email',     email );
@@ -1206,7 +1199,6 @@ async function resendCode() {
   showToast( 'Sending a new code\u2026' );
   try {
     const body = new FormData();
-    body.append( '_nonce', IDIBIA_VERIFY_NONCE );
 
     const json = await idibiaPost( 'resend-code.php', body );
     if ( json.success ) {
@@ -1241,7 +1233,6 @@ async function doVerify() {
 
   try {
     const body = new FormData();
-    body.append( '_nonce', IDIBIA_VERIFY_NONCE );
     body.append( 'code', code );
 
     const json = await idibiaPost( 'verify-handler.php', body );

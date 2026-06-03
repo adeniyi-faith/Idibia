@@ -30,17 +30,6 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $upload_baseurl = rtrim( $upload_dir['baseurl'], '/' );
     $status     = $driver_row['status'] ?? ( get_user_meta( $current_user->ID, 'idibia_account_status', true ) ?: 'pending' );
     $email_verified = ! empty( $driver_row['email_verified'] );
-    $driver_nonces = [
-        'logout' => wp_create_nonce( 'idibia_logout' ),
-        'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
-        'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
-        'support_action' => wp_create_nonce( 'idibia_support_action' ),
-        'driver_profile_update' => wp_create_nonce( 'idibia_driver_profile_update' ),
-    ];
-    if ( $email_verified ) {
-        $driver_nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
-    }
-
     // Dashboard Statistics
     $today_start = gmdate('Y-m-d 00:00:00');
     $today_end = gmdate('Y-m-d 23:59:59');
@@ -128,7 +117,6 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'selfie_path' => $driver_row['selfie_path'] ?? '',
         'avatar_path' => $driver_row['avatar_path'] ?? '',
         'upload_baseurl' => $upload_baseurl ?? '',
-        'nonces'      => $driver_nonces,
     ];
 }
 

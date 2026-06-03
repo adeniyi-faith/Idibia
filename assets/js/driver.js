@@ -12,8 +12,7 @@ function initDriverPusher() {
     cluster: IDIBIA_PUSHER_CONFIG.cluster,
     channelAuthorization: {
       endpoint: IDIBIA_PUSHER_CONFIG.authEndpoint,
-      transport: 'ajax',
-      params: { _nonce: IDIBIA_PUSHER_CONFIG.authNonce }
+      transport: 'ajax'
     }
   });
   return idibiaDriverPusher;
@@ -272,12 +271,11 @@ async function resendDriverVerifyCode() {
 }
 
 async function submitDriverKyc() {
-  if (!driverInitialContext.email_verified || !driverInitialContext.nonces?.driver_kyc) {
+  if (!driverInitialContext.email_verified) {
     showToast('Please verify your email before submitting KYC.');
     return false;
   }
   const body = new FormData();
-  body.append('_nonce', driverInitialContext.nonces?.driver_kyc || '');
   body.append('vehicle_type', getSelectedValue('vg1', 'bike'));
   body.append('vehicle_year', document.getElementById('driverVehicleYear').value.trim());
   body.append('vehicle_model', document.getElementById('driverVehicleManufacturer').value.trim());
@@ -493,7 +491,6 @@ async function toggleOnline() {
   const requestedState = !isOnline;
   const body = new FormData();
   body.append('online', requestedState ? '1' : '0');
-  body.append('_nonce', driverInitialContext.nonces?.toggle_online || '');
 
   try {
     const response = await fetch('/driver-toggle-online.php', {
@@ -530,7 +527,6 @@ async function fetchDriverOffers() {
   }
   try {
     const body = new FormData();
-    body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
 
     // Attempt to get real location if browser supports it; never send a fake GPS location.
     if (navigator.geolocation) {
@@ -672,7 +668,6 @@ async function driverSupportRequest(tripId, category = 'driver_support') {
   body.append('trip_id', tripId);
   body.append('category', category);
   body.append('message', message.trim());
-  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
   try {
     const response = await fetch('/support-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
     const json = await parseDriverJson(response);
@@ -719,7 +714,6 @@ async function submitSosReport() {
   body.append('category', category);
   body.append('severity', severity);
   body.append('message', message);
-  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
 
   try {
     const response = await fetch('/support-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
@@ -746,7 +740,6 @@ async function submitDriverCustomerRating(tripId) {
   body.append('trip_id', tripId);
   body.append('rating', numeric);
   body.append('comment', comment.trim());
-  body.append('_nonce', driverInitialContext.nonces?.support_action || '');
   try {
     const response = await fetch('/rating-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
     const json = await parseDriverJson(response);
@@ -760,7 +753,6 @@ async function driverOfferAction(action, offerId) {
   const body = new FormData();
   body.append('action', action);
   body.append('offer_id', offerId);
-  body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
   await sendDriverTripAction(body);
 }
 
@@ -773,7 +765,6 @@ async function driverTripAction(action, tripId) {
     if (!pin) return;
     body.append('delivery_pin', pin.trim());
   }
-  body.append('_nonce', driverInitialContext.nonces?.driver_action || '');
   await sendDriverTripAction(body);
 }
 
@@ -933,7 +924,6 @@ async function submitProfileForm(event, action) {
     const form = event.target;
     const formData = new FormData(form);
     formData.append('action', action);
-    formData.append('_nonce', window.driverInitialContext.nonces?.driver_profile_update || '');
 
     const btn = form.querySelector('button[type="submit"]');
     const originalText = btn.innerHTML;
@@ -947,7 +937,7 @@ async function submitProfileForm(event, action) {
             showToast(json.data?.message || 'Profile updated.');
             // Update context
             for (let [key, value] of formData.entries()) {
-                if (key !== 'action' && key !== '_nonce') {
+                if (key !== 'action') {
                     window.driverInitialContext[key] = value;
                 }
             }
@@ -973,7 +963,6 @@ async function uploadDriverAvatar(event) {
     const formData = new FormData();
     formData.append('action', 'upload_avatar');
     formData.append('selfie', file);
-    formData.append('_nonce', window.driverInitialContext.nonces?.driver_profile_update || '');
 
     showToast('Uploading profile picture...');
     try {
@@ -1503,7 +1492,6 @@ async function doDriverLogout() {
   if (btn) btn.textContent = 'Logging out...';
   try {
     const body = new FormData();
-    body.append("_nonce", window.driverInitialContext.nonces?.logout || "");
     await fetch("driver-logout-handler.php", { method: "POST", body });
     window.location.href = window.idibiaLogoutUrl || "/";
   } catch (err) {

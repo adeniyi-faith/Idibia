@@ -15,12 +15,6 @@ if ( $_SERVER['REQUEST_METHOD'] === 'GET' ) {
 }
 
 if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
-    $nonce = isset( $_POST['_nonce'] ) ? sanitize_text_field( $_POST['_nonce'] ) : '';
-    if ( ! wp_verify_nonce( $nonce, 'idibia_driver_profile_update' ) ) {
-        http_response_code( 403 );
-        wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
-    }
-
     global $wpdb;
     $driver_id = $GLOBALS['auth_driver_id'];
     $user_id = get_current_user_id();

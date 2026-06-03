@@ -48,17 +48,6 @@ $driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_onl
 $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
 $status     = $driver_row['status'] ?? ( get_user_meta( $user->ID, 'idibia_account_status', true ) ?: 'pending' );
 $email_verified = ! empty( $driver_row['email_verified'] );
-$nonces = [
-    'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
-    'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
-    'support_action' => wp_create_nonce( 'idibia_support_action' ),
-    'driver_profile_update' => wp_create_nonce( 'idibia_driver_profile_update' ),
-    'logout' => wp_create_nonce( 'idibia_logout' ),
-];
-if ( $email_verified ) {
-    $nonces['driver_kyc'] = wp_create_nonce( 'idibia_driver_kyc' );
-}
-
 wp_send_json_success( [
     'redirect'    => '/driver.php',
     'first_name'  => idibia_first_name_from_user( $user ),
@@ -68,5 +57,4 @@ wp_send_json_success( [
     'is_approved' => $kyc_status === 'approved' && $status === 'active',
     'is_online'   => ! empty( $driver_row['is_online'] ),
     'email_verified' => $email_verified,
-    'nonces'      => $nonces,
 ] );

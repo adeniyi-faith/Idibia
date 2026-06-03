@@ -122,7 +122,6 @@ async function adminApi(action, params = {}, method = 'GET'){
   });
   if(method !== 'GET') {
     body.append('action', action);
-    body.append('_nonce', window.ADMIN_API_NONCE || '');
   }
   const response = await fetch(url.toString(), {
     method,
@@ -241,7 +240,6 @@ async function savePaymentSettings(){
       payload[el.getAttribute('data-setting')] = el.value;
     }
   });
-  payload['_nonce'] = window.ADMIN_API_NONCE || '';
   try {
     const response = await fetch(ADMIN_API_URL + '?action=save_settings', {
       method: 'POST',
@@ -670,7 +668,6 @@ async function adminLogout(btn){
   try{
     const body = new FormData();
     body.append('action','admin_logout');
-    body.append('_nonce', window.ADMIN_API_NONCE || '');
     const response = await fetch('/admin.php', { method:'POST', body, credentials:'same-origin', headers:{ 'Accept':'application/json' } });
     const data = await response.json();
     window.location.href = data.data?.redirect || '/admin.php';
@@ -709,7 +706,6 @@ async function loadAdminUsers() {
     try {
         const formData = new FormData();
         formData.append('action', 'list_admin_users');
-        formData.append('_nonce', ADMIN_API_NONCE);
 
         const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
         const json = await res.json();
@@ -770,7 +766,6 @@ async function loadRolesForDropdown() {
     try {
         const formData = new FormData();
         formData.append('action', 'get_roles');
-        formData.append('_nonce', ADMIN_API_NONCE);
 
         const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
         const json = await res.json();
@@ -836,7 +831,7 @@ let myPermissions = null;
 async function loadMyPermissions() {
     if (myPermissions) return; // already loaded
     try {
-        const res = await fetch(ADMIN_API_URL + '?action=get_my_permissions&_nonce=' + ADMIN_API_NONCE);
+        const res = await fetch(ADMIN_API_URL + '?action=get_my_permissions');
         const json = await res.json();
         if (json.success) {
             myPermissions = json.data;
@@ -963,7 +958,6 @@ async function saveAdminUser(e) {
 
     const payload = {
         action: action,
-        _nonce: ADMIN_API_NONCE,
         id: id,
         full_name: document.getElementById('adminUserFullName').value,
         email: document.getElementById('adminUserEmail').value,
@@ -1004,7 +998,6 @@ async function toggleAdminUserStatus(id, currentStatus) {
     try {
         const payload = {
             action: 'suspend_admin_user',
-            _nonce: ADMIN_API_NONCE,
             id: id,
             action_type: currentStatus === 'active' ? 'suspend' : 'activate'
         };

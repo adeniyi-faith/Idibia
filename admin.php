@@ -166,7 +166,6 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 
 <script>
 let ADMIN_API_URL = "/admin/api.php";
-let ADMIN_API_NONCE = "<?php echo esc_js( wp_create_nonce( 'idibia_admin_action' ) ); ?>";
 </script>
 <script src="assets/js/admin.js"></script>
 </body>

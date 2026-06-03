@@ -27,21 +27,6 @@ if ( ! $admin_id && ( ! is_user_logged_in() || ! current_user_can( 'manage_optio
     wp_send_json_error( [ 'message' => 'Unauthorized access.' ] );
 }
 
-if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
-    $nonce = $_POST['_nonce'] ?? '';
-    if ( empty($nonce) ) {
-        $raw = file_get_contents('php://input');
-        $json = json_decode($raw, true);
-        if ( is_array($json) && isset($json['_nonce']) ) {
-            $nonce = $json['_nonce'];
-        }
-    }
-    if ( ! wp_verify_nonce( $nonce, 'idibia_admin_action' ) ) {
-        http_response_code( 403 );
-        wp_send_json_error( [ 'message' => 'Invalid security token. Please refresh the page.' ] );
-    }
-}
-
 global $wpdb;
 $action = sanitize_key( $_POST['action'] ?? $_GET['action'] ?? '' );
 

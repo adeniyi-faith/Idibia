@@ -14,12 +14,6 @@ if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
 $auth_type = 'customer';
 require_once __DIR__ . '/auth-helper.php';
 
-$nonce = isset( $_POST['_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_nonce'] ) ) : '';
-if ( ! wp_verify_nonce( $nonce, 'idibia_payment_proof' ) ) {
-    http_response_code( 403 );
-    wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
-}
-
 $trip_id = absint( $_POST['trip_id'] ?? 0 );
 if ( $trip_id <= 0 ) {
     wp_send_json_error( [ 'message' => 'Trip ID is required.' ] );

@@ -32,12 +32,6 @@ if ( $_SERVER['REQUEST_METHOD'] === 'GET' ) {
 }
 
 if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
-    $nonce = isset( $_POST['_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_nonce'] ) ) : '';
-    if ( ! wp_verify_nonce( $nonce, 'idibia_verify' ) ) {
-        http_response_code( 403 );
-        wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
-    }
-
     $prefs = [
         'trip_updates' => isset( $_POST['trip_updates'] ) && $_POST['trip_updates'] === 'true',
         'promotions' => isset( $_POST['promotions'] ) && $_POST['promotions'] === 'true',

@@ -16,12 +16,6 @@ if ( ! is_user_logged_in() ) {
     wp_send_json_error( [ 'message' => 'Unauthenticated.' ] );
 }
 
-$nonce = isset( $_POST['_nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['_nonce'] ) ) : '';
-if ( ! wp_verify_nonce( $nonce, 'idibia_pusher_auth' ) ) {
-    http_response_code( 403 );
-    wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
-}
-
 if ( ! idibia_pusher_is_configured() ) {
     http_response_code( 503 );
     wp_send_json_error( [ 'message' => 'Realtime is not configured yet.' ] );

@@ -362,7 +362,6 @@ function idibia_pusher_public_config(): array {
         'key'          => $key,
         'cluster'      => $cluster,
         'authEndpoint' => '/pusher-auth-api.php',
-        'authNonce'    => wp_create_nonce( 'idibia_pusher_auth' ),
     ];
 }
 

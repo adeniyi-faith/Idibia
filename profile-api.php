@@ -14,12 +14,6 @@ if ( $_SERVER['REQUEST_METHOD'] === 'GET' ) {
 }
 
 if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
-    $nonce = isset( $_POST['_nonce'] ) ? sanitize_text_field( $_POST['_nonce'] ) : '';
-    if ( ! wp_verify_nonce( $nonce, 'idibia_profile_update' ) ) {
-        http_response_code( 403 );
-        wp_send_json_error( [ 'message' => 'Security check failed. Please refresh and try again.' ] );
-    }
-
     $action = sanitize_text_field( wp_unslash( $_POST['action'] ?? '' ) );
     $customer_id = $GLOBALS['auth_customer_id'];
 
