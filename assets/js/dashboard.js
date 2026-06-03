@@ -6,9 +6,6 @@ let selectedCategory = 'Package';
 let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
-const IDIBIA_VERIFY_NONCE = '' + window.idibiaVerifyNonce + '';
-const IDIBIA_SUPPORT_NONCE = '' + window.idibiaSupportNonce + '';
-const IDIBIA_PAYMENT_NONCE = '' + window.idibiaPaymentNonce + '';
 const IDIBIA_PUSHER_CONFIG = window.idibiaPusherConfig;
 const CUSTOMER_RATING = window.idibiaCustomerRating || '5.0';
 
@@ -24,8 +21,7 @@ function initIdibiaPusher() {
     cluster: IDIBIA_PUSHER_CONFIG.cluster,
     channelAuthorization: {
       endpoint: IDIBIA_PUSHER_CONFIG.authEndpoint,
-      transport: 'ajax',
-      params: { _nonce: IDIBIA_PUSHER_CONFIG.authNonce }
+      transport: 'ajax'
     }
   });
   return idibiaPusher;
@@ -374,7 +370,6 @@ async function submitCustomerRatingAndClose() {
     body.append('trip_id', currentActiveTripId);
     body.append('rating', currentRating || 5);
     body.append('comment', activeChips.join(', '));
-    body.append('_nonce', IDIBIA_SUPPORT_NONCE);
     try {
       const json = await idibiaPost('rating-api.php', body);
       if (!json.success) showToast(json.data?.message || 'Could not save rating.');
@@ -407,7 +402,6 @@ async function openSupportTicket(category = 'general') {
   body.append('message', message.trim());
   const evidence = await chooseOptionalEvidence();
   if (evidence) body.append('evidence', evidence);
-  body.append('_nonce', IDIBIA_SUPPORT_NONCE);
   try {
     const json = await idibiaPost('support-api.php', body);
     showToast(json.success ? (json.data?.message || 'Support ticket opened.') : (json.data?.message || 'Could not open support ticket.'));
@@ -439,7 +433,6 @@ async function submitSosReport() {
   body.append('category', category);
   body.append('severity', severity);
   body.append('message', message);
-  body.append('_nonce', IDIBIA_SUPPORT_NONCE);
 
   try {
     const json = await idibiaPost('support-api.php', body);
@@ -491,7 +484,6 @@ function confirmLogout() { openModal('logout'); }
 async function doLogout() {
   try {
     const body = new FormData();
-    body.append("_nonce", window.idibiaLogoutNonce || "");
     await fetch("logout-handler.php", { method: "POST", body });
     closeAllModals();
     showToast('Signed out successfully');
@@ -694,7 +686,6 @@ async function uploadManualPaymentProof() {
 
   const body = new FormData();
   body.append('trip_id', currentActiveTripId);
-  body.append('_nonce', IDIBIA_PAYMENT_NONCE);
   body.append('bank_ref', document.getElementById('manualPaymentRef')?.value || '');
   body.append('payment_proof', file);
 
@@ -880,7 +871,6 @@ async function doRegister() {
   const email     = document.getElementById('regEmail').value.trim();
   const password  = document.getElementById('regPassword').value;
   const terms     = document.getElementById('termsCheck').checked;
-  const nonce     = document.getElementById('regNonce').value;
 
   errorBox.classList.remove('show');
 
@@ -897,7 +887,6 @@ async function doRegister() {
 
   try {
     const body = new FormData();
-    body.append( '_nonce',    nonce );
     body.append( 'full_name', full_name );
     body.append( 'phone',     phone );
     body.append( 'email',     email );
@@ -934,7 +923,6 @@ async function resendCode() {
   showToast( 'Sending a new code\u2026' );
   try {
     const body = new FormData();
-    body.append( '_nonce', IDIBIA_VERIFY_NONCE );
 
     const json = await idibiaPost( 'resend-code.php', body );
     if ( json.success ) {
@@ -971,7 +959,6 @@ async function doVerify() {
 
   try {
     const body = new FormData();
-    body.append( '_nonce', IDIBIA_VERIFY_NONCE );
     body.append( 'code', code );
 
     const json = await idibiaPost( 'verify-handler.php', body );
@@ -1363,7 +1350,6 @@ async function submitProfileEdit(e) {
     const body = new FormData();
     const newFullName = document.getElementById('profileFullName').value.trim();
     const newPhone = document.getElementById('profilePhone').value.trim();
-    body.append('_nonce', window.idibiaProfileNonce);
     body.append('full_name', newFullName);
     body.append('phone', newPhone);
 
@@ -1438,7 +1424,6 @@ async function submitSupportTicket() {
 
   const body = new FormData();
   body.append('action', 'create_ticket');
-  body.append('_nonce', window.idibiaSupportNonce);
   body.append('category', category);
   body.append('message', combinedMessage);
 
@@ -1471,7 +1456,6 @@ async function uploadCustomerAvatar(event) {
     const formData = new FormData();
     formData.append('action', 'upload_avatar');
     formData.append('avatar', file);
-    formData.append('_nonce', window.idibiaProfileNonce || '');
 
     showToast('Uploading profile picture...');
     try {
@@ -1530,7 +1514,6 @@ async function savePreferences() {
   const emailReceipts = document.getElementById('pref_email_receipts')?.checked ? 'true' : 'false';
 
   const body = new FormData();
-  body.append('_nonce', window.idibiaVerifyNonce); // Using an existing nonce, wait, preferences-api uses idibia_verify or idibia_profile_update.
   body.append('trip_updates', tripUpdates);
   body.append('promotions', promotions);
   body.append('email_receipts', emailReceipts);

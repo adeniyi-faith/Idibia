@@ -38,12 +38,6 @@ if (!empty($customer_row['saved_addresses'])) {
     if (is_array($decoded)) $saved_addresses_count = count($decoded);
 }
 
-$register_nonce = wp_create_nonce( 'idibia_register' );
-$verify_nonce   = wp_create_nonce( 'idibia_verify' );
-$profile_nonce  = wp_create_nonce( 'idibia_profile_update' );
-$support_nonce  = wp_create_nonce( 'idibia_support_action' );
-$payment_nonce  = wp_create_nonce( 'idibia_payment_proof' );
-$logout_nonce   = wp_create_nonce( 'idibia_logout' );
 $pusher_config  = idibia_pusher_public_config();
 
 $company_bank_name = idibia_get_setting('company_bank_name', 'Not Available');
@@ -103,11 +97,6 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <?php endif; ?>
 
 <script>
-window.idibiaVerifyNonce = '<?php echo esc_js( $verify_nonce ?? '' ); ?>';
-window.idibiaProfileNonce = '<?php echo esc_js( $profile_nonce ?? '' ); ?>';
-window.idibiaSupportNonce = '<?php echo esc_js( $support_nonce ?? '' ); ?>';
-window.idibiaPaymentNonce = '<?php echo esc_js( $payment_nonce ?? '' ); ?>';
-window.idibiaLogoutNonce = '<?php echo esc_js( $logout_nonce ?? '' ); ?>';
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ); ?>;
 window.idibiaLogoutUrl = '/';
 window.idibiaCustomerRating = '<?php echo esc_js( $customer_rating ); ?>';

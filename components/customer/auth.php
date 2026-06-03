@@ -116,8 +116,6 @@
           <input type="checkbox" id="termsCheck" checked>
           <label for="termsCheck">I agree to Idibia's <a href="#">Terms of Service</a>, <a href="#">Privacy Policy</a>, and <a href="#">Location Data Policy</a></label>
         </div>
-        <!-- Hidden nonce — PHP outputs this value -->
-        <input type="hidden" id="regNonce" value="<?php echo esc_attr( $register_nonce ?? '' ); ?>">
         <button type="button" class="btn-primary" style="margin-top:18px" id="regBtn" onclick="doRegister()">
           Create Account &amp; Verify
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M5 12h14M12 5l7 7-7 7"/></svg>

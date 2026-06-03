@@ -69,14 +69,6 @@ function idibia_driver_verify_response( object $driver, string $message ): array
         'is_online'      => false,
         'email_verified' => true,
         'token'          => idibia_create_driver_session( $driver_id ),
-        'nonces'         => [
-            'toggle_online' => wp_create_nonce( 'idibia_toggle_online' ),
-            'driver_action' => wp_create_nonce( 'idibia_driver_action' ),
-            'driver_kyc'    => wp_create_nonce( 'idibia_driver_kyc' ),
-            'support_action' => wp_create_nonce( 'idibia_support_action' ),
-            'driver_profile_update' => wp_create_nonce( 'idibia_driver_profile_update' ),
-            'logout' => wp_create_nonce( 'idibia_logout' ),
-        ],
     ];
 }
 
