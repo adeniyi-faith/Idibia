@@ -815,7 +815,14 @@ function renderDriverProfile() {
 
     const avatarToUse = ctx.avatar_path || ctx.selfie_path;
     const baseUploadUrl = window.driverInitialContext.upload_baseurl || '';
-    const fullAvatarUrl = (avatarToUse && avatarToUse.startsWith('http')) ? avatarToUse : (baseUploadUrl ? `${baseUploadUrl}/${avatarToUse}` : `/${avatarToUse}`);
+    let fullAvatarUrl;
+    if (ctx._avatar_url) {
+        fullAvatarUrl = ctx._avatar_url;
+    } else if (avatarToUse && avatarToUse.startsWith('http')) {
+        fullAvatarUrl = avatarToUse;
+    } else if (avatarToUse) {
+        fullAvatarUrl = baseUploadUrl ? `${baseUploadUrl}/${avatarToUse}` : `/${avatarToUse}`;
+    }
 
     if (avatarToUse) {
         if (imgDisplay) {
@@ -976,6 +983,9 @@ async function uploadDriverAvatar(event) {
             showToast('Profile picture updated.');
             if (json.data?.avatar_path) {
                 window.driverInitialContext.avatar_path = json.data.avatar_path;
+                if (json.data?.avatar_url) {
+                    window.driverInitialContext._avatar_url = json.data.avatar_url;
+                }
                 renderDriverProfile();
             }
         } else {

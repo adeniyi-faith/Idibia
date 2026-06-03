@@ -1488,7 +1488,7 @@ async function uploadCustomerAvatar(event) {
                             avatarWrap.appendChild(img);
                         }
                     }
-                    img.src = json.data.avatar_path.startsWith('http') ? json.data.avatar_path : ((window.idibiaUploadBaseUrl ? window.idibiaUploadBaseUrl + '/' : '/') + json.data.avatar_path);
+                    img.src = json.data.avatar_url || (json.data.avatar_path.startsWith('http') ? json.data.avatar_path : ((window.idibiaUploadBaseUrl ? window.idibiaUploadBaseUrl + '/' : '/') + json.data.avatar_path));
                 }
             }
         } else {
