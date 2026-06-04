@@ -241,7 +241,7 @@ async function doLogin() {
 
     const json = await idibiaPost('login-handler.php', body);
     if (json.success) {
-      enterCustomerApp(json.data?.first_name ? `Welcome back, ${json.data.first_name} 👋` : 'Welcome back 👋');
+      window.location.href = json.data?.redirect || 'dashboard.php';
     } else {
       errorText.textContent = json.data?.message || 'Login failed. Please try again.';
       errorBox.classList.add('show');
@@ -1054,9 +1054,8 @@ async function doVerify() {
     const json = await idibiaPost( 'verify-handler.php', body );
 
     if ( json.success ) {
-      const name = json.data?.first_name || '';
       inputs.forEach( i => i.value = '' );
-      enterCustomerApp( name ? `Welcome, ${name}! 🎉` : 'Email verified! Welcome.' );
+      window.location.href = 'dashboard.php';
     } else {
       errorText.textContent = json.data?.message || 'Verification failed. Please try again.';
       errorBox.classList.add('show');
