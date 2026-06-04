@@ -281,8 +281,8 @@
             <div class="stat-label">Rating</div>
           </div>
           <div class="stat-card">
-            <div class="stat-value">₦500</div>
-            <div class="stat-label">Referral Bonus</div>
+            <div class="stat-value">₦<?php echo esc_html($customer_wallet_balance); ?></div>
+            <div class="stat-label">Wallet</div>
           </div>
         </div>
         <div class="account-body">

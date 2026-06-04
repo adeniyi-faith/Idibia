@@ -32,13 +32,14 @@ function idibia_wants_json_response(): bool {
     return strpos( $accept, 'application/json' ) !== false || strtolower( (string) ( $_SERVER['HTTP_X_REQUESTED_WITH'] ?? '' ) ) === 'xmlhttprequest';
 }
 
-$full_name = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );
-$phone     = sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) );
-$email     = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
-$password  = (string) ( $_POST['password'] ?? '' );
-$terms     = ! empty( $_POST['terms'] );
-$phone     = preg_replace( '/[\s\-()]/', '', $phone );
-$errors    = [];
+$full_name     = sanitize_text_field( wp_unslash( $_POST['full_name'] ?? '' ) );
+$phone         = sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) );
+$email         = sanitize_email( wp_unslash( $_POST['email'] ?? '' ) );
+$password      = (string) ( $_POST['password'] ?? '' );
+$terms         = ! empty( $_POST['terms'] );
+$referral_code = strtoupper( sanitize_text_field( wp_unslash( $_POST['referral_code'] ?? '' ) ) );
+$phone         = preg_replace( '/[\s\-()]/', '', $phone );
+$errors        = [];
 
 if ( strlen( $full_name ) < 2 ) $errors[] = 'Please enter your full name.';
 if ( ! is_email( $email ) ) $errors[] = 'Enter a valid email address.';
@@ -48,6 +49,20 @@ if ( ! $terms ) $errors[] = 'You must agree to the Terms of Service to continue.
 
 if ( $errors ) {
     wp_send_json_error( [ 'message' => implode( ' ', $errors ) ] );
+}
+
+// Validate referral code if provided
+$referrer_customer_id = null;
+if ( $referral_code !== '' ) {
+    global $wpdb;
+    $referrer_customer_id = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM `{$wpdb->prefix}sd_customers` WHERE referral_code = %s AND status = 'active' LIMIT 1",
+        $referral_code
+    ) );
+    if ( ! $referrer_customer_id ) {
+        wp_send_json_error( [ 'message' => 'Invalid referral code. Please check and try again.' ] );
+    }
+    $referrer_customer_id = (int) $referrer_customer_id;
 }
 
 if ( username_exists( $phone ) ) {
@@ -83,6 +98,17 @@ idibia_find_or_create_profile_row( $user_id, 'customer', [
     'email'     => $email,
     'phone'     => $phone,
 ] );
+
+// Link the referrer once the customer row exists
+if ( $referrer_customer_id ) {
+    $wpdb->update(
+        $wpdb->prefix . 'sd_customers',
+        [ 'referred_by' => $referrer_customer_id ],
+        [ 'email' => $email ],
+        [ '%d' ],
+        [ '%s' ]
+    );
+}
 
 $user = get_user_by( 'id', $user_id );
 
