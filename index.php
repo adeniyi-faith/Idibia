@@ -1238,9 +1238,13 @@ async function doVerify() {
     const json = await idibiaPost( 'verify-handler.php', body );
 
     if ( json.success ) {
-      const name = json.data?.first_name || '';
+      const name  = json.data?.first_name || '';
+      const token = json.data?.token       || '';
       inputs.forEach( i => i.value = '' );
-      enterCustomerApp( name ? `Welcome, ${name}! 🎉` : 'Email verified! Welcome.' );
+      const dest = token
+        ? `auto-login.php?token=${encodeURIComponent(token)}&to=dashboard.php`
+        : 'dashboard.php';
+      enterCustomerApp( name ? `Welcome, ${name}! 🎉` : 'Email verified! Welcome.', dest );
     } else {
       errorText.textContent = json.data?.message || 'Verification failed. Please try again.';
       errorBox.classList.add('show');

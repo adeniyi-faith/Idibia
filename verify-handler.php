@@ -55,9 +55,12 @@ if ( ! $customer ) {
 
 // ── Already verified? ─────────────────────────────────────────────────────────
 if ( $customer->email_verified ) {
-    // Clean up session and let them through
     unset( $_SESSION['sd_pending_customer_id'], $_SESSION['sd_pending_email'] );
     $token = _idibia_create_session( $customer->id );
+    $user  = get_user_by( 'email', $customer->email );
+    if ( $user ) {
+        idibia_finish_wordpress_login( $user );
+    }
     wp_send_json_success( [
         'message'    => 'Already verified.',
         'first_name' => idibia_split_full_name( $customer->full_name )[0],
