@@ -279,6 +279,23 @@ function switchTab(name, sideBtn, bnavId) {
   }
 }
 
+// ═══════════ MAP SIZING ═══════════
+// Leaflet caches the container size at init time. Inside nested flexbox the
+// final height can settle a frame (or more) later, especially on mobile
+// Safari, leaving the map rendered at a stale, partial size with a blank gap.
+// A ResizeObserver re-syncs Leaflet to the container's real size whenever it
+// changes, so the map always fills its tab section on mobile and desktop.
+function keepMapSized(map) {
+  if (!map || typeof ResizeObserver === 'undefined') return;
+  const el = map.getContainer();
+  let raf = null;
+  const ro = new ResizeObserver(() => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => map.invalidateSize({ animate: false }));
+  });
+  ro.observe(el);
+}
+
 // ═══════════ EXPLORE MAP (MAP TAB) ═══════════
 let exploreMap = null;
 
@@ -305,6 +322,7 @@ function initOrShowExploreMap() {
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19
   }).addTo(exploreMap);
+  keepMapSized(exploreMap);
   setTimeout(() => exploreMap && exploreMap.invalidateSize(), 150);
   setTimeout(() => exploreMap && exploreMap.invalidateSize(), 700);
   if (navigator.geolocation) {
@@ -1372,6 +1390,7 @@ function initLeafletMap(containerId, lat, lng, isTracking = false, _retries = 6)
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19
   }).addTo(currentMap);
+  keepMapSized(currentMap);
   setTimeout(() => currentMap && currentMap.invalidateSize(), 150);
   setTimeout(() => currentMap && currentMap.invalidateSize(), 700);
 
