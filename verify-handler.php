@@ -79,19 +79,13 @@ if ( ! $expires || time() > $expires ) {
     wp_send_json_error( [ 'message' => 'That code has expired. Use the Resend Email button to get a fresh one.' ] );
 }
 
-// ── Mark verified + activate account ─────────────────────────────────────────
-$updated = $wpdb->update(
-    $table,
-    [
-        'email_verified' => 1,
-        'status'         => 'active',
-        'verify_code'    => null,
-        'verify_expires' => null,
-    ],
-    [ 'id' => $customer_id ],
-    [ '%d', '%s', '%s', '%s' ],
-    [ '%d' ]
-);
+// ── Mark verified + activate account (conditional on not yet verified) ────────
+$updated = $wpdb->query( $wpdb->prepare(
+    "UPDATE `$table`
+     SET email_verified = 1, status = 'active', verify_code = NULL, verify_expires = NULL
+     WHERE id = %d AND email_verified = 0",
+    $customer_id
+) );
 
 if ( false === $updated ) {
     error_log( "Idibia: failed to mark verified for customer_id=$customer_id" );
@@ -104,8 +98,8 @@ if ( $user ) {
     idibia_finish_wordpress_login( $user );
 }
 
-// ── Credit ₦500 referral bonus to the referrer ────────────────────────────────
-if ( ! empty( $customer->referred_by ) ) {
+// ── Credit ₦500 referral bonus to the referrer (only on first verification) ───
+if ( $updated === 1 && ! empty( $customer->referred_by ) ) {
     $referrer_id = (int) $customer->referred_by;
     $wpdb->query( $wpdb->prepare(
         "UPDATE `{$wpdb->prefix}sd_customers` SET wallet_balance = wallet_balance + 500.00 WHERE id = %d",
