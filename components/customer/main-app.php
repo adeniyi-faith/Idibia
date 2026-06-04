@@ -385,8 +385,7 @@
 
     <!-- MAP TAB -->
     <div class="tab-view" id="tab-map">
-      <div style="position:relative;flex:1;overflow:hidden;min-height:0;height:100%;">
-        <div id="explore-map-container" style="position:absolute;top:0;left:0;right:0;bottom:0;"></div>
+      <div id="explore-map-container" style="flex:1;position:relative;overflow:hidden;min-height:0;">
         <div class="map-float" style="z-index:1000;">
           <button class="map-btn" onclick="centerExploreMap()" title="My location">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
