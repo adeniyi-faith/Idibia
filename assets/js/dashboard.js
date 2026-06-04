@@ -272,10 +272,12 @@ function switchTab(name, sideBtn, bnavId) {
   if (bnav) bnav.classList.add('active');
 
   if (name === 'home' && currentMap) {
-    setTimeout(() => currentMap.invalidateSize(), 50);
+    // Wait for the screen slide-in transition (380ms) before remeasuring
+    setTimeout(() => currentMap.invalidateSize(), 420);
   }
   if (name === 'map') {
-    requestAnimationFrame(() => requestAnimationFrame(() => initOrShowExploreMap()));
+    // Delay past the 380ms screen transition so Leaflet measures the settled position
+    setTimeout(() => initOrShowExploreMap(), 420);
   }
 }
 
@@ -304,13 +306,13 @@ function initOrShowExploreMap() {
   if (!el) return;
   if (!window.L) { setTimeout(() => initOrShowExploreMap(), 800); return; }
   if (exploreMap) {
-    exploreMap.invalidateSize();
+    // Invalidate once the screen transition (380ms) has fully settled
     setTimeout(() => {
       if (exploreMap) {
-        exploreMap.invalidateSize();
+        exploreMap.invalidateSize({ animate: false });
         exploreMap.setView(exploreMap.getCenter(), exploreMap.getZoom(), { animate: false });
       }
-    }, 200);
+    }, 50);
     return;
   }
   if (!el.offsetWidth || !el.offsetHeight) {
