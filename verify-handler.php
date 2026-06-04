@@ -43,7 +43,7 @@ global $wpdb;
 $table = $wpdb->prefix . 'sd_customers';
 
 $customer = $wpdb->get_row( $wpdb->prepare(
-    "SELECT id, full_name, email, verify_code, verify_expires, email_verified, status
+    "SELECT id, full_name, email, verify_code, verify_expires, email_verified, status, referred_by
      FROM `$table`
      WHERE id = %d LIMIT 1",
     $customer_id
@@ -102,6 +102,27 @@ $user = get_user_by( 'email', $customer->email );
 if ( $user ) {
     update_user_meta( $user->ID, 'idibia_account_status', 'active' );
     idibia_finish_wordpress_login( $user );
+}
+
+// ── Credit ₦500 referral bonus to the referrer ────────────────────────────────
+if ( ! empty( $customer->referred_by ) ) {
+    $referrer_id = (int) $customer->referred_by;
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_customers` SET wallet_balance = wallet_balance + 500.00 WHERE id = %d",
+        $referrer_id
+    ) );
+    $wpdb->insert(
+        $wpdb->prefix . 'sd_customer_wallet_ledger',
+        [
+            'customer_id'  => $referrer_id,
+            'amount'       => 500.00,
+            'entry_type'   => 'referral_bonus',
+            'reference_id' => $customer_id,
+            'description'  => 'Referral bonus — ' . $customer->full_name . ' joined via your code',
+            'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%d', '%s', '%s', '%d', '%s', '%s' ]
+    );
 }
 
 // ── Create a session token ────────────────────────────────────────────────────

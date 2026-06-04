@@ -405,6 +405,30 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 11 );
         $current_version = 11;
     }
+
+    if ( $current_version < 12 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        // Add wallet balance to customers
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers` ADD COLUMN IF NOT EXISTS `wallet_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER `referred_by`" );
+
+        // Customer wallet ledger
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_customer_wallet_ledger` (
+            `id`           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `customer_id`  BIGINT UNSIGNED NOT NULL,
+            `amount`       DECIMAL(10,2)   NOT NULL,
+            `entry_type`   ENUM('referral_bonus','credit','debit') NOT NULL,
+            `reference_id` BIGINT UNSIGNED NULL,
+            `description`  VARCHAR(255)    NULL,
+            `created_at`   DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `customer_id` (`customer_id`)
+        ) $charset;" );
+
+        update_option( 'idibia_db_version', 12 );
+        $current_version = 12;
+    }
 }
 
 function idibia_add_customer_rating_and_prefs_columns(): void {

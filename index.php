@@ -714,6 +714,13 @@ a { color: inherit; }
             </button>
           </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Referral Code <span style="font-weight:400;color:var(--text-secondary)">(optional)</span></label>
+          <div class="form-input-wrap">
+            <svg class="fi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            <input class="form-input" type="text" id="regReferral" name="referral_code" placeholder="e.g. IDIBIA-AB12C" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+          </div>
+        </div>
         <div class="form-check">
           <input type="checkbox" id="termsCheck" name="terms" value="1" checked required>
           <label for="termsCheck">I agree to Idibia's <a href="#">Terms of Service</a>, <a href="#">Privacy Policy</a>, and <a href="#">Location Data Policy</a></label>

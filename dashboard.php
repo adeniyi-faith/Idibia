@@ -18,6 +18,7 @@ $customer_full_name = $customer_row['full_name'] ?? $current_user->display_name;
 $customer_email = $customer_row['email'] ?? $current_user->user_email;
 $customer_phone = $customer_row['phone'] ?? '';
 $customer_referral_code = $customer_row['referral_code'] ?? '';
+$customer_wallet_balance = number_format( (float) ( $customer_row['wallet_balance'] ?? 0 ), 2 );
 $customer_avatar_path = $customer_row['avatar_path'] ?? '';
 $customer_rating = '5.0'; // Default placeholder, no rating system visible yet for customers
 $customer_initials = '';
