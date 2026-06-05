@@ -1,5 +1,5 @@
 <!-- CUSTOMERS -->
-  <div class="panel" id="panel-users">
+  <div class="panel" id="panel-customers">
     <div class="page-header"><h2 class="page-title">Customers</h2><div class="page-sub">User accounts, reports and referrals</div></div>
     <div class="metrics-grid four">
       <div class="metric-card"><div class="metric-label">TOTAL CUSTOMERS</div><div class="metric-value" id="customersTotalCount">--</div><div class="metric-delta neutral">Current filter</div></div>
