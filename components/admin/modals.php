@@ -4,7 +4,7 @@
     <div class="modal-header"><h3 style="font-size:15px" id="modalTitle">Handle Dispute</h3><button aria-label="Close modal" onclick="closeModal()" style="background:none;border:none;font-size:18px;color:var(--text-muted)">×</button></div>
     <div class="modal-body">
       <div id="modalDesc" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></div>
-      <div id="disputeEvidence" style="margin-bottom:16px"></div>
+      <div id="disputeEvidence" style="margin-bottom:16px;font-size:13px;color:var(--text-secondary);white-space:pre-wrap"></div>
       <div id="disputeTimeline" style="margin-bottom:16px"></div>
 
       <div id="disputeActionArea">
