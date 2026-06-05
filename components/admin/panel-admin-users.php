@@ -1,5 +1,5 @@
 <!-- ADMIN USERS (STAFF) -->
-<div class="panel" id="panel-admin-users" style="display:none;">
+<div class="panel" id="panel-admin-users">
   <div class="page-header">
     <div>
       <h2 class="page-title">Admin Users</h2>
