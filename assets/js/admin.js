@@ -967,10 +967,7 @@ async function loadAdminUsers() {
     tbody.innerHTML = '<tr><td colspan="5" class="loading-state">Loading users...</td></tr>';
 
     try {
-        const formData = new FormData();
-        formData.append('action', 'list_admin_users');
-
-        const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
+        const res = await fetch(ADMIN_API_URL + '?action=list_admin_users');
         const json = await res.json();
 
         if ( ! json.success ) {
@@ -1027,10 +1024,7 @@ async function loadAdminUsers() {
 
 async function loadRolesForDropdown() {
     try {
-        const formData = new FormData();
-        formData.append('action', 'get_roles');
-
-        const res = await fetch(ADMIN_API_URL, { method: 'POST', body: formData });
+        const res = await fetch(ADMIN_API_URL + '?action=get_roles');
         const json = await res.json();
 
         if ( json.success ) {
