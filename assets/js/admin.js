@@ -412,7 +412,9 @@ function renderTripListItem(trip){
   const to=trip.dropoff_address || trip.dropoff || 'Drop-off';
   const category=trip.service_category || trip.category || 'Delivery';
   const detail=[from+' → '+to, formatMoney(fare), trip.driver_name?'Driver: '+trip.driver_name:null].filter(Boolean).map(escapeHtml).join(' · ');
-  return `<div class="list-item" data-status="${escapeHtml(status)}"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(trip.customer_name || trip.driver_name || trip.trip_ref))}</div><div class="item-info"><div class="item-name">${escapeHtml(trip.trip_ref || ('Trip #'+trip.id))} · ${escapeHtml(formatStatusLabel(category))}</div><div class="item-meta">${detail}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge ${tripStatusClass(status)}">${escapeHtml(formatStatusLabel(status))}</span><button class="btn-sm btn-view" onclick='openTripDetailFromData(${JSON.stringify(trip).replace(/'/g,"&#39;")})'>Details</button></div></div>`;
+  const isTerminal = ['completed','cancelled'].includes(trip.status) && ['completed','cancelled',''].includes(trip.dispatch_status || '');
+  const reassignBtn = !isTerminal ? `<button class="btn-sm" style="background:rgba(74,158,255,0.12);color:var(--info)" onclick="openReassignModal(${Number(trip.id)},'${escapeHtml((trip.trip_ref||('Trip #'+trip.id)).replace(/'/g,"&#39;"))}')">Reassign</button>` : '';
+  return `<div class="list-item" data-status="${escapeHtml(status)}"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(trip.customer_name || trip.driver_name || trip.trip_ref))}</div><div class="item-info"><div class="item-name">${escapeHtml(trip.trip_ref || ('Trip #'+trip.id))} · ${escapeHtml(formatStatusLabel(category))}</div><div class="item-meta">${detail}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="badge ${tripStatusClass(status)}">${escapeHtml(formatStatusLabel(status))}</span><div style="display:flex;gap:4px"><button class="btn-sm btn-view" onclick='openTripDetailFromData(${JSON.stringify(trip).replace(/'/g,"&#39;")})'>Details</button>${reassignBtn}</div></div></div>`;
 }
 async function loadTrips(page=pageState.trips.page){
   const st=pageState.trips; st.page=page;
@@ -422,6 +424,43 @@ async function loadTrips(page=pageState.trips.page){
   catch(e){ list.innerHTML='<div class="empty-state">Could not load deliveries: '+escapeHtml(e.message)+'</div>'; }
 }
 function openTripDetailFromData(trip){ openTripDetail(trip.trip_ref||('#'+trip.id), trip.service_category||trip.category||'Delivery', trip.pickup_address||trip.pickup||'', trip.dropoff_address||trip.dropoff||'', formatMoney(trip.fare_amount??trip.final_fare??trip.fare_estimate??trip.fare), trip.driver_name||'Unassigned', formatStatusLabel(trip.dispatch_status||trip.status)); }
+let _reassignTripId = 0;
+async function openReassignModal(tripId, tripRef){
+  _reassignTripId = tripId;
+  document.getElementById('reassignModalTitle').textContent = 'Reassign ' + tripRef;
+  document.getElementById('reassignModalDesc').textContent = 'Select a driver to take over this trip. The current driver will be unassigned and all pending offers expired.';
+  const sel = document.getElementById('reassignDriverSelect');
+  sel.innerHTML = '<option value="">Loading drivers…</option>';
+  document.getElementById('reassignSubmitBtn').disabled = true;
+  document.getElementById('reassignTripModal').classList.add('open');
+  try {
+    const data = await adminApiAllPages('get_drivers', {});
+    const drivers = (data.drivers || []).filter(d => d.status !== 'suspended');
+    sel.innerHTML = '<option value="">— Select driver —</option>' + drivers.map(d => `<option value="${Number(d.id)}">${escapeHtml(d.full_name || ('Driver #'+d.id))}</option>`).join('');
+    document.getElementById('reassignSubmitBtn').disabled = false;
+  } catch(e) {
+    sel.innerHTML = '<option value="">Could not load drivers</option>';
+    toast('Could not load drivers: ' + e.message);
+  }
+}
+function closeReassignModal(){ document.getElementById('reassignTripModal').classList.remove('open'); _reassignTripId = 0; }
+async function submitReassignTrip(){
+  const driverId = Number(document.getElementById('reassignDriverSelect').value);
+  if(!driverId){ toast('Select a driver first.'); return; }
+  if(!_reassignTripId){ toast('No trip selected.'); return; }
+  const btn = document.getElementById('reassignSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Reassigning…';
+  try {
+    const data = await adminApi('admin_reassign_trip', { trip_id: _reassignTripId, driver_id: driverId }, 'POST');
+    toast(data.message || 'Trip reassigned.');
+    closeReassignModal();
+    loadTrips();
+  } catch(e) {
+    toast(e.message || 'Could not reassign trip.');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Reassign';
+  }
+}
 async function loadPayouts(page=pageState.payouts.page){
   const st=pageState.payouts; st.page=page; const list=document.getElementById('payoutList'); if(!list) return;
   list.innerHTML='<div class="loading-state">Loading payouts…</div>';

@@ -2,7 +2,7 @@
   <div class="panel" id="panel-trips">
     <div class="page-header"><h2 class="page-title">Deliveries</h2><div class="page-sub">All trips, tracking and receipts</div></div>
     <div class="panel-search">
-      <input placeholder="Search order ID, driver…" id="tripSearch" oninput="searchTrips(this.value)">
+      <input placeholder="Search trip ref, driver…" id="tripSearch" oninput="searchTrips(this.value)">
       <select class="filter-select" onchange="filterTrips(this.value)">
         <option value="">All categories</option>
         <option>Package</option><option>Gift</option><option>Documents</option><option>Groceries</option><option>Flowers</option><option>Laundry</option>

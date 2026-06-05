@@ -198,6 +198,7 @@ try {
 
         case 'admin_reassign_trip':
             idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'force_redispatch' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_reassign_trip();
             break;
 
