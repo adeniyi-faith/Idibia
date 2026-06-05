@@ -569,6 +569,57 @@ function closeModalAndGoHome() {
   }, 100);
 }
 
+function viewReceipt() {
+  if (currentReceiptUrl) window.open(currentReceiptUrl, '_blank');
+}
+
+function showPostTripModal(trip) {
+  // Populate receipt breakdown
+  const payment = trip?.payment || {};
+  const record = payment.record || null;
+  const fare = Number(trip.fare || record?.amount || 0);
+  const baseFare = Number(trip.base_fare || fare * 0.64);
+  const distanceFare = Number(trip.distance_fare || fare * 0.25);
+  const fees = fare - baseFare - distanceFare;
+  const distanceKm = trip.distance_km || trip.eta?.distance_km || null;
+
+  const rows = document.querySelectorAll('#modal-post-trip .receipt-row:not(.total)');
+  if (rows[0]) { rows[0].querySelector('span:first-child').textContent = 'Base Fare'; rows[0].querySelector('span:last-child').textContent = `₦${baseFare.toLocaleString()}`; }
+  if (rows[1]) { rows[1].querySelector('span:first-child').textContent = distanceKm ? `Distance (${distanceKm} km)` : 'Distance'; rows[1].querySelector('span:last-child').textContent = `₦${distanceFare.toLocaleString()}`; }
+  if (rows[2]) { rows[2].querySelector('span:first-child').textContent = 'Taxes & Fees'; rows[2].querySelector('span:last-child').textContent = `₦${Math.max(0, fees).toLocaleString()}`; }
+  const totalRow = document.querySelector('#modal-post-trip .receipt-row.total');
+  if (totalRow) totalRow.querySelector('span:last-child').textContent = `₦${fare.toLocaleString()}`;
+
+  // Payment method label
+  const payLabel = document.querySelector('#modal-post-trip .receipt-payment');
+  if (payLabel) {
+    const method = payment.settings?.active_provider || record?.payment_method || 'payment';
+    const methodLabel = method === 'manual_transfer' ? 'manual transfer' : method === 'card' ? 'card' : method;
+    const textNode = payLabel.firstChild;
+    if (textNode && textNode.nodeType === Node.TEXT_NODE) textNode.textContent = `Paid by ${methodLabel}`;
+  }
+
+  // Delivery address in header
+  const headerP = document.querySelector('#modal-post-trip .modal-header p');
+  if (headerP && trip.dropoff_address) headerP.textContent = `Package safely delivered to ${trip.dropoff_address}`;
+
+  // Driver name in rating prompt
+  const ratingPrompt = document.querySelector('#modal-post-trip [style*="font-weight:600"]');
+  const driverFirstName = trip.driver?.first_name || trip.driver?.full_name?.split(' ')[0] || 'your rider';
+  if (ratingPrompt) ratingPrompt.textContent = `How was your rider, ${escapeHtml(driverFirstName)}? ⭐`;
+
+  // Reset star rating to 5
+  currentRating = 5;
+  rateStar(5);
+
+  // Reset feedback chips to default
+  document.querySelectorAll('#feedbackChips .feedback-chip').forEach((chip, idx) => {
+    chip.classList.toggle('active', idx < 2);
+  });
+
+  openModal('post-trip');
+}
+
 function confirmLogout() { openModal('logout'); }
 
 async function doLogout() {
@@ -889,7 +940,11 @@ function updateTrackingUI(trip) {
 
   if (isTerminal) {
     stopLiveTracking();
-    showToast('Trip is ' + trip.status);
+    if (trip.status === 'completed') {
+      showPostTripModal(trip);
+    } else {
+      showToast('Trip is ' + trip.status);
+    }
   }
 }
 
