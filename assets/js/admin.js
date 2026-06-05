@@ -26,8 +26,8 @@ loginForm.addEventListener('submit', async (event) => {
 
 /* Admin App Script */
 
-const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',users:'Customers',disputes:'Disputes',settings:'Settings'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Finance analytics endpoint pending',payouts:'Earnings management',drivers:'Driver records from database',users:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration'};
+const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',settings:'Settings'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Finance analytics endpoint pending',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -49,7 +49,7 @@ function nav(name,btn){
   if(name === 'trips') loadTrips();
   if(name === 'payouts') loadPayouts();
   if(name === 'drivers') loadDrivers();
-  if(name === 'users') loadCustomers();
+  if(name === 'customers') loadCustomers();
   if(name === 'disputes') loadDisputes();
   if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
   if(name === 'reconciliation') loadReconciliation();
