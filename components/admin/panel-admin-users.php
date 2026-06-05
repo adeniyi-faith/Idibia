@@ -36,8 +36,8 @@
 </div>
 
 <!-- Slide-over panel for Create/Edit Admin User -->
-<div class="slide-panel-overlay" id="adminUserSlidePanelOverlay" onclick="closeAdminUserPanel()"></div>
-<div class="slide-panel" id="adminUserSlidePanel">
+<div class="slide-panel-overlay" id="adminUserSlidePanelOverlay" onclick="closeAdminUserPanel()" style="display:none;"></div>
+<div class="slide-panel" id="adminUserSlidePanel" style="display:none;">
   <div class="slide-panel-header">
     <h3 id="adminUserSlideTitle">Create Admin User</h3>
     <button class="close-slide-btn" onclick="closeAdminUserPanel()">
