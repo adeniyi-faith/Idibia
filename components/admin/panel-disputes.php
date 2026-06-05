@@ -7,10 +7,10 @@
       <div class="metric-card"><div class="metric-label">REFUNDS ISSUED</div><div class="metric-value" id="disputeRefundAmount">--</div><div class="metric-delta neutral">Visible page</div></div>
     </div>
     <div class="filter-row">
-      <button class="filter-btn active" onclick="filterDisputes('all',this)">All</button>
-      <button class="filter-btn" onclick="filterDisputes('open',this)">Open</button>
-      <button class="filter-btn" onclick="filterDisputes('escalated',this)">Escalated</button>
-      <button class="filter-btn" onclick="filterDisputes('resolved',this)">Resolved</button>
+      <button class="filter-btn active" data-status="all" onclick="filterDisputes('all',this)">All</button>
+      <button class="filter-btn" data-status="open" onclick="filterDisputes('open',this)">Open</button>
+      <button class="filter-btn" data-status="escalated" onclick="filterDisputes('escalated',this)">Escalated</button>
+      <button class="filter-btn" data-status="resolved" onclick="filterDisputes('resolved',this)">Resolved</button>
     </div>
     <div class="panel-search">
       <input id="disputeSearch" placeholder="Search dispute, trip, customer, driver…" oninput="queueDisputeSearch(this.value)">

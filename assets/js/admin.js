@@ -614,14 +614,15 @@ async function loadReconciliation(page=pageState.reconciliation.page) {
 
 async function loadDisputes(page=pageState.disputes.page){
   const st=pageState.disputes; st.page=page; const list=document.getElementById('disputeList'); if(!list) return; list.innerHTML='<div class="loading-state">Loading disputes…</div>';
-  try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=rows.filter(d=>d.status==='open'||d.status==='escalated').length.toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=rows.filter(d=>d.status==='escalated').length.toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):'<div class="empty-state">No disputes match your filters.</div>'; renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
+  try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=Number(data.open_count||0).toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=Number(data.escalated_count||0).toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):'<div class="empty-state">No disputes match your filters.</div>'; renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
   catch(e){ list.innerHTML='<div class="empty-state">Could not load disputes: '+escapeHtml(e.message)+'</div>'; }
 }
-function renderDisputeItem(d){ const status=d.status||'open'; const title='#D-'+String(d.id).padStart(4,'0')+' · '+(d.category||'Dispute'); const meta=status==='resolved'?`Resolved · ${formatMoney(d.refund_amount)} refunded · ${d.resolution||''}`:`Customer: ${d.customer_name||'Unknown'} · Driver: ${d.driver_name||'Unassigned'} · ${dateLabel(d.created_at)}`; return `<div class="list-item" data-dispute="${escapeHtml(status)}"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">${status==='resolved'?'✓':(status==='escalated'?'🔴':'!')}</div><div class="item-info"><div class="item-name">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div><div class="item-actions"><button class="btn-sm ${status==='escalated'?'btn-reject':'btn-view'}" onclick="openDisputeModal('${escapeHtml(title).replace(/'/g,'&#39;')}', ${Number(d.id)}, '${escapeHtml(status)}')">${status==='resolved'?'View':'Handle'}</button></div></div>`; }
+function renderDisputeItem(d){ const status=d.status||'open'; const title='#D-'+String(d.id).padStart(4,'0')+' · '+(d.category||'Dispute'); const meta=status==='resolved'?`Resolved · ${formatMoney(d.refund_amount)} refunded · ${d.resolution||''}`:`Customer: ${d.customer_name||'Unknown'} · Driver: ${d.driver_name||'Unassigned'} · ${dateLabel(d.created_at)}`; const desc=encodeURIComponent(d.description||''); return `<div class="list-item" data-dispute="${escapeHtml(status)}"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">${status==='resolved'?'✓':(status==='escalated'?'🔴':'!')}</div><div class="item-info"><div class="item-name">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div><div class="item-actions"><button class="btn-sm ${status==='escalated'?'btn-reject':'btn-view'}" onclick="openDisputeModal('${escapeHtml(title).replace(/'/g,'&#39;')}', ${Number(d.id)}, '${escapeHtml(status)}', decodeURIComponent('${desc}'))">${status==='resolved'?'View':'Handle'}</button></div></div>`; }
 function queuePayoutSearch(v){ clearTimeout(searchTimers.payouts); searchTimers.payouts=setTimeout(()=>{pageState.payouts.search=v; loadPayouts(1);},300); }
 function setPayoutStatus(v){ pageState.payouts.status=v; loadPayouts(1); }
 function queueDisputeSearch(v){ clearTimeout(searchTimers.disputes); searchTimers.disputes=setTimeout(()=>{pageState.disputes.search=v; loadDisputes(1);},300); }
-function setDisputeStatus(v){ pageState.disputes.status=v; loadDisputes(1); }
+function setDisputeStatus(v){ pageState.disputes.status=v; syncDisputeFilterBtns(v); loadDisputes(1); }
+function syncDisputeFilterBtns(v){ document.querySelectorAll('#panel-disputes .filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.status===v)); }
 async function loadLiveOps(){
   try {
     const data = await adminApi('get_live_ops');
@@ -702,7 +703,7 @@ function filterOps(type,btn){
   btn.classList.add('active');toast('Filtering: '+type);
 }
 function filterTripStatus(status,btn){ document.querySelectorAll('#panel-trips .filter-row .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); pageState.trips.status=status==='all'?'':status; loadTrips(1); }
-function filterDisputes(type,btn){ pageState.disputes.status=type; loadDisputes(1); }
+function filterDisputes(type,btn){ pageState.disputes.status=type; syncDisputeFilterBtns(type); const sel=document.getElementById('disputeStatus'); if(sel) sel.value=type; loadDisputes(1); }
 async function loadDriverDetail(driverId) {
   try {
     const data = await adminApi('get_driver', { driver_id: driverId });
@@ -785,9 +786,11 @@ function openTripDetail(id,cat,from,to,fare,driver,status){
   document.getElementById('tripModal').classList.add('open');
 }
 function closeTripModal(){document.getElementById('tripModal').classList.remove('open');}
-function openDisputeModal(desc, disputeId=0, status='open'){
+function openDisputeModal(title, disputeId=0, status='open', description=''){
   currentDisputeId=Number(disputeId||0);
-  document.getElementById('modalDesc').textContent=desc;
+  document.getElementById('modalDesc').textContent=title;
+  const evidenceEl=document.getElementById('disputeEvidence');
+  if(evidenceEl) evidenceEl.textContent=description||'';
 
   const actionArea = document.getElementById('disputeActionArea');
   const resolveBtn = document.getElementById('resolveDisputeBtn');
@@ -798,6 +801,9 @@ function openDisputeModal(desc, disputeId=0, status='open'){
   } else {
     if (actionArea) actionArea.style.display = 'block';
     if (resolveBtn) resolveBtn.style.display = 'inline-block';
+    document.getElementById('resolutionType').value='Issue full refund to customer';
+    document.getElementById('refundAmt').value='';
+    document.getElementById('resolutionNotes').value='';
   }
 
   document.getElementById('disputeModal').classList.add('open');
