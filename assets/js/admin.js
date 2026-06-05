@@ -27,7 +27,7 @@ loginForm.addEventListener('submit', async (event) => {
 /* Admin App Script */
 
 const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',settings:'Settings'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Finance analytics endpoint pending',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -54,6 +54,7 @@ function nav(name,btn){
   if(name === 'disputes') loadDisputes();
   if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
   if(name === 'reconciliation') loadReconciliation();
+  if(name === 'revenue') loadRevenue();
 
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
@@ -611,6 +612,86 @@ async function loadReconciliation(page=pageState.reconciliation.page) {
   } catch (e) {
     list.innerHTML = '<div class="empty-state">Could not load reconciliation data: ' + escapeHtml(e.message) + '</div>';
   }
+}
+
+async function loadRevenue(){
+  try {
+    const data = await adminApi('get_revenue_analytics');
+    const el = id => document.getElementById(id);
+    if(el('revMonthly')) el('revMonthly').textContent = formatMoney(data.monthly_revenue);
+    if(el('revCommission')) el('revCommission').textContent = formatMoney(data.net_commission);
+    if(el('revPayouts')) el('revPayouts').textContent = formatMoney(data.driver_payouts);
+    if(el('revAvgDaily')) el('revAvgDaily').textContent = formatMoney(data.avg_daily);
+    if(el('revSameDay')) el('revSameDay').textContent = Number(data.same_day_trips||0).toLocaleString();
+    if(el('revGateway')) el('revGateway').textContent = Number(data.gateway_success_rate||0).toFixed(1)+'%';
+    const ratio = data.monthly_revenue > 0 ? Math.min(100, (data.driver_payouts / data.monthly_revenue * 100)).toFixed(1) : '0.0';
+    if(el('revPayoutRatio')) el('revPayoutRatio').textContent = ratio+'%';
+    if(el('revMonthlyDelta')) el('revMonthlyDelta').textContent = 'Avg ₦'+Number(data.avg_daily||0).toLocaleString(undefined,{maximumFractionDigits:0})+'/day';
+    renderRevenueWeekChart(data.weekly_chart||[]);
+    renderRevenueCategoryChart(data.category_chart||[]);
+  } catch(e) {
+    ['revMonthly','revCommission','revPayouts','revAvgDaily'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'Error'; });
+  }
+}
+function renderRevenueWeekChart(trend){
+  const chart = document.getElementById('revWeekChart');
+  const labels = document.getElementById('revWeekLabels');
+  const summary = document.getElementById('revWeekSummary');
+  if(!chart) return;
+  const amounts = trend.map(d=>d.revenue||0);
+  const max = Math.max(...amounts, 1);
+  chart.innerHTML = trend.map((d,i) => {
+    const pct = Math.max(4, Math.round((d.revenue/max)*100));
+    const isToday = i === trend.length-1;
+    const bg = isToday ? 'var(--gold)' : 'var(--navy-light)';
+    return `<div title="${escapeHtml(d.label+': '+formatMoney(d.revenue))}" style="flex:1;background:${bg};border-radius:3px 3px 0 0;height:${pct}%;cursor:default"></div>`;
+  }).join('');
+  if(labels) labels.innerHTML = trend.map((d,i) => {
+    const isToday = i === trend.length-1;
+    return `<span style="${isToday?'color:var(--gold);font-weight:700':''}">${escapeHtml(d.label.slice(0,2))}</span>`;
+  }).join('');
+  if(summary) {
+    const peak = trend.reduce((a,b)=>b.revenue>a.revenue?b:a, trend[0]||{revenue:0,label:'—'});
+    summary.innerHTML = `Peak: ${escapeHtml(peak.label)} · <span style="color:var(--success)">${formatMoney(peak.revenue)}</span>`;
+  }
+}
+function renderRevenueCategoryChart(cats){
+  const el = document.getElementById('revCategoryChart');
+  if(!el) return;
+  if(!cats.length){ el.innerHTML = '<div class="empty-state">No completed trips yet.</div>'; return; }
+  const max = Math.max(...cats.map(c=>c.revenue), 1);
+  el.innerHTML = cats.map(c => {
+    const pct = Math.round((c.revenue/max)*100);
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+        <span style="color:var(--text-primary)">${escapeHtml(formatStatusLabel(c.label))}</span>
+        <span style="color:var(--text-secondary)">${formatMoney(c.revenue)}</span>
+      </div>
+      <div style="background:var(--border);border-radius:3px;height:6px">
+        <div style="background:var(--gold);border-radius:3px;height:6px;width:${pct}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function exportTaxSummary(){ window.location.href = ADMIN_API_URL + '?action=export_tax_summary'; }
+function exportDriverWht(){ window.location.href = ADMIN_API_URL + '?action=export_driver_wht'; }
+function exportVatSchedule(){ window.location.href = ADMIN_API_URL + '?action=export_vat_schedule'; }
+function exportRevenueCsv(){
+  const rows = [];
+  const chart = document.getElementById('revWeekChart');
+  if(!chart) return;
+  const bars = chart.querySelectorAll('div[title]');
+  rows.push(['Day','Revenue']);
+  bars.forEach(b => {
+    const t = b.getAttribute('title')||'';
+    const parts = t.split(': ');
+    rows.push([parts[0]||'', parts[1]||'']);
+  });
+  const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'weekly_revenue.csv';
+  a.click();
 }
 
 async function loadDisputes(page=pageState.disputes.page){
