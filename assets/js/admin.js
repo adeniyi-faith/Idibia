@@ -42,6 +42,7 @@ function nav(name,btn){
   document.getElementById('topbar-title').textContent=panels[name]||name;
   document.getElementById('topbar-sub').textContent=subs[name]||'';
   document.getElementById('notifPanel').classList.remove('open');
+  closeAdminUserPanel();
 
   // Close sidebar on mobile after navigation
   if(name === 'overview') loadDashboard();
