@@ -122,7 +122,39 @@ function idibia_process_flutterwave_webhook( array $payload ): void {
 }
 
 /**
- * Credits a driver's wallet once for a captured/completed trip.
+ * Low-level wallet ledger credit: inserts a ledger row and bumps wallet_balance.
+ * Does NOT check for duplicates — callers must guard idempotency themselves.
+ */
+function idibia_credit_driver_wallet( int $driver_id, float $amount, string $entry_type, int $reference_id, string $description ): bool {
+    global $wpdb;
+    if ( $driver_id <= 0 || $amount <= 0 ) {
+        return false;
+    }
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_wallet_ledger',
+        [
+            'driver_id'    => $driver_id,
+            'amount'       => $amount,
+            'entry_type'   => $entry_type,
+            'reference_id' => $reference_id,
+            'description'  => $description,
+            'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%d', '%f', '%s', '%d', '%s', '%s' ]
+    );
+    if ( false === $inserted ) {
+        return false;
+    }
+    $wpdb->query( $wpdb->prepare(
+        "UPDATE `{$wpdb->prefix}sd_drivers` SET wallet_balance = wallet_balance + %f WHERE id = %d",
+        $amount,
+        $driver_id
+    ) );
+    return true;
+}
+
+/**
+ * Credits a driver's wallet once for a captured/completed trip and logs the platform commission.
  */
 function idibia_credit_driver_for_trip( int $trip_id ): bool {
     global $wpdb;
@@ -145,35 +177,41 @@ function idibia_credit_driver_for_trip( int $trip_id ): bool {
         return true;
     }
 
-    $fare = max( 0, (float) $trip['fare_amount'] );
+    $fare        = max( 0, (float) $trip['fare_amount'] );
     $platform_pct = min( 100, max( 0, (float) $trip['platform_pct'] ) );
-    $driver_amount = round( $fare * ( 100 - $platform_pct ) / 100, 2 );
-    if ( $driver_amount <= 0 ) {
+    $net_amount   = round( $fare * ( 100 - $platform_pct ) / 100, 2 );
+    $commission   = round( $fare - $net_amount, 2 );
+    $driver_id    = (int) $trip['driver_id'];
+    $trip_ref     = $trip['trip_ref'];
+
+    if ( $net_amount <= 0 ) {
         return false;
     }
 
-    $inserted = $wpdb->insert(
-        $wpdb->prefix . 'sd_wallet_ledger',
-        [
-            'driver_id'    => (int) $trip['driver_id'],
-            'amount'       => $driver_amount,
-            'entry_type'   => 'earning',
-            'reference_id' => $trip_id,
-            'description'  => 'Driver earning for trip #' . $trip['trip_ref'],
-            'created_at'   => gmdate( 'Y-m-d H:i:s' ),
-        ],
-        [ '%d', '%f', '%s', '%d', '%s', '%s' ]
-    );
-
-    if ( false === $inserted ) {
+    $credited = idibia_credit_driver_wallet( $driver_id, $net_amount, 'earning', $trip_id, "Trip {$trip_ref} earnings" );
+    if ( ! $credited ) {
         return false;
     }
 
     $wpdb->query( $wpdb->prepare(
-        "UPDATE `{$wpdb->prefix}sd_drivers` SET wallet_balance = wallet_balance + %f, total_trips = total_trips + 1 WHERE id = %d",
-        $driver_amount,
-        (int) $trip['driver_id']
+        "UPDATE `{$wpdb->prefix}sd_drivers` SET total_trips = total_trips + 1 WHERE id = %d",
+        $driver_id
     ) );
+
+    if ( $commission > 0 ) {
+        $wpdb->insert(
+            $wpdb->prefix . 'sd_wallet_ledger',
+            [
+                'driver_id'    => $driver_id,
+                'amount'       => $commission,
+                'entry_type'   => 'commission',
+                'reference_id' => $trip_id,
+                'description'  => "Platform commission for trip {$trip_ref}",
+                'created_at'   => gmdate( 'Y-m-d H:i:s' ),
+            ],
+            [ '%d', '%f', '%s', '%d', '%s', '%s' ]
+        );
+    }
 
     return true;
 }
