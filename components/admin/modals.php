@@ -78,4 +78,25 @@
   </div>
 </div>
 
+<!-- REASSIGN TRIP MODAL -->
+<div class="modal-overlay" id="reassignTripModal" onclick="if(event.target===this)closeReassignModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 style="font-size:15px" id="reassignModalTitle">Reassign Trip</h3>
+      <button aria-label="Close modal" onclick="closeReassignModal()" style="background:none;border:none;font-size:18px;color:var(--text-muted)">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="reassignModalDesc" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></p>
+      <div class="form-group">
+        <label class="form-label">Assign to driver</label>
+        <select class="form-input" id="reassignDriverSelect"><option value="">Loading drivers…</option></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeReassignModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Cancel</button>
+      <button class="btn-primary" id="reassignSubmitBtn" onclick="submitReassignTrip()">Reassign</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toastEl"></div>
