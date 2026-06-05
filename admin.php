@@ -149,7 +149,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 
   <?php require_once __DIR__ . '/components/admin/panel-overview.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-kyc.php'; ?>
-  <?php require_once __DIR__ . '/components/admin/panel-ops.php'; ?>
+  <?php require_once __DIR__ . '/components/admin/panel-live-ops.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-trips.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-revenue.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-reconciliation.php'; ?>

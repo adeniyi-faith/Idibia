@@ -540,7 +540,30 @@ function idibia_admin_force_cancel_trip(): void {
 function idibia_admin_live_ops(): void {
     global $wpdb;
 
-    $active_statuses = "'accepted','arriving','arrived_pickup','picked_up','arrived_dropoff'";
+    // Active dispatch statuses — excludes terminal states
+    $active_dispatch = "'searching','offered','accepted','arriving','arrived_pickup','picked_up','arrived_dropoff'";
+
+    // All active trips: in_progress status OR any non-terminal dispatch status
+    $trips = $wpdb->get_results(
+        "SELECT t.id AS trip_id, t.trip_ref, t.status AS trip_status, t.dispatch_status,
+                t.pickup_address, t.dropoff_address, t.distance_km, t.duration_mins,
+                t.fare, t.final_fare, t.created_at, t.searching_at,
+                c.full_name AS customer_name, c.phone AS customer_phone,
+                d.id AS driver_id, d.full_name AS driver_name, d.vehicle_type,
+                dl.lat AS driver_lat, dl.lng AS driver_lng,
+                dl.heading AS driver_heading, dl.updated_at AS location_updated_at
+         FROM `{$wpdb->prefix}sd_trips` t
+         LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id
+         LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id
+         LEFT JOIN `{$wpdb->prefix}sd_driver_locations` dl ON dl.driver_id = t.driver_id
+         WHERE (t.status = 'in_progress' OR t.dispatch_status IN ($active_dispatch))
+           AND t.dispatch_status NOT IN ('completed','cancelled','no_driver')
+         ORDER BY FIELD(t.dispatch_status,'searching','offered','accepted','arriving','arrived_pickup','picked_up','arrived_dropoff'), t.created_at DESC
+         LIMIT 100",
+        ARRAY_A
+    ) ?: [];
+
+    // Driver markers: all online approved drivers with last known location
     $drivers = $wpdb->get_results(
         "SELECT d.id AS driver_id, d.full_name, d.first_name, d.vehicle_type, d.is_online,
                 dl.lat, dl.lng, dl.heading, dl.updated_at,
@@ -549,7 +572,7 @@ function idibia_admin_live_ops(): void {
                 c.full_name AS customer_name
          FROM `{$wpdb->prefix}sd_drivers` d
          LEFT JOIN `{$wpdb->prefix}sd_driver_locations` dl ON dl.driver_id = d.id
-         LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.driver_id = d.id AND t.dispatch_status IN ($active_statuses)
+         LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.driver_id = d.id AND t.dispatch_status IN ($active_dispatch) AND t.dispatch_status NOT IN ('completed','cancelled','no_driver')
          LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = t.customer_id
          WHERE d.status = 'active' AND d.kyc_status = 'approved' AND (d.is_online = 1 OR t.id IS NOT NULL)
          ORDER BY t.id IS NULL ASC, dl.updated_at DESC, d.full_name ASC
@@ -560,25 +583,45 @@ function idibia_admin_live_ops(): void {
     $online_drivers = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE is_online = 1 AND status = 'active' AND kyc_status = 'approved'" );
 
     $active_trips = 0;
+    $searching_trips = 0;
+    foreach ( $trips as &$trip ) {
+        $trip['trip_id']          = (int) $trip['trip_id'];
+        $trip['driver_id']        = $trip['driver_id'] !== null ? (int) $trip['driver_id'] : null;
+        $trip['driver_lat']       = $trip['driver_lat'] !== null ? (float) $trip['driver_lat'] : null;
+        $trip['driver_lng']       = $trip['driver_lng'] !== null ? (float) $trip['driver_lng'] : null;
+        $trip['driver_heading']   = $trip['driver_heading'] !== null ? (float) $trip['driver_heading'] : null;
+        $trip['distance_km']      = $trip['distance_km'] !== null ? (float) $trip['distance_km'] : null;
+        $trip['duration_mins']    = $trip['duration_mins'] !== null ? (int) $trip['duration_mins'] : null;
+        $trip['fare']             = $trip['fare'] !== null ? (float) $trip['fare'] : null;
+        $trip['final_fare']       = $trip['final_fare'] !== null ? (float) $trip['final_fare'] : null;
+        if ( $trip['dispatch_status'] === 'searching' || $trip['dispatch_status'] === 'offered' ) {
+            $searching_trips++;
+        } else {
+            $active_trips++;
+        }
+    }
+    unset( $trip );
+
     foreach ( $drivers as &$driver ) {
-        $driver['driver_id'] = (int) $driver['driver_id'];
-        $driver['is_online'] = (int) $driver['is_online'];
-        $driver['trip_id'] = $driver['trip_id'] !== null ? (int) $driver['trip_id'] : null;
-        $driver['lat'] = $driver['lat'] !== null ? (float) $driver['lat'] : null;
-        $driver['lng'] = $driver['lng'] !== null ? (float) $driver['lng'] : null;
-        $driver['heading'] = $driver['heading'] !== null ? (float) $driver['heading'] : null;
-        $driver['distance_km'] = $driver['distance_km'] !== null ? (float) $driver['distance_km'] : null;
-        $driver['duration_mins'] = $driver['duration_mins'] !== null ? (int) $driver['duration_mins'] : null;
-        if ( $driver['trip_id'] ) $active_trips++;
+        $driver['driver_id']    = (int) $driver['driver_id'];
+        $driver['is_online']    = (int) $driver['is_online'];
+        $driver['trip_id']      = $driver['trip_id'] !== null ? (int) $driver['trip_id'] : null;
+        $driver['lat']          = $driver['lat'] !== null ? (float) $driver['lat'] : null;
+        $driver['lng']          = $driver['lng'] !== null ? (float) $driver['lng'] : null;
+        $driver['heading']      = $driver['heading'] !== null ? (float) $driver['heading'] : null;
+        $driver['distance_km']  = $driver['distance_km'] !== null ? (float) $driver['distance_km'] : null;
+        $driver['duration_mins']= $driver['duration_mins'] !== null ? (int) $driver['duration_mins'] : null;
     }
     unset( $driver );
 
     wp_send_json_success( [
+        'trips'   => $trips,
         'drivers' => $drivers,
         'metrics' => [
-            'online_drivers' => $online_drivers,
-            'active_trips'   => $active_trips,
-            'last_refreshed' => gmdate( 'Y-m-d H:i:s' ),
+            'online_drivers'  => $online_drivers,
+            'active_trips'    => $active_trips,
+            'searching_trips' => $searching_trips,
+            'last_refreshed'  => gmdate( 'Y-m-d H:i:s' ),
         ],
     ] );
 }
