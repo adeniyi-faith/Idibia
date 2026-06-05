@@ -1091,8 +1091,14 @@ async function openAdminUserPanel() {
         loadRolesForDropdown();
     }
 
-    document.getElementById('adminUserSlidePanel').classList.add('open');
-    document.getElementById('adminUserSlidePanelOverlay').classList.add('open');
+    const panel = document.getElementById('adminUserSlidePanel');
+    const overlay = document.getElementById('adminUserSlidePanelOverlay');
+    panel.style.display = 'flex';
+    overlay.style.display = 'block';
+    requestAnimationFrame(() => {
+        panel.classList.add('open');
+        overlay.classList.add('open');
+    });
 }
 
 function editAdminUser(u) {
@@ -1112,8 +1118,14 @@ function editAdminUser(u) {
 }
 
 function closeAdminUserPanel() {
-    document.getElementById('adminUserSlidePanel').classList.remove('open');
-    document.getElementById('adminUserSlidePanelOverlay').classList.remove('open');
+    const panel = document.getElementById('adminUserSlidePanel');
+    const overlay = document.getElementById('adminUserSlidePanelOverlay');
+    panel.classList.remove('open');
+    overlay.classList.remove('open');
+    setTimeout(() => {
+        panel.style.display = 'none';
+        overlay.style.display = 'none';
+    }, 300);
 }
 
 async function saveAdminUser(e) {
