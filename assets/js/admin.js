@@ -47,7 +47,7 @@ function nav(name,btn){
   if(name === 'overview') loadDashboard();
   if(name === 'ops') loadLiveOps();
   if(name === 'trips') loadTrips();
-  if(name === 'payouts') loadPayouts();
+  if(name === 'payouts') { loadPayouts(); loadManualPaymentsPayouts(); }
   if(name === 'drivers') loadDrivers();
   if(name === 'users') loadCustomers();
   if(name === 'disputes') loadDisputes();
@@ -270,7 +270,7 @@ async function loadManualPayments(){
         <div class="item-info">
           <div class="item-name">${escapeHtml(p.trip_ref || ('Trip #' + p.trip_id))} · ₦${Number(p.amount || 0).toLocaleString()}</div>
           <div class="item-meta">${escapeHtml(p.customer_name || 'Customer')} · ${escapeHtml(p.provider_ref || 'No reference')} · ${escapeHtml(p.status)}</div>
-          ${p.proof_url ? `<a href="${escapeHtml(p.proof_url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--info);font-weight:700">View proof</a>` : '<span style="font-size:12px;color:var(--danger)">No proof uploaded</span>'}
+          ${p.proof_url ? `<button onclick="viewProofImage('${escapeHtml(p.proof_url)}','Receipt – ${escapeHtml(p.trip_ref||'Trip #'+p.trip_id)}')" style="background:none;border:none;padding:0;font-size:12px;color:var(--info);font-weight:700;cursor:pointer;text-decoration:underline">View Receipt</button>` : '<span style="font-size:12px;color:var(--danger)">No proof uploaded</span>'}
         </div>
         <div class="item-actions">
           <button class="btn-sm btn-approve" onclick="reviewManualPayment(${p.id}, 'approve')">Approve</button>
@@ -282,16 +282,67 @@ async function loadManualPayments(){
   }
 }
 
-async function reviewManualPayment(paymentId, decision){
+async function reviewManualPayment(paymentId, decision, source){
   const notes = decision === 'reject' ? prompt('Why are you rejecting this proof?') : prompt('Approval note (optional)');
   if(decision === 'reject' && !notes) return;
   try {
     const data = await adminApi('review_manual_payment', {payment_id: paymentId, decision, admin_notes: notes || ''}, 'POST');
     toast(data.message || (decision === 'approve' ? 'Payment approved' : 'Payment rejected'));
-    loadManualPayments();
+    if(source === 'payouts') loadManualPaymentsPayouts(); else loadManualPayments();
   } catch (e) {
     toast(e.message || 'Could not review payment');
   }
+}
+
+async function loadManualPaymentsPayouts(){
+  const list = document.getElementById('manualPaymentsListPayouts');
+  if(!list) return;
+  const status = document.getElementById('manualPaymentsStatus')?.value || 'proof_submitted';
+  list.innerHTML = '<div class="loading-state">Loading…</div>';
+  try {
+    const data = await adminApi('get_manual_payments', {status, per_page: 20});
+    const payments = data.payments || [];
+    if(!payments.length){
+      list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No manual transfers for this status</div><div class="item-meta">Customer uploads will appear here once submitted.</div></div></div>';
+      return;
+    }
+    const isPending = status === 'proof_submitted';
+    list.innerHTML = payments.map(p => {
+      const statusBadge = `<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:20px;background:${p.status==='captured'?'rgba(34,197,94,0.12)':p.status==='rejected'?'rgba(239,68,68,0.12)':'rgba(245,200,66,0.12)'};color:${p.status==='captured'?'var(--success)':p.status==='rejected'?'var(--danger)':'var(--gold-dark)'}">${p.status==='captured'?'Approved':p.status.replace('_',' ')}</span>`;
+      return `<div class="list-item" data-payment-id="${p.id}">
+        <div class="avatar" style="background:rgba(245,200,66,0.1);color:var(--gold-dark)">₦</div>
+        <div class="item-info">
+          <div class="item-name">${escapeHtml(p.trip_ref || ('Trip #'+p.trip_id))} · ₦${Number(p.amount||0).toLocaleString()} ${statusBadge}</div>
+          <div class="item-meta">${escapeHtml(p.customer_name||'Customer')} · Ref: ${escapeHtml(p.provider_ref||'—')} · ${escapeHtml(p.customer_phone||'')}</div>
+          ${p.proof_url
+            ? `<button onclick="viewProofImage('${escapeHtml(p.proof_url)}','Receipt – ${escapeHtml(p.trip_ref||'Trip #'+p.trip_id)}')" style="background:none;border:none;padding:0;font-size:12px;color:var(--info);font-weight:700;cursor:pointer;text-decoration:underline">View Receipt</button>`
+            : '<span style="font-size:12px;color:var(--danger)">No proof uploaded</span>'}
+          ${p.admin_notes ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:2px">Note: ${escapeHtml(p.admin_notes)}</div>` : ''}
+        </div>
+        <div class="item-actions">
+          ${isPending ? `<button class="btn-sm btn-approve" onclick="reviewManualPayment(${p.id},'approve','payouts')">Approve</button><button class="btn-sm btn-reject" onclick="reviewManualPayment(${p.id},'reject','payouts')">Reject</button>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">Could not load manual transfers</div><div class="item-meta">'+escapeHtml(e.message)+'</div></div></div>';
+  }
+}
+
+function viewProofImage(url, caption){
+  const modal = document.getElementById('proofModal');
+  if(!modal) { window.open(url,'_blank','noopener'); return; }
+  document.getElementById('proofModalImg').src = url;
+  document.getElementById('proofModalImg').style.display = '';
+  document.getElementById('proofModalFallback').style.display = 'none';
+  document.getElementById('proofModalFallbackLink').href = url;
+  document.getElementById('proofModalCaption').textContent = caption || 'Payment Receipt';
+  document.getElementById('proofModalDownload').href = url;
+  modal.classList.add('open');
+}
+function closeProofModal(){
+  const modal = document.getElementById('proofModal');
+  if(modal){ modal.classList.remove('open'); document.getElementById('proofModalImg').src = ''; }
 }
 
 function updateKycBadge(){

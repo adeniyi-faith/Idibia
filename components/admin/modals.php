@@ -99,4 +99,24 @@
   </div>
 </div>
 
+<!-- PROOF IMAGE LIGHTBOX -->
+<div class="modal-overlay" id="proofModal" onclick="if(event.target===this)closeProofModal()" style="z-index:9999;align-items:center;justify-content:center">
+  <div style="position:relative;max-width:90vw;max-height:90vh;background:var(--surface-1);border-radius:14px;overflow:hidden;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--surface-2)">
+      <span style="font-size:13px;font-weight:700;color:var(--text-primary)" id="proofModalCaption">Payment Receipt</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a id="proofModalDownload" href="#" download style="font-size:12px;color:var(--info);font-weight:700;text-decoration:none">Download</a>
+        <button onclick="closeProofModal()" style="background:none;border:none;font-size:20px;color:var(--text-muted);cursor:pointer;line-height:1">×</button>
+      </div>
+    </div>
+    <div style="overflow:auto;flex:1;display:flex;align-items:center;justify-content:center;padding:12px;background:var(--bg-dark,#0a0c12)">
+      <img id="proofModalImg" src="" alt="Payment proof" style="max-width:100%;max-height:75vh;border-radius:6px;object-fit:contain" onerror="this.style.display='none';document.getElementById('proofModalFallback').style.display='block'">
+      <div id="proofModalFallback" style="display:none;text-align:center;padding:32px;color:var(--text-secondary)">
+        <div style="font-size:32px;margin-bottom:8px">📄</div>
+        <div style="font-size:13px">Could not preview this file.<br><a id="proofModalFallbackLink" href="#" target="_blank" rel="noopener" style="color:var(--info)">Open in new tab</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toastEl"></div>

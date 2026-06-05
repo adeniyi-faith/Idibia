@@ -956,7 +956,7 @@ function idibia_admin_review_manual_payment(): void {
         wp_send_json_error( [ 'message' => 'A receipt/proof file is required before approval.' ] );
     }
 
-    $new_status = $decision === 'approve' ? 'approved' : 'rejected';
+    $new_status = $decision === 'approve' ? 'captured' : 'rejected';
     idibia_transaction_start();
     $updated = $wpdb->update(
         $wpdb->prefix . 'sd_payments',
