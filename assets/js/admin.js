@@ -1090,7 +1090,8 @@ async function openAdminUserPanel() {
         loadRolesForDropdown();
     }
 
-    document.getElementById('adminUserSlidePanel').classList.add('show');
+    document.getElementById('adminUserSlidePanel').classList.add('open');
+    document.getElementById('adminUserSlidePanelOverlay').classList.add('open');
 }
 
 function editAdminUser(u) {
@@ -1110,7 +1111,8 @@ function editAdminUser(u) {
 }
 
 function closeAdminUserPanel() {
-    document.getElementById('adminUserSlidePanel').classList.remove('show');
+    document.getElementById('adminUserSlidePanel').classList.remove('open');
+    document.getElementById('adminUserSlidePanelOverlay').classList.remove('open');
 }
 
 async function saveAdminUser(e) {
