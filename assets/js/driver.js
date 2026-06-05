@@ -1394,6 +1394,53 @@ async function loadWalletData() {
       window.driverBankName = data.bank_name;
       window.driverAccountNumber = data.account_number;
 
+      // Populate earnings summary card
+      if (data.earnings) {
+        const e = data.earnings;
+
+        const weekTotal = document.getElementById('earnings-week-total');
+        if (weekTotal) weekTotal.textContent = new Intl.NumberFormat('en-NG', { minimumFractionDigits: 0 }).format(e.week_total);
+
+        const todayTotal = document.getElementById('earnings-today-total');
+        if (todayTotal) todayTotal.textContent = formatCurrency(e.today_total);
+
+        const weekTrips = document.getElementById('earnings-week-trips');
+        if (weekTrips) weekTrips.textContent = e.week_trips;
+
+        const ratingText = document.getElementById('earnings-rating-text');
+        if (ratingText) ratingText.textContent = parseFloat(e.rating).toFixed(1);
+
+        const ratingStars = document.getElementById('earnings-rating-stars');
+        if (ratingStars) {
+          const full = Math.floor(e.rating);
+          const half = (e.rating - full) >= 0.5;
+          let stars = '★'.repeat(full);
+          if (half) stars += '½';
+          stars += '☆'.repeat(Math.max(0, 5 - full - (half ? 1 : 0)));
+          ratingStars.textContent = stars;
+        }
+
+        // Weekly bar chart
+        const chart = document.getElementById('weekly-bar-chart');
+        if (chart && e.daily_breakdown && e.daily_breakdown.length) {
+          const maxVal = Math.max(...e.daily_breakdown.map(d => d.total), 1);
+          const chartMax = document.getElementById('weekly-chart-max');
+          if (chartMax) chartMax.textContent = formatCurrency(maxVal);
+
+          chart.innerHTML = e.daily_breakdown.map(day => {
+            const heightPct = Math.round((day.total / maxVal) * 100);
+            const isToday = day.date === new Date().toISOString().slice(0, 10);
+            return `
+              <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;">
+                <div style="font-size:11px;color:var(--text-muted);font-weight:${isToday ? '700' : '400'}">${escapeHtml(day.label)}</div>
+                <div style="flex:1;width:100%;display:flex;align-items:flex-end;">
+                  <div style="width:100%;height:${heightPct}%;min-height:${day.total > 0 ? 4 : 0}px;background:${isToday ? 'var(--primary)' : 'var(--surface-2)'};border-radius:4px 4px 0 0;" title="${formatCurrency(day.total)}"></div>
+                </div>
+              </div>`;
+          }).join('');
+        }
+      }
+
       const ledgerList = document.getElementById('wallet-ledger-list');
       if (ledgerList) {
         if (data.ledger && data.ledger.length > 0) {
