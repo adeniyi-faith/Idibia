@@ -541,28 +541,63 @@ async function loadLiveOps(){
   }
 }
 function renderLiveOps(data){
+  const trips   = data.trips   || [];
   const drivers = data.drivers || [];
-  const onlineDriverCount = data.metrics?.online_drivers ?? drivers.filter(d => Number(d.is_online) === 1).length;
-  const activeTripCount = data.metrics?.active_trips ?? drivers.filter(d => d.trip_id).length;
-  document.getElementById('opsOnlineDrivers').textContent = onlineDriverCount;
-  document.getElementById('opsActiveTrips').textContent = activeTripCount;
-  const newest = drivers.find(d => d.updated_at)?.updated_at || 'No GPS';
-  document.getElementById('opsLastLocation').textContent = newest === 'No GPS' ? newest : 'Updated';
+  const onlineDriverCount  = data.metrics?.online_drivers  ?? drivers.filter(d => Number(d.is_online) === 1).length;
+  const activeTripCount    = data.metrics?.active_trips    ?? trips.filter(t => t.dispatch_status !== 'searching' && t.dispatch_status !== 'offered').length;
+  const searchingTripCount = data.metrics?.searching_trips ?? trips.filter(t => t.dispatch_status === 'searching' || t.dispatch_status === 'offered').length;
+
+  document.getElementById('opsOnlineDrivers').textContent  = onlineDriverCount;
+  document.getElementById('opsActiveTrips').textContent    = activeTripCount;
+  const searchingEl = document.getElementById('opsSearchingTrips');
+  if(searchingEl) searchingEl.textContent = searchingTripCount;
+  const newestTrip = trips.find(t => t.driver_lat != null)?.location_updated_at || null;
+  const locationEl = document.getElementById('opsLastLocation');
+  if(locationEl) locationEl.textContent = newestTrip ? 'GPS live' : 'No GPS';
   document.getElementById('opsRefreshAge').textContent = 'Now';
-  document.getElementById('opsMapLegend').innerHTML = `<span style="color:var(--success)">●</span> ${onlineDriverCount} online &nbsp;<span style="color:var(--info)">●</span> ${activeTripCount} in trip`;
-  document.getElementById('opsListMeta').textContent = `Live · ${onlineDriverCount} online`;
-  const list = document.getElementById('opsDriverList');
-  if(!drivers.length){
-    list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active drivers right now</div><div class="item-meta">Drivers appear here after heartbeat or active-trip assignment.</div></div></div>';
-    return;
+  document.getElementById('opsMapLegend').innerHTML = `<span style="color:var(--success)">●</span> ${onlineDriverCount} online &nbsp;<span style="color:var(--info)">●</span> ${activeTripCount} in trip &nbsp;<span style="color:var(--warn)">●</span> ${searchingTripCount} searching`;
+  document.getElementById('opsListMeta').textContent = `Live · ${trips.length} trip${trips.length !== 1 ? 's' : ''}`;
+
+  // Render trip list
+  const tripList = document.getElementById('opsTripList');
+  if(tripList){
+    if(!trips.length){
+      tripList.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active trips right now</div><div class="item-meta">Trips in in_progress or searching state appear here.</div></div></div>';
+    } else {
+      tripList.innerHTML = trips.map(trip => {
+        const ds = trip.dispatch_status || '';
+        const isSearching = ds === 'searching' || ds === 'offered';
+        let badgeClass = 'badge-info';
+        if(isSearching) badgeClass = 'badge-warn';
+        else if(ds === 'picked_up' || ds === 'arrived_dropoff') badgeClass = 'badge-success';
+        const badge = `<span class="badge ${badgeClass}">${escapeHtml(formatStatusLabel(ds))}</span>`;
+        const driverPart = trip.driver_name ? `${escapeHtml(trip.driver_name)} · ${vehicleIcon(trip.vehicle_type)}` : '<em>Searching…</em>';
+        const gps = trip.driver_lat != null && trip.driver_lng != null
+          ? `GPS ${Number(trip.driver_lat).toFixed(4)}, ${Number(trip.driver_lng).toFixed(4)}`
+          : 'No GPS';
+        const fare = trip.final_fare ?? trip.fare;
+        const fareStr = fare ? `₦${Number(fare).toLocaleString()}` : '';
+        const meta = `${escapeHtml(trip.customer_name || 'Customer')} · ${driverPart} · ${escapeHtml(trip.dropoff_address || 'Drop-off TBD')} · ${gps}${fareStr ? ' · ' + fareStr : ''}`;
+        return `<div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(trip.customer_name || 'T'))}</div><div class="item-info"><div class="item-name">${escapeHtml(trip.trip_ref || ('#' + trip.trip_id))}</div><div class="item-meta">${meta}</div></div>${badge}</div>`;
+      }).join('');
+    }
   }
-  list.innerHTML = drivers.map(driver => {
-    const inTrip = !!driver.trip_id;
-    const badge = inTrip ? '<span class="badge badge-info">In Trip</span>' : '<span class="badge badge-success">Available</span>';
-    const location = driver.lat != null && driver.lng != null ? `${Number(driver.lat).toFixed(5)}, ${Number(driver.lng).toFixed(5)} · ${driver.updated_at || 'recent'}` : 'No last known location';
-    const meta = inTrip ? `${escapeHtml(driver.trip_ref)} · ${escapeHtml(driver.dispatch_status)} → ${escapeHtml(driver.dropoff_address || 'drop-off')} · GPS ${escapeHtml(location)}` : `Online · GPS ${escapeHtml(location)}`;
-    return `<div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">${escapeHtml(initials(driver.full_name || driver.first_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name || driver.first_name || 'Driver')} · ${vehicleIcon(driver.vehicle_type)}</div><div class="item-meta">${meta}</div></div>${badge}</div>`;
-  }).join('');
+
+  // Render driver marker list
+  const list = document.getElementById('opsDriverList');
+  if(list){
+    if(!drivers.length){
+      list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active drivers right now</div><div class="item-meta">Drivers appear here after heartbeat or active-trip assignment.</div></div></div>';
+    } else {
+      list.innerHTML = drivers.map(driver => {
+        const inTrip = !!driver.trip_id;
+        const badge = inTrip ? '<span class="badge badge-info">In Trip</span>' : '<span class="badge badge-success">Available</span>';
+        const location = driver.lat != null && driver.lng != null ? `${Number(driver.lat).toFixed(5)}, ${Number(driver.lng).toFixed(5)} · ${driver.updated_at || 'recent'}` : 'No last known location';
+        const meta = inTrip ? `${escapeHtml(driver.trip_ref)} · ${escapeHtml(driver.dispatch_status)} → ${escapeHtml(driver.dropoff_address || 'drop-off')} · GPS ${escapeHtml(location)}` : `Online · GPS ${escapeHtml(location)}`;
+        return `<div class="list-item"><div class="avatar" style="background:rgba(34,196,122,0.1);color:var(--success)">${escapeHtml(initials(driver.full_name || driver.first_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name || driver.first_name || 'Driver')} · ${vehicleIcon(driver.vehicle_type)}</div><div class="item-meta">${meta}</div></div>${badge}</div>`;
+      }).join('');
+    }
+  }
 }
 setInterval(() => {
   if(document.getElementById('panel-ops')?.classList.contains('active')) loadLiveOps();
