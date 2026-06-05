@@ -90,7 +90,8 @@ if ( false === $verify_updated ) {
     wp_send_json_error( [ 'message' => 'Could not start email verification. Please try again.' ] );
 }
 
-wp_mail( $email, 'Your Idibia Driver Verification Code', "Your code is: $otp" );
+[ 'subject' => $otp_subject, 'body' => $otp_body, 'headers' => $otp_headers ] = idibia_otp_email( $first_name, $otp, 'driver' );
+wp_mail( $email, $otp_subject, $otp_body, $otp_headers );
 
 if ( ! session_id() ) session_start();
 $_SESSION['sd_pending_driver_id'] = $driver_id;
