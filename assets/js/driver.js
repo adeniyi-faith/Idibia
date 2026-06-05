@@ -300,6 +300,7 @@ async function submitDriverKyc() {
     const json = await parseDriverJson(response);
     if (json.success) {
       driverInitialContext.kyc_status = 'under_review';
+      startKycPolling();
       return true;
     }
     showToast(json.data?.message || 'Failed to submit KYC.');
@@ -1055,11 +1056,47 @@ setGreeting();
 setDriverAuthMode(driverAuthMode);
 isOnline = !!driverInitialContext.is_online;
 
+let _kycPollTimer = null;
+
+function startKycPolling() {
+  if (_kycPollTimer) return;
+  _kycPollTimer = setInterval(async () => {
+    try {
+      const res = await fetch('driver-kyc-status.php', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+      const json = await res.json();
+      if (!json.success) return;
+      const { kyc_status, is_approved, kyc_notes } = json.data;
+      if (kyc_status === driverInitialContext.kyc_status) return;
+      driverInitialContext.kyc_status = kyc_status;
+      driverInitialContext.is_approved = is_approved;
+      clearInterval(_kycPollTimer);
+      _kycPollTimer = null;
+      if (is_approved) {
+        showToast('🎉 Your application was approved! Welcome aboard.');
+        goToDashboard();
+        subscribeToDriverRealtime();
+        startLocationWatch();
+        fetchDriverOffers();
+        setInterval(fetchDriverOffers, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 15000);
+      } else if (kyc_status === 'rejected') {
+        showToast('Your application was not approved. ' + (kyc_notes || 'Please check your documents and reapply.'));
+        driverStep = 1;
+        updateDriver();
+      }
+    } catch (_) {}
+  }, 20000);
+}
+
+function stopKycPolling() {
+  if (_kycPollTimer) { clearInterval(_kycPollTimer); _kycPollTimer = null; }
+}
+
 if (driverInitialContext.logged_in) {
   driverAuthenticated = true;
   if (!driverInitialContext.is_approved) {
     if (driverInitialContext.kyc_status === 'under_review') {
       driverStep = 5;
+      startKycPolling();
     } else if (driverInitialContext.kyc_status === 'pending') {
       driverStep = 2;
     }
