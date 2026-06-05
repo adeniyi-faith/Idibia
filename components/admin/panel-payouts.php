@@ -30,9 +30,9 @@
       <div style="padding:16px 18px">
         <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Generate tax summaries for drivers and platform income reports for accounting.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-primary disabled-action" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px" aria-disabled="true" onclick="showUnavailableFeature('Tax summary', 'Tax report generation needs payout and tax reporting endpoints before files can be generated.')">Q1 2026 Summary</button>
-          <button class="btn-primary disabled-action" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" aria-disabled="true" onclick="showUnavailableFeature('Driver WHT reports', 'Driver tax reports need payout and withholding data endpoints before files can be generated.')">Driver WHT Reports</button>
-          <button class="btn-primary disabled-action" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" aria-disabled="true" onclick="showUnavailableFeature('VAT schedule', 'VAT schedule export needs a tax reporting endpoint before files can be generated.')">VAT Schedule</button>
+          <button class="btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px" onclick="exportTaxSummary()">Tax Summary (CSV)</button>
+          <button class="btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" onclick="exportDriverWht()">Driver WHT Reports</button>
+          <button class="btn-primary" style="flex:1;min-width:140px;font-size:12px;padding:8px 16px;background:var(--navy-light)" onclick="exportVatSchedule()">VAT Schedule</button>
         </div>
       </div>
     </div>

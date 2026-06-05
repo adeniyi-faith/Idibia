@@ -173,6 +173,12 @@ try {
             idibia_admin_reconciliation_data();
             break;
 
+        case 'get_revenue_analytics':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_revenue_analytics();
+            break;
+
         case 'get_payment':
             idibia_require_method( 'GET' );
             $payment_id = absint( $_GET['payment_id'] ?? 0 );
@@ -750,6 +756,79 @@ function idibia_admin_resolve_dispute(): void {
     idibia_admin_audit_log( 'resolve_dispute', 'dispute', $dispute_id, [ 'resolution' => $resolution, 'refund_amount' => $refund, 'admin_notes' => $notes ] );
     if ( $refund > 0 ) idibia_admin_audit_log( 'refund', 'dispute', $dispute_id, [ 'refund_amount' => $refund, 'resolution' => $resolution ] );
     wp_send_json_success( [ 'message' => 'Dispute resolved.' ] );
+}
+
+function idibia_admin_revenue_analytics(): void {
+    global $wpdb;
+    $fare_expr = "COALESCE(NULLIF(final_fare,0), NULLIF(fare_estimate,0), fare, 0)";
+    $commission_expr = "$fare_expr * platform_pct / 100";
+
+    $month_start = gmdate( 'Y-m-01' );
+    $today       = gmdate( 'Y-m-d' );
+
+    $monthly_revenue = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM($commission_expr),0) FROM `{$wpdb->prefix}sd_trips` WHERE status='completed' AND DATE(COALESCE(completed_at,created_at)) >= %s AND DATE(COALESCE(completed_at,created_at)) <= %s",
+        $month_start, $today
+    ) );
+
+    $driver_payouts = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(amount),0) FROM `{$wpdb->prefix}sd_payouts` WHERE status='paid' AND DATE(created_at) >= %s AND DATE(created_at) <= %s",
+        $month_start, $today
+    ) );
+
+    $days_elapsed = max( 1, (int) gmdate( 'j' ) );
+    $avg_daily = $monthly_revenue / $days_elapsed;
+
+    // Revenue per day for the last 7 days
+    $week_rows = $wpdb->get_results( "
+        SELECT DATE(COALESCE(completed_at,created_at)) AS day,
+               COALESCE(SUM($commission_expr),0) AS revenue
+        FROM `{$wpdb->prefix}sd_trips`
+        WHERE status='completed' AND DATE(COALESCE(completed_at,created_at)) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        GROUP BY DATE(COALESCE(completed_at,created_at))
+        ORDER BY day ASC
+    ", ARRAY_A ) ?: [];
+    $week_map = [];
+    foreach ( $week_rows as $r ) { $week_map[ $r['day'] ] = (float) $r['revenue']; }
+    $weekly_chart = [];
+    for ( $i = 6; $i >= 0; $i-- ) {
+        $d = gmdate( 'Y-m-d', strtotime( "-{$i} day" ) );
+        $weekly_chart[] = [ 'date' => $d, 'label' => gmdate( 'D', strtotime( $d ) ), 'revenue' => $week_map[ $d ] ?? 0.0 ];
+    }
+
+    // Revenue by service category
+    $cat_rows = $wpdb->get_results( "
+        SELECT COALESCE(NULLIF(service_category,''), NULLIF(category,''), 'Other') AS cat,
+               COALESCE(SUM($commission_expr),0) AS revenue
+        FROM `{$wpdb->prefix}sd_trips`
+        WHERE status='completed'
+        GROUP BY cat
+        ORDER BY revenue DESC
+        LIMIT 6
+    ", ARRAY_A ) ?: [];
+    $category_chart = array_map( fn($r) => [ 'label' => $r['cat'], 'revenue' => (float) $r['revenue'] ], $cat_rows );
+
+    // Gateway success rate (captured vs total non-pending)
+    $total_payments   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payments` WHERE status NOT IN ('pending')" );
+    $success_payments = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payments` WHERE status IN ('captured','approved')" );
+    $gateway_success_rate = $total_payments > 0 ? round( $success_payments / $total_payments * 100, 1 ) : 0;
+
+    // Same-day completed trips this month
+    $same_day_trips = (int) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE status='completed' AND DATE(COALESCE(completed_at,created_at)) >= %s",
+        $month_start
+    ) );
+
+    wp_send_json_success( [
+        'monthly_revenue'      => $monthly_revenue,
+        'net_commission'       => $monthly_revenue,
+        'driver_payouts'       => $driver_payouts,
+        'avg_daily'            => $avg_daily,
+        'weekly_chart'         => $weekly_chart,
+        'category_chart'       => $category_chart,
+        'gateway_success_rate' => $gateway_success_rate,
+        'same_day_trips'       => $same_day_trips,
+    ] );
 }
 
 function idibia_admin_export_tax_summary(): void {
