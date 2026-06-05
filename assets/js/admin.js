@@ -381,7 +381,29 @@ async function loadDashboard(){
     document.getElementById('overviewSuspended').textContent=Number(data.suspended_drivers||0).toLocaleString();
     const trips=data.recent_trips||[];
     list.innerHTML=trips.length?trips.map(renderTripListItem).join(''):'<div class="empty-state">No deliveries found yet.</div>';
+    renderActivityChart(data.activity_trend||[]);
   }catch(e){ if(list) list.innerHTML='<div class="empty-state">Could not load dashboard: '+escapeHtml(e.message)+'</div>'; }
+}
+function renderActivityChart(trend){
+  const chartEl=document.getElementById('overviewActivityChart');
+  const labelsEl=document.getElementById('overviewActivityLabels');
+  const summaryEl=document.getElementById('overviewActivitySummary');
+  if(!chartEl||!labelsEl||!summaryEl) return;
+  const counts=trend.map(d=>d.trips||0);
+  const max=Math.max(...counts,1);
+  const todayIdx=trend.length-1;
+  chartEl.innerHTML=trend.map((d,i)=>{
+    const pct=Math.max(4,Math.round((d.trips/max)*100));
+    const isToday=i===todayIdx;
+    const bg=isToday?'var(--gold)':'var(--navy-light)';
+    return `<div title="${escapeHtml(d.label+': '+Number(d.trips).toLocaleString()+' trips')}" style="flex:1;background:${bg};border-radius:3px 3px 0 0;height:${pct}%;cursor:default"></div>`;
+  }).join('');
+  labelsEl.innerHTML=trend.map((d,i)=>{
+    const isToday=i===todayIdx;
+    return `<span style="${isToday?'color:var(--gold);font-weight:700':''}">${escapeHtml(d.label.slice(0,2))}</span>`;
+  }).join('');
+  const peakDay=trend.reduce((a,b)=>b.trips>a.trips?b:a,trend[0]||{trips:0,label:'—'});
+  summaryEl.innerHTML=`Peak: ${escapeHtml(peakDay.label)} · <span style="color:var(--success)">${Number(peakDay.trips).toLocaleString()} trips</span>`;
 }
 function renderTripListItem(trip){
   const status=trip.dispatch_status && trip.dispatch_status !== 'completed' ? trip.dispatch_status : trip.status;
@@ -545,6 +567,9 @@ function renderLiveOps(data){
 setInterval(() => {
   if(document.getElementById('panel-ops')?.classList.contains('active')) loadLiveOps();
 }, 15000);
+setInterval(() => {
+  if(document.getElementById('panel-overview')?.classList.contains('active')) loadDashboard();
+}, 30000);
 
 function filterOps(type,btn){
   document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));

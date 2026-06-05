@@ -23,17 +23,19 @@
     <div class="scard">
       <div class="scard-header"><h3>Activity Trend (7 days)</h3></div>
       <div style="padding:16px 18px">
-        <div style="display:flex;align-items:flex-end;gap:6px;height:60px;margin-bottom:8px">
-          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:40%"></div>
-          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:55%"></div>
-          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:60%"></div>
-          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:70%"></div>
-          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:80%"></div>
-          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:90%"></div>
-          <div style="flex:1;background:var(--gold);border-radius:3px 3px 0 0;height:100%"></div>
+        <div id="overviewActivityChart" style="display:flex;align-items:flex-end;gap:6px;height:60px;margin-bottom:8px">
+          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:20%;opacity:.4"></div>
+          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:20%;opacity:.4"></div>
+          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:20%;opacity:.4"></div>
+          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:20%;opacity:.4"></div>
+          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:20%;opacity:.4"></div>
+          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:20%;opacity:.4"></div>
+          <div style="flex:1;background:var(--navy-light);border-radius:3px 3px 0 0;height:20%;opacity:.4"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted)"><span>Sa</span><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span style="color:var(--gold);font-weight:700">Fr</span></div>
-        <div style="margin-top:8px;font-size:11px;color:var(--text-muted)">Peak: Friday · <span style="color:var(--success)">1,423 trips</span></div>
+        <div id="overviewActivityLabels" style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted)">
+          <span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span><span>—</span>
+        </div>
+        <div id="overviewActivitySummary" style="margin-top:8px;font-size:11px;color:var(--text-muted)">Loading…</div>
       </div>
     </div>
   </div>
