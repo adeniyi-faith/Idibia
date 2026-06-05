@@ -14,7 +14,7 @@ $action = sanitize_text_field($_POST['action'] ?? '');
 global $wpdb;
 
 if ($action === 'get_wallet') {
-    $driver = $wpdb->get_row($wpdb->prepare("SELECT wallet_balance, bank_name, account_number FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id), ARRAY_A);
+    $driver = $wpdb->get_row($wpdb->prepare("SELECT wallet_balance, bank_name, account_number, rating, total_trips FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id), ARRAY_A);
     if (!$driver) {
         wp_send_json_error(['message' => 'Driver not found']);
     }
@@ -29,12 +29,66 @@ if ($action === 'get_wallet') {
         $driver_id
     ), ARRAY_A);
 
+    // Earnings summary: week starts on Monday
+    $week_start = gmdate('Y-m-d', strtotime('monday this week'));
+    $week_end   = gmdate('Y-m-d', strtotime('sunday this week'));
+    $today      = gmdate('Y-m-d');
+
+    $week_earnings = (float) $wpdb->get_var($wpdb->prepare(
+        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_wallet_ledger`
+         WHERE driver_id = %d AND entry_type IN ('earning','bonus') AND DATE(created_at) BETWEEN %s AND %s",
+        $driver_id, $week_start, $week_end
+    ));
+
+    $today_earnings = (float) $wpdb->get_var($wpdb->prepare(
+        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_wallet_ledger`
+         WHERE driver_id = %d AND entry_type IN ('earning','bonus') AND DATE(created_at) = %s",
+        $driver_id, $today
+    ));
+
+    $week_trips = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_wallet_ledger`
+         WHERE driver_id = %d AND entry_type = 'earning' AND DATE(created_at) BETWEEN %s AND %s",
+        $driver_id, $week_start, $week_end
+    ));
+
+    // Daily breakdown for the current week (Mon–Sun)
+    $daily_rows = $wpdb->get_results($wpdb->prepare(
+        "SELECT DATE(created_at) AS day, COALESCE(SUM(amount), 0) AS total
+         FROM `{$wpdb->prefix}sd_wallet_ledger`
+         WHERE driver_id = %d AND entry_type IN ('earning','bonus') AND DATE(created_at) BETWEEN %s AND %s
+         GROUP BY DATE(created_at)",
+        $driver_id, $week_start, $week_end
+    ), ARRAY_A);
+
+    $daily_map = [];
+    foreach ($daily_rows as $row) {
+        $daily_map[$row['day']] = (float) $row['total'];
+    }
+
+    $daily_breakdown = [];
+    for ($i = 0; $i < 7; $i++) {
+        $date = gmdate('Y-m-d', strtotime("monday this week +{$i} days"));
+        $daily_breakdown[] = [
+            'label' => gmdate('D', strtotime($date)),
+            'date'  => $date,
+            'total' => $daily_map[$date] ?? 0,
+        ];
+    }
+
     wp_send_json_success([
-        'wallet_balance' => (float) $driver['wallet_balance'],
-        'bank_name' => $driver['bank_name'],
-        'account_number' => $driver['account_number'],
-        'ledger' => $ledger ?: [],
-        'payouts' => $payouts ?: []
+        'wallet_balance'  => (float) $driver['wallet_balance'],
+        'bank_name'       => $driver['bank_name'],
+        'account_number'  => $driver['account_number'],
+        'ledger'          => $ledger ?: [],
+        'payouts'         => $payouts ?: [],
+        'earnings' => [
+            'week_total'      => $week_earnings,
+            'today_total'     => $today_earnings,
+            'week_trips'      => $week_trips,
+            'rating'          => (float) $driver['rating'],
+            'daily_breakdown' => $daily_breakdown,
+        ],
     ]);
 }
 
