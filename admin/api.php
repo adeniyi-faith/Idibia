@@ -315,8 +315,10 @@ function idibia_admin_paginated_drivers(): void {
     $where = [ '1=1' ];
     $args = [];
     $kyc_status = sanitize_text_field( wp_unslash( $_GET['kyc_status'] ?? '' ) );
-    $search = sanitize_text_field( wp_unslash( $_GET['search'] ?? '' ) );
+    $status     = sanitize_text_field( wp_unslash( $_GET['status'] ?? '' ) );
+    $search     = sanitize_text_field( wp_unslash( $_GET['search'] ?? '' ) );
     if ( $kyc_status ) { $where[] = 'kyc_status = %s'; $args[] = $kyc_status; }
+    if ( $status && in_array( $status, [ 'pending', 'active', 'suspended' ], true ) ) { $where[] = 'status = %s'; $args[] = $status; }
     if ( $search ) { $like = '%' . $wpdb->esc_like( $search ) . '%'; $where[] = '(full_name LIKE %s OR email LIKE %s OR phone LIKE %s)'; array_push( $args, $like, $like, $like ); }
     $sql_where = implode( ' AND ', $where );
     $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE $sql_where", $args ) );
