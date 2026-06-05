@@ -577,6 +577,13 @@ function idibia_get_setting( string $key, $default = null ) {
 }
 
 /**
+ * Ensures manual payment review columns exist — idempotent, safe to call on every request.
+ */
+function idibia_ensure_manual_payment_columns(): void {
+    idibia_add_manual_payment_columns();
+}
+
+/**
  * Returns payment settings for public consumption, specifically manual transfer details.
  */
 function idibia_payment_settings(): array {
