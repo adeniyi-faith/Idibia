@@ -66,7 +66,7 @@ let currentKycId = 0;
 let currentKycTab = 'under_review';
 let currentKycFilter = 'all';
 let kycDrivers = [];
-const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:''}, customers:{page:1, per_page:10, search:''}, reconciliation:{page:1, per_page:10, search:'', status:'all', start_date:'', end_date:''} };
+const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:'', status:''}, customers:{page:1, per_page:10, search:''}, reconciliation:{page:1, per_page:10, search:'', status:'all', start_date:'', end_date:''} };
 let searchTimers = {};
 let currentDisputeId = 0;
 
@@ -494,13 +494,14 @@ function renderDriverDirectoryItem(driver){
 }
 async function suspendDriverFromDirectory(driverId, name){
   if(!confirm('Suspend '+name+'? They will be notified and go offline immediately.')) return;
-  try{ const data=await adminApi('suspend_driver',{driver_id:driverId},'POST'); toast(data.message||'Driver suspended.'); loadDrivers(); loadDashboard(); }
+  const reason = prompt('Reason for suspension (optional):') ?? '';
+  try{ const data=await adminApi('suspend_driver',{driver_id:driverId, reason},'POST'); toast(data.message||'Driver suspended.'); loadDrivers(); loadDashboard(); }
   catch(e){ toast(e.message||'Could not suspend driver.'); }
 }
 function queueDriverSearch(v){ clearTimeout(searchTimers.drivers); searchTimers.drivers=setTimeout(()=>{pageState.drivers.search=v; loadDrivers(1);},300); }
 function setDriverStatusFilter(value){
-  if(value !== 'all') showUnavailableFeature('Driver status filter', 'The current drivers endpoint does not support status filtering yet. Use search or open the KYC queue for approval states.');
-  document.getElementById('driverStatusFilter').value='all';
+  pageState.drivers.status = (value === 'all') ? '' : value;
+  loadDrivers(1);
 }
 
 async function loadCustomers(page=pageState.customers.page){
@@ -672,6 +673,15 @@ async function loadDriverDetail(driverId) {
     html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">TRIPS</div><div style="font-size:13px;font-weight:600">${Number(driver.total_trips || 0).toLocaleString()}</div></div>`;
     html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">RATING</div><div style="font-size:13px;font-weight:600">${driver.rating ? Number(driver.rating).toFixed(1)+'★' : '--'}</div></div>`;
     html += `</div>`;
+
+    if(driver.wallet_balance != null){
+      html += `<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">WALLET BALANCE</div><div style="font-size:15px;font-weight:700">${formatMoney(driver.wallet_balance)}</div></div>`;
+    }
+
+    if(driver.status !== 'suspended'){
+      const safeName = escapeHtml(driver.full_name || 'Driver').replace(/'/g,'&#39;');
+      html += `<div style="margin-top:8px"><button class="btn-sm btn-suspend" onclick="closeDriverModal();suspendDriverFromDirectory(${Number(driver.id)},'${safeName}')">Suspend Driver</button></div>`;
+    }
 
     document.getElementById('driverModalBody').innerHTML = html;
     document.getElementById('driverModal').classList.add('open');
