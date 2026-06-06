@@ -558,6 +558,111 @@ function idibia_pusher_broadcast_driver_location( int $trip_id, int $driver_id, 
 }
 
 /**
+ * Override WordPress default sender details so emails come from Idibia, not "WordPress".
+ */
+add_filter( 'wp_mail_from_name', function( $name ) {
+    return 'Idibia';
+} );
+add_filter( 'wp_mail_from', function( $email ) {
+    $host = parse_url( home_url(), PHP_URL_HOST ) ?: 'idibia.com';
+    return 'no-reply@' . $host;
+} );
+
+/**
+ * Builds and returns a professional HTML OTP verification email.
+ *
+ * @param string $first_name  Recipient's first name.
+ * @param string $otp         The verification code to display.
+ * @param string $context     'customer' or 'driver' — adjusts copy.
+ * @return array{ subject: string, body: string, headers: string[] }
+ */
+function idibia_otp_email( string $first_name, string $otp, string $context = 'customer' ): array {
+    $site_name = 'Idibia';
+    $site_url  = home_url();
+    $host      = parse_url( $site_url, PHP_URL_HOST ) ?: 'idibia.com';
+    $from      = 'no-reply@' . $host;
+
+    $role_line = $context === 'driver'
+        ? 'Thank you for registering as an Idibia driver partner.'
+        : 'Thank you for creating your Idibia account.';
+
+    $subject = 'Your Idibia Verification Code: ' . $otp;
+
+    $html = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Verification</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#1a1a2e;padding:32px 40px;text-align:center;">
+              <span style="color:#ffffff;font-size:26px;font-weight:700;letter-spacing:1px;">IDIBIA</span>
+              <p style="color:#a0aec0;font-size:13px;margin:6px 0 0;">Fast, Reliable Logistics</p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <h1 style="margin:0 0 12px;font-size:22px;color:#1a1a2e;font-weight:600;">Verify Your Email Address</h1>
+              <p style="margin:0 0 8px;font-size:15px;color:#4a5568;line-height:1.6;">Hi {$first_name},</p>
+              <p style="margin:0 0 24px;font-size:15px;color:#4a5568;line-height:1.6;">{$role_line} Please use the verification code below to confirm your email address and activate your account.</p>
+
+              <!-- OTP Box -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+                <tr>
+                  <td align="center" style="background-color:#f7fafc;border:2px dashed #e2e8f0;border-radius:8px;padding:24px;">
+                    <p style="margin:0 0 6px;font-size:12px;color:#718096;text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Your Verification Code</p>
+                    <span style="font-size:42px;font-weight:700;letter-spacing:10px;color:#1a1a2e;font-family:'Courier New',Courier,monospace;">{$otp}</span>
+                    <p style="margin:10px 0 0;font-size:13px;color:#e53e3e;font-weight:500;">⏱ Expires in 30 minutes</p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:14px;color:#718096;line-height:1.6;">Enter this code in the app to complete your verification. For security, do not share this code with anyone.</p>
+              <p style="margin:0;font-size:13px;color:#a0aec0;line-height:1.6;">If you did not create an Idibia account, you can safely ignore this email.</p>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding:0 40px;"><hr style="border:none;border-top:1px solid #e2e8f0;"></td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 40px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:13px;color:#718096;">This is an automated message from <strong>Idibia</strong>. Please do not reply to this email.</p>
+              <p style="margin:0;font-size:12px;color:#a0aec0;">&copy; {$site_name} &middot; <a href="{$site_url}" style="color:#a0aec0;text-decoration:none;">{$host}</a></p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+HTML;
+
+    $headers = [
+        'Content-Type: text/html; charset=UTF-8',
+        'From: ' . $site_name . ' <' . $from . '>',
+    ];
+
+    return [ 'subject' => $subject, 'body' => $html, 'headers' => $headers ];
+}
+
+/**
  * Retrieves a single setting from the sd_settings table.
  */
 function idibia_get_setting( string $key, $default = null ) {
