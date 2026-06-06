@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 12;
+    $target_version = 13;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -429,6 +429,27 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 12 );
         $current_version = 12;
     }
+
+    if ( $current_version < 13 ) {
+        global $wpdb;
+
+        // Backfill settings rows that were missing from the original defaults
+        $wpdb->query( "INSERT IGNORE INTO `{$wpdb->prefix}sd_settings` (`setting_key`, `setting_value`) VALUES
+            ('nominatim_url', ''),
+            ('ors_url', ''),
+            ('ors_api_key', ''),
+            ('pusher_app_id', ''),
+            ('pusher_key', ''),
+            ('pusher_secret', ''),
+            ('pusher_cluster', ''),
+            ('legal_terms_url', ''),
+            ('legal_privacy_url', ''),
+            ('legal_location_url', ''),
+            ('legal_license_url', '');" );
+
+        update_option( 'idibia_db_version', 13 );
+        $current_version = 13;
+    }
 }
 
 function idibia_add_customer_rating_and_prefs_columns(): void {
@@ -642,5 +663,16 @@ function idibia_create_tables() {
         ('paystack_secret_key', ''),
         ('flutterwave_enabled', '0'),
         ('flutterwave_public_key', ''),
-        ('flutterwave_secret_key', '');" );
+        ('flutterwave_secret_key', ''),
+        ('nominatim_url', ''),
+        ('ors_url', ''),
+        ('ors_api_key', ''),
+        ('pusher_app_id', ''),
+        ('pusher_key', ''),
+        ('pusher_secret', ''),
+        ('pusher_cluster', ''),
+        ('legal_terms_url', ''),
+        ('legal_privacy_url', ''),
+        ('legal_location_url', ''),
+        ('legal_license_url', '');" );
 }

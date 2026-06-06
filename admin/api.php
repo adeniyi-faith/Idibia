@@ -137,7 +137,7 @@ try {
             if(!idibia_admin_has_permission('view_settings')){ wp_send_json_error(['message'=>'Denied.'],403); }
             $rows = $wpdb->get_results( "SELECT setting_key, setting_value FROM `{$wpdb->prefix}sd_settings`", ARRAY_A );
             $settings = [];
-            foreach ( $rows as $row ) {
+            foreach ( $rows ?: [] as $row ) {
                 if ( in_array( $row['setting_key'], ['paystack_secret_key', 'flutterwave_secret_key', 'pusher_secret'] ) ) {
                     $settings[ $row['setting_key'] ] = !empty($row['setting_value']) ? '********' : '';
                 } else {
@@ -223,7 +223,7 @@ try {
         default:
             wp_send_json_error( [ 'message' => 'Unknown action.' ] );
     }
-} catch ( Exception $e ) {
+} catch ( Throwable $e ) {
     http_response_code( 500 );
     wp_send_json_error( [ 'message' => 'Server error.' ] );
 }
