@@ -87,7 +87,14 @@ function vehicleLabel(type){
   return {bike:'Motorbike',car:'Car',van:'Van',keke:'Tricycle'}[type] || (type ? type : 'Vehicle');
 }
 function vehicleIcon(type){
-  return {bike:'🏍',car:'🚗',van:'🚐',keke:'🛺'}[type] || '🚚';
+  const s='viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" style="vertical-align:middle"';
+  const icons={
+    bike:`<svg ${s}><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/><path d="M5 16L9 8h5l3 4h3"/></svg>`,
+    car:`<svg ${s}><rect x="2" y="9" width="20" height="8" rx="2"/><path d="M5 9l2-4h10l2 4"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg>`,
+    van:`<svg ${s}><rect x="1" y="6" width="15" height="12" rx="1"/><path d="M16 9l5 3v6h-5"/><circle cx="5" cy="18" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>`,
+    keke:`<svg ${s}><circle cx="5" cy="17" r="2"/><circle cx="12" cy="17" r="2"/><path d="M5 17V9h7v8"/><path d="M12 12h5v5h-2"/></svg>`
+  };
+  return icons[type] || `<svg ${s}><rect x="1" y="6" width="13" height="12" rx="1"/><path d="M14 9l6 2v7h-6"/><circle cx="5" cy="18" r="1.5"/><circle cx="11" cy="18" r="1.5"/><circle cx="18" cy="18" r="1.5"/></svg>`;
 }
 function initials(name){
   return String(name || 'DR').split(' ').filter(Boolean).map(n=>n[0]).join('').slice(0,2).toUpperCase() || 'DR';

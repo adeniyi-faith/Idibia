@@ -112,7 +112,7 @@
     <div style="overflow:auto;flex:1;display:flex;align-items:center;justify-content:center;padding:12px;background:var(--bg-dark,#0a0c12)">
       <img id="proofModalImg" src="" alt="Payment proof" style="max-width:100%;max-height:75vh;border-radius:6px;object-fit:contain" onerror="this.style.display='none';document.getElementById('proofModalFallback').style.display='block'">
       <div id="proofModalFallback" style="display:none;text-align:center;padding:32px;color:var(--text-secondary)">
-        <div style="font-size:32px;margin-bottom:8px">📄</div>
+        <div style="margin-bottom:8px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="color:var(--text-secondary)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div>
         <div style="font-size:13px">Could not preview this file.<br><a id="proofModalFallbackLink" href="#" target="_blank" rel="noopener" style="color:var(--info)">Open in new tab</a></div>
       </div>
     </div>
