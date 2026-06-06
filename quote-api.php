@@ -20,30 +20,66 @@ if ( ! idibia_check_rate_limit( 'quote', $ip, 20, 60 ) ) {
 $auth_type = 'customer';
 require_once __DIR__ . '/auth-helper.php';
 
-$pickup      = sanitize_text_field( wp_unslash( $_POST['pickup'] ?? '' ) );
-$dropoff     = sanitize_text_field( wp_unslash( $_POST['dropoff'] ?? '' ) );
 $category    = sanitize_text_field( wp_unslash( $_POST['category'] ?? 'package' ) );
 $vehicle     = sanitize_text_field( wp_unslash( $_POST['vehicle_type'] ?? 'bike' ) );
 $scheduled_time = sanitize_text_field( wp_unslash( $_POST['scheduled_time'] ?? '' ) );
 $allowed_vehicles = [ 'bike', 'car', 'van', 'keke' ];
 
-if ( ! $pickup || ! $dropoff ) {
-    wp_send_json_error( [ 'message' => 'Pickup and drop-off addresses are required.' ] );
-}
-
 if ( ! in_array( $vehicle, $allowed_vehicles, true ) ) {
     $vehicle = 'bike';
 }
 
-// 1. Geocode the addresses
-$pickup_coords = idibia_geocode_address( $pickup );
-if ( is_wp_error( $pickup_coords ) ) {
-    wp_send_json_error( [ 'message' => 'Could not find the pickup address.' ] );
-}
+// MODE A — GPS + Place ID mode
+if ( isset( $_POST['pickup_lat'] ) ) {
+    $pickup_lat        = filter_var( wp_unslash( $_POST['pickup_lat'] ), FILTER_VALIDATE_FLOAT );
+    $pickup_lng        = filter_var( wp_unslash( $_POST['pickup_lng'] ), FILTER_VALIDATE_FLOAT );
+    $dropoff_place_id  = sanitize_text_field( wp_unslash( $_POST['dropoff_place_id'] ?? '' ) );
 
-$dropoff_coords = idibia_geocode_address( $dropoff );
-if ( is_wp_error( $dropoff_coords ) ) {
-    wp_send_json_error( [ 'message' => 'Could not find the drop-off address.' ] );
+    // 1. Validate pickup GPS coordinates
+    if ( $pickup_lat === false || $pickup_lng === false ) {
+        wp_send_json_error( [ 'message' => 'Invalid pickup coordinates provided.' ] );
+    }
+
+    if ( ! idibia_is_valid_nigeria_coords( $pickup_lat, $pickup_lng ) ) {
+        wp_send_json_error( [ 'message' => 'Pickup location must be within Nigeria.' ] );
+    }
+
+    // 2. Resolve dropoff from Google Places place_id
+    if ( empty( $dropoff_place_id ) ) {
+        wp_send_json_error( [ 'message' => 'A drop-off place ID is required.' ] );
+    }
+
+    $dropoff_coords = idibia_validate_place_id( $dropoff_place_id );
+    if ( is_wp_error( $dropoff_coords ) ) {
+        wp_send_json_error( [ 'message' => 'Could not resolve the drop-off location from the provided place ID.' ] );
+    }
+
+    $pickup_coords  = [ 'lat' => $pickup_lat, 'lng' => $pickup_lng ];
+    $pickup_address = '';
+    $dropoff_address = '';
+
+} else {
+    // MODE B — Text address mode (original behaviour, unchanged)
+    $pickup  = sanitize_text_field( wp_unslash( $_POST['pickup'] ?? '' ) );
+    $dropoff = sanitize_text_field( wp_unslash( $_POST['dropoff'] ?? '' ) );
+
+    if ( ! $pickup || ! $dropoff ) {
+        wp_send_json_error( [ 'message' => 'Pickup and drop-off addresses are required.' ] );
+    }
+
+    // 1. Geocode the addresses
+    $pickup_coords = idibia_geocode_address( $pickup );
+    if ( is_wp_error( $pickup_coords ) ) {
+        wp_send_json_error( [ 'message' => 'Could not find the pickup address.' ] );
+    }
+
+    $dropoff_coords = idibia_geocode_address( $dropoff );
+    if ( is_wp_error( $dropoff_coords ) ) {
+        wp_send_json_error( [ 'message' => 'Could not find the drop-off address.' ] );
+    }
+
+    $pickup_address  = $pickup;
+    $dropoff_address = $dropoff;
 }
 
 // 2. Calculate route distance and duration
@@ -81,20 +117,20 @@ $final_fare = max( $min_fare, $calculated_fare );
 // 4. Generate quote token and store data
 $quote_id = wp_generate_uuid4();
 $quote_data = [
-    'pickup_address' => $pickup,
-    'pickup_lat'     => $pickup_coords['lat'],
-    'pickup_lng'     => $pickup_coords['lng'],
-    'dropoff_address'=> $dropoff,
-    'dropoff_lat'    => $dropoff_coords['lat'],
-    'dropoff_lng'    => $dropoff_coords['lng'],
+    'pickup_address'  => $pickup_address,
+    'pickup_lat'      => $pickup_coords['lat'],
+    'pickup_lng'      => $pickup_coords['lng'],
+    'dropoff_address' => $dropoff_address,
+    'dropoff_lat'     => $dropoff_coords['lat'],
+    'dropoff_lng'     => $dropoff_coords['lng'],
     'service_category'=> $category,
-    'vehicle_type'   => $vehicle,
-    'distance_km'    => $distance_km,
-    'duration_mins'  => $duration_mins,
-    'fare_estimate'  => $final_fare,
-    'platform_pct'   => $commission_pct,
-    'scheduled_time' => $scheduled_time ?: null,
-    'created_at'     => time()
+    'vehicle_type'    => $vehicle,
+    'distance_km'     => $distance_km,
+    'duration_mins'   => $duration_mins,
+    'fare_estimate'   => $final_fare,
+    'platform_pct'    => $commission_pct,
+    'scheduled_time'  => $scheduled_time ?: null,
+    'created_at'      => time()
 ];
 
 // Store in transient for 5 minutes
