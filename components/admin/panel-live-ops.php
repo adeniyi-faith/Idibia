@@ -36,14 +36,10 @@
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Live Trips</h3><span id="opsListMeta" style="font-size:11px;color:var(--text-muted)">Live feed</span></div>
-      <div id="opsTripList">
-        <div class="list-item"><div class="item-info"><div class="item-name">Loading live trips…</div><div class="item-meta">All in-progress and searching trips will appear here.</div></div></div>
-      </div>
+      <div id="opsTripList"></div>
     </div>
     <div class="scard" style="margin-top:16px">
       <div class="scard-header"><h3>Active Riders</h3><span style="font-size:11px;color:var(--text-muted)">Online drivers with last known GPS</span></div>
-      <div id="opsDriverList">
-        <div class="list-item"><div class="item-info"><div class="item-name">Loading driver locations…</div></div></div>
-      </div>
+      <div id="opsDriverList"></div>
     </div>
   </div>

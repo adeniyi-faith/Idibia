@@ -19,7 +19,6 @@
     <div class="scard">
       <div class="scard-header"><h3>Revenue by delivery category</h3></div>
       <div id="revCategoryChart" style="padding:16px">
-        <div class="loading-state">Loading category breakdown…</div>
       </div>
     </div>
     <div class="metrics-grid three">

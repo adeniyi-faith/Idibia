@@ -14,6 +14,6 @@
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Driver Directory</h3></div>
-      <div id="driverDirectory"><div class="loading-state">Loading drivers…</div></div><div class="pagination" id="driverPagination"></div>
+      <div id="driverDirectory"></div><div class="pagination" id="driverPagination"></div>
     </div>
   </div>
