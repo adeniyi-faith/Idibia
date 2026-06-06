@@ -38,11 +38,7 @@ $updated = $wpdb->update( $table, [ 'verify_code' => wp_hash_password($new_code)
 if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not generate a new code. Please try again.' ] );
 
 $first_name = idibia_split_full_name( $driver->full_name )[0];
-$site_name  = get_bloginfo( 'name' ) ?: 'Idibia';
-$site_url   = home_url();
-$subject    = "[$site_name] Your new driver verification code is $new_code";
-$body       = "Hi $first_name,\n\nEnter this new verification code in the driver app:\n\n    $new_code\n\nThis code expires in 30 minutes.\n\n— The Idibia Team\n$site_url";
-$headers    = [ 'Content-Type: text/plain; charset=UTF-8', 'From: ' . $site_name . ' <no-reply@' . parse_url( $site_url, PHP_URL_HOST ) . '>' ];
+[ 'subject' => $subject, 'body' => $body, 'headers' => $headers ] = idibia_otp_email( $first_name, $new_code, 'driver' );
 
 if ( ! wp_mail( $driver->email, $subject, $body, $headers ) ) {
     wp_send_json_error( [ 'message' => 'Could not send the email. Check your address and try again.' ] );

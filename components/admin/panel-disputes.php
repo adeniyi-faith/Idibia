@@ -16,5 +16,5 @@
       <input id="disputeSearch" placeholder="Search dispute, trip, customer, driver…" oninput="queueDisputeSearch(this.value)">
       <select class="filter-select" id="disputeStatus" onchange="setDisputeStatus(this.value)"><option value="all">All statuses</option><option value="open">Open</option><option value="escalated">Escalated</option><option value="resolved">Resolved</option></select>
     </div>
-    <div class="scard"><div id="disputeList"><div class="loading-state">Loading disputes…</div></div><div class="pagination" id="disputePagination"></div></div>
+    <div class="scard"><div id="disputeList"></div><div class="pagination" id="disputePagination"></div></div>
   </div>

@@ -9,7 +9,7 @@
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Driver Payouts</h3><button class="btn-primary disabled-action" id="releaseAllPayoutsBtn" style="font-size:11px;padding:6px 12px;width:auto;" aria-disabled="true" onclick="showUnavailableFeature('Bulk payout release', 'Payout release is disabled until a real transfer provider or manual transfer reference flow is connected.')">Release visible</button></div>
-      <div class="panel-search" style="padding:14px 16px;margin-bottom:0"><input id="payoutSearch" placeholder="Search driver, bank, reference…" oninput="queuePayoutSearch(this.value)"><select class="filter-select" id="payoutStatus" onchange="setPayoutStatus(this.value)"><option value="pending">Pending</option><option value="processing">Processing</option><option value="failed">Failed</option><option value="paid">Paid</option><option value="all">All</option></select></div><div id="payoutList"><div class="loading-state">Loading payouts…</div></div><div class="pagination" id="payoutPagination"></div>
+      <div class="panel-search" style="padding:14px 16px;margin-bottom:0"><input id="payoutSearch" placeholder="Search driver, bank, reference…" oninput="queuePayoutSearch(this.value)"><select class="filter-select" id="payoutStatus" onchange="setPayoutStatus(this.value)"><option value="pending">Pending</option><option value="processing">Processing</option><option value="failed">Failed</option><option value="paid">Paid</option><option value="all">All</option></select></div><div id="payoutList"></div><div class="pagination" id="payoutPagination"></div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Manual Transfers</h3><button class="scard-action" onclick="loadManualPaymentsPayouts()">Refresh</button></div>
@@ -22,7 +22,7 @@
           <option value="all">All</option>
         </select>
       </div>
-      <div id="manualPaymentsListPayouts"><div class="loading-state">Loading…</div></div>
+      <div id="manualPaymentsListPayouts"></div>
       <div class="pagination" id="manualPaymentsPagination"></div>
     </div>
     <div class="scard">

@@ -18,7 +18,7 @@
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Recent Deliveries</h3><button class="scard-action" onclick="nav('trips',document.querySelectorAll('.nav-btn')[3])">View all →</button></div>
-      <div id="overviewRecentTrips"><div class="loading-state">Loading recent deliveries…</div></div>
+      <div id="overviewRecentTrips"></div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Activity Trend (7 days)</h3></div>

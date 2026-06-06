@@ -442,14 +442,14 @@ function openModal(id) {
 }
 
 function closeModal(e, id) {
-  if (!e || e.target.classList.contains('modal-overlay')) {
+  if (!e || e.target.classList.contains('modal-overlay') || e.target.classList.contains('modal')) {
     const modal = document.getElementById('modal-' + id);
     if (modal) modal.classList.remove('show');
   }
 }
 
 function closeAllModals() {
-  document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('show'));
+  document.querySelectorAll('.modal-overlay, .modal').forEach(m => m.classList.remove('show'));
 }
 
 

@@ -27,9 +27,7 @@
             <th>Actions</th>
           </tr>
         </thead>
-        <tbody id="adminUsersTbody">
-          <tr><td colspan="5" class="loading-state">Loading users...</td></tr>
-        </tbody>
+        <tbody id="adminUsersTbody"></tbody>
       </table>
     </div>
   </div>

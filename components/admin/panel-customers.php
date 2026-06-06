@@ -10,7 +10,7 @@
     <div class="panel-search"><input id="customerSearch" placeholder="Search customer name or phone…" oninput="queueCustomerSearch(this.value)"><button onclick="loadCustomers(1)">Search</button></div>
     <div class="scard">
       <div class="scard-header"><h3>Customer Directory</h3></div>
-      <div id="customerDirectory"><div class="loading-state">Loading customers…</div></div><div class="pagination" id="customerPagination"></div>
+      <div id="customerDirectory"></div><div class="pagination" id="customerPagination"></div>
     </div>
     <div class="scard">
       <div class="scard-header"><h3>Referral program</h3></div>

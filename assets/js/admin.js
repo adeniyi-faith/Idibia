@@ -75,8 +75,13 @@ let currentDisputeId = 0;
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
-function emptyState(icon, title, sub=''){
-  return `<div class="empty-state"><div class="empty-state__icon">${icon}</div><div class="empty-state__title">${title}</div>${sub?`<div class="empty-state__sub">${sub}</div>`:''}</div>`;
+function skeletonRows(count=5){
+  const row='<div class="list-item"><div class="sk-circle"></div><div class="item-info"><div class="sk-line" style="width:55%;margin-bottom:6px"></div><div class="sk-line" style="width:38%"></div></div><div style="margin-left:auto;display:flex;gap:6px"><div class="sk-line" style="width:52px;height:28px;border-radius:8px"></div></div></div>';
+  return Array(count).fill(row).join('');
+}
+function skeletonTableRows(cols=5,count=5){
+  const cell='<td style="padding:10px 12px"><div class="sk-line" style="width:70%"></div></td>';
+  return Array(count).fill('<tr>'+cell.repeat(cols)+'</tr>').join('');
 }
 function vehicleLabel(type){
   return {bike:'Motorbike',car:'Car',van:'Van',keke:'Tricycle'}[type] || (type ? type : 'Vehicle');
@@ -174,7 +179,7 @@ function renderKycQueue(){
 async function loadKycQueue(status = currentKycTab){
   currentKycTab = status;
   const queue = document.getElementById('kycQueue');
-  queue.innerHTML = '<div class="loading-state">Loading driver applications…</div>';
+  queue.innerHTML = skeletonRows(4);
   try {
     const data = await adminApiAllPages('get_drivers', { kyc_status: status });
     kycDrivers = data.drivers || [];
@@ -303,7 +308,7 @@ async function loadManualPaymentsPayouts(){
   const list = document.getElementById('manualPaymentsListPayouts');
   if(!list) return;
   const status = document.getElementById('manualPaymentsStatus')?.value || 'proof_submitted';
-  list.innerHTML = '<div class="loading-state">Loading…</div>';
+  list.innerHTML = skeletonRows(3);
   try {
     const data = await adminApi('get_manual_payments', {status, per_page: 20});
     const payments = data.payments || [];
@@ -418,7 +423,7 @@ if (document.getElementById('app')) {
 
 async function loadDashboard(){
   const list=document.getElementById('overviewRecentTrips');
-  if(list) list.innerHTML='<div class="loading-state">Loading recent deliveries…</div>';
+  if(list) list.innerHTML=skeletonRows(4);
   try{
     const data=await adminApi('get_dashboard_stats');
     document.getElementById('overviewActiveDrivers').textContent=Number(data.active_drivers||0).toLocaleString();
@@ -475,9 +480,9 @@ function renderTripListItem(trip){
 async function loadTrips(page=pageState.trips.page){
   const st=pageState.trips; st.page=page;
   const list=document.getElementById('tripList'); if(!list) return;
-  list.innerHTML='<div class="loading-state">Loading deliveries…</div>';
-  try{ const data=await adminApi('get_trips', st); list.innerHTML=(data.trips||[]).length?(data.trips||[]).map(renderTripListItem).join(''):emptyState('📦','No deliveries match your filters','Try adjusting your search or date range.'); renderPagination('tripPagination', st, data.total, 'loadTrips'); }
-  catch(e){ list.innerHTML=emptyState('⚠️','Could not load deliveries',escapeHtml(e.message)); }
+  list.innerHTML=skeletonRows();
+  try{ const data=await adminApi('get_trips', st); list.innerHTML=(data.trips||[]).length?(data.trips||[]).map(renderTripListItem).join(''):'<div class="empty-state">No deliveries match your filters.</div>'; renderPagination('tripPagination', st, data.total, 'loadTrips'); }
+  catch(e){ list.innerHTML='<div class="empty-state">Could not load deliveries: '+escapeHtml(e.message)+'</div>'; }
 }
 function openTripDetailFromData(trip){ openTripDetail(trip.trip_ref||('#'+trip.id), trip.service_category||trip.category||'Delivery', trip.pickup_address||trip.pickup||'', trip.dropoff_address||trip.dropoff||'', formatMoney(trip.fare_amount??trip.final_fare??trip.fare_estimate??trip.fare), trip.driver_name||'Unassigned', formatStatusLabel(trip.dispatch_status||trip.status)); }
 let _reassignTripId = 0;
@@ -519,9 +524,9 @@ async function submitReassignTrip(){
 }
 async function loadPayouts(page=pageState.payouts.page){
   const st=pageState.payouts; st.page=page; const list=document.getElementById('payoutList'); if(!list) return;
-  list.innerHTML='<div class="loading-state">Loading payouts…</div>';
-  try{ const data=await adminApi('get_payouts', st); const m=data.metrics||{}; document.getElementById('payoutPendingAmount').textContent=formatMoney(m.pending_amount); document.getElementById('payoutPendingCount').textContent=Number(m.pending_count||0).toLocaleString()+' pending'; document.getElementById('payoutProcessedAmount').textContent=formatMoney(m.processed_today_amount); document.getElementById('payoutProcessedCount').textContent=Number(m.processed_today_count||0).toLocaleString()+' processed'; document.getElementById('payoutFailedCount').textContent=Number(m.failed_count||0).toLocaleString(); document.getElementById('payoutAvgAmount').textContent=formatMoney(m.avg_payout); list.innerHTML=(data.payouts||[]).length?(data.payouts||[]).map(renderPayoutItem).join(''):emptyState('💸','No payouts match your filters','Adjust the status or date filter.'); renderPagination('payoutPagination', st, data.total, 'loadPayouts'); }
-  catch(e){ list.innerHTML=emptyState('⚠️','Could not load payouts',escapeHtml(e.message)); }
+  list.innerHTML=skeletonRows();
+  try{ const data=await adminApi('get_payouts', st); const m=data.metrics||{}; document.getElementById('payoutPendingAmount').textContent=formatMoney(m.pending_amount); document.getElementById('payoutPendingCount').textContent=Number(m.pending_count||0).toLocaleString()+' pending'; document.getElementById('payoutProcessedAmount').textContent=formatMoney(m.processed_today_amount); document.getElementById('payoutProcessedCount').textContent=Number(m.processed_today_count||0).toLocaleString()+' processed'; document.getElementById('payoutFailedCount').textContent=Number(m.failed_count||0).toLocaleString(); document.getElementById('payoutAvgAmount').textContent=formatMoney(m.avg_payout); list.innerHTML=(data.payouts||[]).length?(data.payouts||[]).map(renderPayoutItem).join(''):'<div class="empty-state">No payouts match your filters.</div>'; renderPagination('payoutPagination', st, data.total, 'loadPayouts'); }
+  catch(e){ list.innerHTML='<div class="empty-state">Could not load payouts: '+escapeHtml(e.message)+'</div>'; }
 }
 function renderPayoutItem(p){
   const failed=p.status==='failed';
@@ -545,7 +550,7 @@ function releaseVisiblePayouts(){ showUnavailableFeature('Bulk payout release', 
 async function loadDrivers(page=pageState.drivers.page){
   const st=pageState.drivers; st.page=page;
   const list=document.getElementById('driverDirectory'); if(!list) return;
-  list.innerHTML='<div class="loading-state">Loading drivers…</div>';
+  list.innerHTML=skeletonRows();
   try{
     const data=await adminApi('get_drivers', st);
     const drivers=data.drivers||[];
@@ -578,7 +583,7 @@ function setDriverStatusFilter(value){
 async function loadCustomers(page=pageState.customers.page){
   const st=pageState.customers; st.page=page;
   const list=document.getElementById('customerDirectory'); if(!list) return;
-  list.innerHTML='<div class="loading-state">Loading customers…</div>';
+  list.innerHTML=skeletonRows();
   try{
     const data=await adminApi('get_customers', st);
     const customers=data.customers||[];
@@ -607,7 +612,7 @@ async function loadReconciliation(page=pageState.reconciliation.page) {
   st.page = page;
   const list = document.getElementById('reconciliationList');
   if (!list) return;
-  list.innerHTML = '<div class="loading-state">Loading reconciliation data…</div>';
+  list.innerHTML = skeletonRows();
   try {
     const data = await adminApi('get_reconciliation_data', st);
     const rows = data.reconciliation || [];
@@ -633,6 +638,8 @@ async function loadReconciliation(page=pageState.reconciliation.page) {
 }
 
 async function loadRevenue(){
+  const catChart=document.getElementById('revCategoryChart');
+  if(catChart) catChart.innerHTML='<div class="loading-state" style="padding:20px 0">'+skeletonRows(3)+'</div>';
   try {
     const data = await adminApi('get_revenue_analytics');
     const el = id => document.getElementById(id);
@@ -713,9 +720,9 @@ function exportRevenueCsv(){
 }
 
 async function loadDisputes(page=pageState.disputes.page){
-  const st=pageState.disputes; st.page=page; const list=document.getElementById('disputeList'); if(!list) return; list.innerHTML='<div class="loading-state">Loading disputes…</div>';
-  try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=Number(data.open_count||0).toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=Number(data.escalated_count||0).toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):emptyState('🤝','No disputes to resolve','All clear — no disputes match the current filter.'); renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
-  catch(e){ list.innerHTML=emptyState('⚠️','Could not load disputes',escapeHtml(e.message)); }
+  const st=pageState.disputes; st.page=page; const list=document.getElementById('disputeList'); if(!list) return; list.innerHTML=skeletonRows();
+  try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=Number(data.open_count||0).toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=Number(data.escalated_count||0).toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):'<div class="empty-state">No disputes match your filters.</div>'; renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
+  catch(e){ list.innerHTML='<div class="empty-state">Could not load disputes: '+escapeHtml(e.message)+'</div>'; }
 }
 function renderDisputeItem(d){ const status=d.status||'open'; const title='#D-'+String(d.id).padStart(4,'0')+' · '+(d.category||'Dispute'); const meta=status==='resolved'?`Resolved · ${formatMoney(d.refund_amount)} refunded · ${d.resolution||''}`:`Customer: ${d.customer_name||'Unknown'} · Driver: ${d.driver_name||'Unassigned'} · ${dateLabel(d.created_at)}`; const desc=encodeURIComponent(d.description||''); return `<div class="list-item" data-dispute="${escapeHtml(status)}"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">${status==='resolved'?'✓':(status==='escalated'?'🔴':'!')}</div><div class="item-info"><div class="item-name">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div><div class="item-actions"><button class="btn-sm ${status==='escalated'?'btn-reject':'btn-view'}" onclick="openDisputeModal('${escapeHtml(title).replace(/'/g,'&#39;')}', ${Number(d.id)}, '${escapeHtml(status)}', decodeURIComponent('${desc}'))">${status==='resolved'?'View':'Handle'}</button></div></div>`; }
 function queuePayoutSearch(v){ clearTimeout(searchTimers.payouts); searchTimers.payouts=setTimeout(()=>{pageState.payouts.search=v; loadPayouts(1);},300); }
@@ -724,6 +731,10 @@ function queueDisputeSearch(v){ clearTimeout(searchTimers.disputes); searchTimer
 function setDisputeStatus(v){ pageState.disputes.status=v; syncDisputeFilterBtns(v); loadDisputes(1); }
 function syncDisputeFilterBtns(v){ document.querySelectorAll('#panel-disputes .filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.status===v)); }
 async function loadLiveOps(){
+  const tripList=document.getElementById('opsTripList');
+  const driverList=document.getElementById('opsDriverList');
+  if(tripList) tripList.innerHTML=skeletonRows(3);
+  if(driverList) driverList.innerHTML=skeletonRows(3);
   try {
     const data = await adminApi('get_live_ops');
     renderLiveOps(data);
@@ -967,7 +978,7 @@ async function loadAdminUsers() {
     const search = document.getElementById('adminUserSearch').value;
     const tbody = document.getElementById('adminUsersTbody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-state">Loading users...</td></tr>';
+    tbody.innerHTML = skeletonTableRows(5,5);
 
     try {
         const res = await fetch(ADMIN_API_URL + '?action=list_admin_users');

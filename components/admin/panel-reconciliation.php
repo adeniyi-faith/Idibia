@@ -14,9 +14,7 @@
       </select>
     </div>
 
-    <div id="reconciliationList">
-      <div class="loading-state">Loading reconciliation data…</div>
-    </div>
+    <div id="reconciliationList"></div>
 
     <div class="pagination" id="reconciliationPagination"></div>
   </div>

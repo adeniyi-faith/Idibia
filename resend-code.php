@@ -91,23 +91,8 @@ if ( false === $updated ) {
 
 // ── Send the email ────────────────────────────────────────────────────────────
 $first_name = idibia_split_full_name( $customer->full_name )[0];
-$site_name  = get_bloginfo( 'name' ) ?: 'Idibia';
-$site_url   = home_url();
 
-$subject = "[$site_name] Your new verification code is $new_code";
-
-$body = "Hi $first_name,\n\n"
-      . "You requested a new verification code. Enter it in the app:\n\n"
-      . "    $new_code\n\n"
-      . "This code expires in 30 minutes.\n\n"
-      . "If you did not request this, you can ignore this email.\n\n"
-      . "— The Idibia Team\n"
-      . $site_url;
-
-$headers = [
-    'Content-Type: text/plain; charset=UTF-8',
-    'From: ' . $site_name . ' <no-reply@' . parse_url( $site_url, PHP_URL_HOST ) . '>',
-];
+[ 'subject' => $subject, 'body' => $body, 'headers' => $headers ] = idibia_otp_email( $first_name, $new_code, 'customer' );
 
 $mail_sent = wp_mail( $customer->email, $subject, $body, $headers );
 
