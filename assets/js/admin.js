@@ -75,6 +75,9 @@ let currentDisputeId = 0;
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
+function emptyState(icon, title, sub=''){
+  return `<div class="empty-state"><div class="empty-state__icon">${icon}</div><div class="empty-state__title">${title}</div>${sub?`<div class="empty-state__sub">${sub}</div>`:''}</div>`;
+}
 function vehicleLabel(type){
   return {bike:'Motorbike',car:'Car',van:'Van',keke:'Tricycle'}[type] || (type ? type : 'Vehicle');
 }
@@ -158,7 +161,7 @@ function renderKycQueue(){
   const queue = document.getElementById('kycQueue');
   const visible = kycDrivers.filter(driver => currentKycFilter === 'all' || driver.vehicle_type === currentKycFilter);
   if(!visible.length){
-    queue.innerHTML = '<div id="kyc-empty" style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">'+(currentKycTab === 'under_review' ? 'All applications reviewed ✓' : 'No '+escapeHtml(currentKycTab.replace('_',' '))+' applications found.')+'</div>';
+    queue.innerHTML = '<div id="kyc-empty">'+emptyState('🪪', currentKycTab === 'under_review' ? 'No KYC applications pending' : 'No '+escapeHtml(currentKycTab.replace('_',' '))+' applications', currentKycTab === 'under_review' ? 'All submissions have been reviewed.' : 'New driver KYC submissions will appear here.')+'</div>';
     return;
   }
   queue.innerHTML = visible.map(driver => {
@@ -171,7 +174,7 @@ function renderKycQueue(){
 async function loadKycQueue(status = currentKycTab){
   currentKycTab = status;
   const queue = document.getElementById('kycQueue');
-  queue.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Loading driver applications…</div>';
+  queue.innerHTML = '<div class="loading-state">Loading driver applications…</div>';
   try {
     const data = await adminApiAllPages('get_drivers', { kyc_status: status });
     kycDrivers = data.drivers || [];
@@ -181,7 +184,7 @@ async function loadKycQueue(status = currentKycTab){
     }
     renderKycQueue();
   } catch (e) {
-    queue.innerHTML = '<div style="padding:32px;text-align:center;color:var(--danger);font-size:13px">Could not load KYC applications. '+escapeHtml(e.message)+'</div>';
+    queue.innerHTML = emptyState('⚠️', 'Could not load KYC applications', escapeHtml(e.message));
   }
 }
 async function kycAction(btn, action){
@@ -263,7 +266,7 @@ async function loadManualPayments(){
     const data = await adminApi('get_manual_payments', {status:'proof_submitted', per_page:20});
     const payments = data.payments || [];
     if(!payments.length){
-      list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No manual transfers waiting for review</div><div class="item-meta">Customer uploads will appear here.</div></div></div>';
+      list.innerHTML = emptyState('🧾','No manual transfers pending review','Customer receipt uploads will appear here.');
       return;
     }
     list.innerHTML = payments.map(p => `
@@ -280,7 +283,7 @@ async function loadManualPayments(){
         </div>
       </div>`).join('');
   } catch (e) {
-    list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">Could not load manual payments</div><div class="item-meta">'+escapeHtml(e.message)+'</div></div></div>';
+    list.innerHTML = emptyState('⚠️','Could not load manual payments',escapeHtml(e.message));
   }
 }
 
@@ -305,7 +308,7 @@ async function loadManualPaymentsPayouts(){
     const data = await adminApi('get_manual_payments', {status, per_page: 20});
     const payments = data.payments || [];
     if(!payments.length){
-      list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No manual transfers for this status</div><div class="item-meta">Customer uploads will appear here once submitted.</div></div></div>';
+      list.innerHTML = emptyState('🧾','No manual transfers for this status','Customer uploads will appear here once submitted.');
       return;
     }
     const isPending = status === 'proof_submitted';
@@ -433,9 +436,9 @@ async function loadDashboard(){
     document.getElementById('overviewEscalatedDisputes').textContent=Number(data.escalated_disputes||0).toLocaleString()+' escalated';
     document.getElementById('overviewSuspended').textContent=Number(data.suspended_drivers||0).toLocaleString();
     const trips=data.recent_trips||[];
-    list.innerHTML=trips.length?trips.map(renderTripListItem).join(''):'<div class="empty-state">No deliveries found yet.</div>';
+    list.innerHTML=trips.length?trips.map(renderTripListItem).join(''):emptyState('📦','No deliveries yet','Recent trips will appear here.');
     renderActivityChart(data.activity_trend||[]);
-  }catch(e){ if(list) list.innerHTML='<div class="empty-state">Could not load dashboard: '+escapeHtml(e.message)+'</div>'; }
+  }catch(e){ if(list) list.innerHTML=emptyState('⚠️','Could not load dashboard',escapeHtml(e.message)); }
 }
 function renderActivityChart(trend){
   const chartEl=document.getElementById('overviewActivityChart');
@@ -473,8 +476,8 @@ async function loadTrips(page=pageState.trips.page){
   const st=pageState.trips; st.page=page;
   const list=document.getElementById('tripList'); if(!list) return;
   list.innerHTML='<div class="loading-state">Loading deliveries…</div>';
-  try{ const data=await adminApi('get_trips', st); list.innerHTML=(data.trips||[]).length?(data.trips||[]).map(renderTripListItem).join(''):'<div class="empty-state">No deliveries match your filters.</div>'; renderPagination('tripPagination', st, data.total, 'loadTrips'); }
-  catch(e){ list.innerHTML='<div class="empty-state">Could not load deliveries: '+escapeHtml(e.message)+'</div>'; }
+  try{ const data=await adminApi('get_trips', st); list.innerHTML=(data.trips||[]).length?(data.trips||[]).map(renderTripListItem).join(''):emptyState('📦','No deliveries match your filters','Try adjusting your search or date range.'); renderPagination('tripPagination', st, data.total, 'loadTrips'); }
+  catch(e){ list.innerHTML=emptyState('⚠️','Could not load deliveries',escapeHtml(e.message)); }
 }
 function openTripDetailFromData(trip){ openTripDetail(trip.trip_ref||('#'+trip.id), trip.service_category||trip.category||'Delivery', trip.pickup_address||trip.pickup||'', trip.dropoff_address||trip.dropoff||'', formatMoney(trip.fare_amount??trip.final_fare??trip.fare_estimate??trip.fare), trip.driver_name||'Unassigned', formatStatusLabel(trip.dispatch_status||trip.status)); }
 let _reassignTripId = 0;
@@ -517,8 +520,8 @@ async function submitReassignTrip(){
 async function loadPayouts(page=pageState.payouts.page){
   const st=pageState.payouts; st.page=page; const list=document.getElementById('payoutList'); if(!list) return;
   list.innerHTML='<div class="loading-state">Loading payouts…</div>';
-  try{ const data=await adminApi('get_payouts', st); const m=data.metrics||{}; document.getElementById('payoutPendingAmount').textContent=formatMoney(m.pending_amount); document.getElementById('payoutPendingCount').textContent=Number(m.pending_count||0).toLocaleString()+' pending'; document.getElementById('payoutProcessedAmount').textContent=formatMoney(m.processed_today_amount); document.getElementById('payoutProcessedCount').textContent=Number(m.processed_today_count||0).toLocaleString()+' processed'; document.getElementById('payoutFailedCount').textContent=Number(m.failed_count||0).toLocaleString(); document.getElementById('payoutAvgAmount').textContent=formatMoney(m.avg_payout); list.innerHTML=(data.payouts||[]).length?(data.payouts||[]).map(renderPayoutItem).join(''):'<div class="empty-state">No payouts match your filters.</div>'; renderPagination('payoutPagination', st, data.total, 'loadPayouts'); }
-  catch(e){ list.innerHTML='<div class="empty-state">Could not load payouts: '+escapeHtml(e.message)+'</div>'; }
+  try{ const data=await adminApi('get_payouts', st); const m=data.metrics||{}; document.getElementById('payoutPendingAmount').textContent=formatMoney(m.pending_amount); document.getElementById('payoutPendingCount').textContent=Number(m.pending_count||0).toLocaleString()+' pending'; document.getElementById('payoutProcessedAmount').textContent=formatMoney(m.processed_today_amount); document.getElementById('payoutProcessedCount').textContent=Number(m.processed_today_count||0).toLocaleString()+' processed'; document.getElementById('payoutFailedCount').textContent=Number(m.failed_count||0).toLocaleString(); document.getElementById('payoutAvgAmount').textContent=formatMoney(m.avg_payout); list.innerHTML=(data.payouts||[]).length?(data.payouts||[]).map(renderPayoutItem).join(''):emptyState('💸','No payouts match your filters','Adjust the status or date filter.'); renderPagination('payoutPagination', st, data.total, 'loadPayouts'); }
+  catch(e){ list.innerHTML=emptyState('⚠️','Could not load payouts',escapeHtml(e.message)); }
 }
 function renderPayoutItem(p){
   const failed=p.status==='failed';
@@ -551,9 +554,9 @@ async function loadDrivers(page=pageState.drivers.page){
     document.getElementById('driversSuspendedCount').textContent=drivers.filter(d=>d.status==='suspended').length.toLocaleString();
     const ratings=drivers.map(d=>Number(d.rating||0)).filter(Boolean);
     document.getElementById('driversAvgRating').textContent=ratings.length?(ratings.reduce((a,b)=>a+b,0)/ratings.length).toFixed(1)+'★':'--';
-    list.innerHTML=drivers.length?drivers.map(renderDriverDirectoryItem).join(''):'<div class="empty-state">No drivers match your filters.</div>';
+    list.innerHTML=drivers.length?drivers.map(renderDriverDirectoryItem).join(''):emptyState('🚗','No drivers match your filters','Try a different search term or status.');
     renderPagination('driverPagination', st, data.total, 'loadDrivers');
-  }catch(e){ list.innerHTML='<div class="empty-state">Could not load drivers: '+escapeHtml(e.message)+'</div>'; }
+  }catch(e){ list.innerHTML=emptyState('⚠️','Could not load drivers',escapeHtml(e.message)); }
 }
 function renderDriverDirectoryItem(driver){
   const status = driver.status || 'active';
@@ -582,9 +585,9 @@ async function loadCustomers(page=pageState.customers.page){
     document.getElementById('customersTotalCount').textContent=Number(data.total||0).toLocaleString();
     document.getElementById('customersVerifiedCount').textContent=customers.filter(c=>Number(c.email_verified)===1).length.toLocaleString();
     document.getElementById('customersSuspendedCount').textContent=customers.filter(c=>c.status==='suspended').length.toLocaleString();
-    list.innerHTML=customers.length?customers.map(renderCustomerDirectoryItem).join(''):'<div class="empty-state">No customers match your filters.</div>';
+    list.innerHTML=customers.length?customers.map(renderCustomerDirectoryItem).join(''):emptyState('👤','No customers match your filters','Try a different search term or status.');
     renderPagination('customerPagination', st, data.total, 'loadCustomers');
-  }catch(e){ list.innerHTML='<div class="empty-state">Could not load customers: '+escapeHtml(e.message)+'</div>'; }
+  }catch(e){ list.innerHTML=emptyState('⚠️','Could not load customers',escapeHtml(e.message)); }
 }
 function renderCustomerDirectoryItem(customer){
   const status = customer.status || 'active';
@@ -622,10 +625,10 @@ async function loadReconciliation(page=pageState.reconciliation.page) {
           </div>
         </div>
       </div>
-    `).join('') : '<div class="empty-state">No payments match your filters.</div>';
+    `).join('') : emptyState('🧾','No payments match your filters','Adjust the date range or status filter.');
     renderPagination('reconciliationPagination', st, data.total, 'loadReconciliation');
   } catch (e) {
-    list.innerHTML = '<div class="empty-state">Could not load reconciliation data: ' + escapeHtml(e.message) + '</div>';
+    list.innerHTML = emptyState('⚠️','Could not load reconciliation data',escapeHtml(e.message));
   }
 }
 
@@ -673,7 +676,7 @@ function renderRevenueWeekChart(trend){
 function renderRevenueCategoryChart(cats){
   const el = document.getElementById('revCategoryChart');
   if(!el) return;
-  if(!cats.length){ el.innerHTML = '<div class="empty-state">No completed trips yet.</div>'; return; }
+  if(!cats.length){ el.innerHTML = emptyState('📊','No revenue data yet','Completed trips will show here.'); return; }
   const max = Math.max(...cats.map(c=>c.revenue), 1);
   el.innerHTML = cats.map(c => {
     const pct = Math.round((c.revenue/max)*100);
@@ -711,8 +714,8 @@ function exportRevenueCsv(){
 
 async function loadDisputes(page=pageState.disputes.page){
   const st=pageState.disputes; st.page=page; const list=document.getElementById('disputeList'); if(!list) return; list.innerHTML='<div class="loading-state">Loading disputes…</div>';
-  try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=Number(data.open_count||0).toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=Number(data.escalated_count||0).toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):'<div class="empty-state">No disputes match your filters.</div>'; renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
-  catch(e){ list.innerHTML='<div class="empty-state">Could not load disputes: '+escapeHtml(e.message)+'</div>'; }
+  try{ const data=await adminApi('get_disputes', st); const rows=data.disputes||[]; document.getElementById('disputeTotalCount').textContent=Number(data.total||0).toLocaleString(); document.getElementById('disputeOpenCount').textContent=Number(data.open_count||0).toLocaleString(); document.getElementById('disputeEscalatedCount').textContent=Number(data.escalated_count||0).toLocaleString()+' escalated'; document.getElementById('disputeRefundAmount').textContent=formatMoney(rows.reduce((sum,d)=>sum+Number(d.refund_amount||0),0)); list.innerHTML=rows.length?rows.map(renderDisputeItem).join(''):emptyState('🤝','No disputes to resolve','All clear — no disputes match the current filter.'); renderPagination('disputePagination', st, data.total, 'loadDisputes'); }
+  catch(e){ list.innerHTML=emptyState('⚠️','Could not load disputes',escapeHtml(e.message)); }
 }
 function renderDisputeItem(d){ const status=d.status||'open'; const title='#D-'+String(d.id).padStart(4,'0')+' · '+(d.category||'Dispute'); const meta=status==='resolved'?`Resolved · ${formatMoney(d.refund_amount)} refunded · ${d.resolution||''}`:`Customer: ${d.customer_name||'Unknown'} · Driver: ${d.driver_name||'Unassigned'} · ${dateLabel(d.created_at)}`; const desc=encodeURIComponent(d.description||''); return `<div class="list-item" data-dispute="${escapeHtml(status)}"><div class="avatar" style="background:rgba(232,72,74,0.1);color:var(--danger);font-size:11px">${status==='resolved'?'✓':(status==='escalated'?'🔴':'!')}</div><div class="item-info"><div class="item-name">${escapeHtml(title)}</div><div class="item-meta">${escapeHtml(meta)}</div></div><div class="item-actions"><button class="btn-sm ${status==='escalated'?'btn-reject':'btn-view'}" onclick="openDisputeModal('${escapeHtml(title).replace(/'/g,'&#39;')}', ${Number(d.id)}, '${escapeHtml(status)}', decodeURIComponent('${desc}'))">${status==='resolved'?'View':'Handle'}</button></div></div>`; }
 function queuePayoutSearch(v){ clearTimeout(searchTimers.payouts); searchTimers.payouts=setTimeout(()=>{pageState.payouts.search=v; loadPayouts(1);},300); }
@@ -751,7 +754,7 @@ function renderLiveOps(data){
   const tripList = document.getElementById('opsTripList');
   if(tripList){
     if(!trips.length){
-      tripList.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active trips right now</div><div class="item-meta">Trips in in_progress or searching state appear here.</div></div></div>';
+      tripList.innerHTML = emptyState('🗺️','No active trips right now','Trips in searching or in-progress state appear here.');
     } else {
       tripList.innerHTML = trips.map(trip => {
         const ds = trip.dispatch_status || '';
@@ -776,7 +779,7 @@ function renderLiveOps(data){
   const list = document.getElementById('opsDriverList');
   if(list){
     if(!drivers.length){
-      list.innerHTML = '<div class="list-item"><div class="item-info"><div class="item-name">No active drivers right now</div><div class="item-meta">Drivers appear here after heartbeat or active-trip assignment.</div></div></div>';
+      list.innerHTML = emptyState('🚗','No active drivers right now','Drivers appear here after heartbeat or active-trip assignment.');
     } else {
       list.innerHTML = drivers.map(driver => {
         const inTrip = !!driver.trip_id;
@@ -971,13 +974,13 @@ async function loadAdminUsers() {
         const json = await res.json();
 
         if ( ! json.success ) {
-            tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Error loading users: ${json.data?.message || 'Unknown error'}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5">${emptyState('⚠️','Error loading users',json.data?.message||'Unknown error')}</td></tr>`;
             return;
         }
 
         const users = json.data;
         if ( users.length === 0 ) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No admin users found.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5">${emptyState('👥','No admin users found','Add the first admin user using the button above.')}</td></tr>`;
             return;
         }
 
@@ -1015,10 +1018,10 @@ async function loadAdminUsers() {
             </tr>`;
         });
 
-        tbody.innerHTML = html || '<tr><td colspan="5" class="empty-state">No matches found.</td></tr>';
+        tbody.innerHTML = html || `<tr><td colspan="5">${emptyState('🔍','No matches found','Try a different search term.')}</td></tr>`;
 
     } catch(e) {
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Network error loading users.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5">${emptyState('⚠️','Network error loading users',escapeHtml(e.message))}</td></tr>`;
     }
 }
 
@@ -1115,7 +1118,7 @@ function renderPermissionToggles() {
     if (!container) return;
 
     if ( ! roleId ) {
-        container.innerHTML = '<div class="empty-state">Select a role to see permissions.</div>';
+        container.innerHTML = emptyState('🔒','Select a role to see permissions','Permissions vary by role.');
         return;
     }
 
