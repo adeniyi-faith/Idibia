@@ -34,6 +34,49 @@ if ( ! $quote_data ) {
     wp_send_json_error( [ 'message' => 'Quote has expired or is invalid. Please request a new quote.' ] );
 }
 
+// ── MODE DETECTION ──────────────────────────────────────────────────────────
+// MODE A: customer sent GPS coords in the booking POST (pickup_lat present).
+// MODE B: classic text booking — everything comes from $quote_data unchanged.
+$gps_lat = isset( $_POST['pickup_lat'] ) ? (float) $_POST['pickup_lat'] : null;
+$gps_lng = isset( $_POST['pickup_lng'] ) ? (float) $_POST['pickup_lng'] : null;
+$mode_a  = ( $gps_lat !== null );
+
+if ( $mode_a ) {
+    // 1. Validate that the coordinates are real Nigeria coords.
+    if ( ! idibia_is_valid_nigeria_coords( $gps_lat, $gps_lng ) ) {
+        wp_send_json_error( [ 'message' => 'Invalid GPS coordinates. Please share your location and try again.' ] );
+    }
+
+    // 2. Reverse geocode: ask Nominatim to give us a human-readable street label.
+    //    This is best-effort only — a failure here does NOT block the booking.
+    $pickup_label  = 'Customer GPS Location';
+    $nominatim_url = add_query_arg(
+        [ 'lat' => $gps_lat, 'lon' => $gps_lng, 'format' => 'json' ],
+        'https://nominatim.openstreetmap.org/reverse'
+    );
+    $nom_response = wp_remote_get( $nominatim_url, [
+        'timeout' => 5,
+        'headers' => [ 'User-Agent' => 'Idibia Rides/1.0 (contact@idibia.com)' ],
+    ] );
+    if ( ! is_wp_error( $nom_response ) ) {
+        $nom_body = json_decode( wp_remote_retrieve_body( $nom_response ), true );
+        if ( ! empty( $nom_body['display_name'] ) ) {
+            $pickup_label = sanitize_text_field( $nom_body['display_name'] );
+        }
+    }
+
+    // 3. Dropoff address label comes directly from the frontend (Google Places formatted it).
+    $dropoff_label = sanitize_text_field( wp_unslash( $_POST['dropoff_address'] ?? '' ) );
+
+    // 4. Overwrite the quote_data fields that will be written to sd_trips.
+    //    Dropoff coords stay as-is from the quote (already resolved when quote was created).
+    $quote_data['pickup_lat']      = $gps_lat;
+    $quote_data['pickup_lng']      = $gps_lng;
+    $quote_data['pickup_address']  = $pickup_label;
+    $quote_data['dropoff_address'] = $dropoff_label ?: $quote_data['dropoff_address'];
+}
+// ── END MODE DETECTION ───────────────────────────────────────────────────────
+
 $trip_ref = strtoupper( substr( md5( uniqid( '', true ) ), 0, 8 ) );
 $delivery_pin = (string) random_int( 1000, 9999 );
 $platform_pct = (int) ( $quote['platform_pct'] ?? idibia_get_setting('platform_commission_pct', 20) );
