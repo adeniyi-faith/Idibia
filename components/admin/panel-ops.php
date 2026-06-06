@@ -11,22 +11,22 @@
         <circle cx="200" cy="110" r="6" fill="#F5C842" opacity="0.8"/>
         <text x="207" y="114" fill="white" font-size="8" opacity="0.7">City Center</text>
       </svg>
-      <div class="ops-rider" id="r1" style="top:28%;left:18%">🛵</div>
-      <div class="ops-rider" id="r2" style="top:52%;left:42%">🚗</div>
-      <div class="ops-rider" id="r3" style="top:18%;left:62%">🛵</div>
-      <div class="ops-rider" id="r4" style="top:68%;left:70%">🚐</div>
-      <div class="ops-rider" id="r5" style="top:38%;left:78%">🛵</div>
-      <div class="ops-rider" id="r6" style="top:58%;left:12%">🛺</div>
-      <div class="ops-rider" id="r7" style="top:75%;left:32%">🛵</div>
-      <div class="ops-rider" id="r8" style="top:12%;left:85%">🚗</div>
+      <div class="ops-rider" id="r1" style="top:28%;left:18%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/><path d="M5 16L9 8h5l3 4h3"/></svg></div>
+      <div class="ops-rider" id="r2" style="top:52%;left:42%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="2" y="9" width="20" height="8" rx="2"/><path d="M5 9l2-4h10l2 4"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></div>
+      <div class="ops-rider" id="r3" style="top:18%;left:62%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/><path d="M5 16L9 8h5l3 4h3"/></svg></div>
+      <div class="ops-rider" id="r4" style="top:68%;left:70%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="1" y="6" width="15" height="12" rx="1"/><path d="M16 9l5 3v6h-5"/><circle cx="5" cy="18" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg></div>
+      <div class="ops-rider" id="r5" style="top:38%;left:78%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/><path d="M5 16L9 8h5l3 4h3"/></svg></div>
+      <div class="ops-rider" id="r6" style="top:58%;left:12%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="5" cy="17" r="2"/><circle cx="12" cy="17" r="2"/><path d="M5 17V9h7v8"/><path d="M12 12h5v5h-2"/></svg></div>
+      <div class="ops-rider" id="r7" style="top:75%;left:32%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/><path d="M5 16L9 8h5l3 4h3"/></svg></div>
+      <div class="ops-rider" id="r8" style="top:12%;left:85%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><rect x="2" y="9" width="20" height="8" rx="2"/><path d="M5 9l2-4h10l2 4"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg></div>
       <div class="map-legend" id="opsMapLegend"><span style="color:var(--success)">●</span> Loading live operations…</div>
     </div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="filterOps('all',this)">All</button>
-      <button class="filter-btn" onclick="filterOps('motorbike',this)">🛵 Motorbike</button>
-      <button class="filter-btn" onclick="filterOps('car',this)">🚗 Car</button>
-      <button class="filter-btn" onclick="filterOps('van',this)">🚐 Van</button>
-      <button class="filter-btn" onclick="filterOps('tricycle',this)">🛺 Tricycle</button>
+      <button class="filter-btn" onclick="filterOps('motorbike',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/><path d="M5 16L9 8h5l3 4h3"/></svg> Motorbike</button>
+      <button class="filter-btn" onclick="filterOps('car',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="2" y="9" width="20" height="8" rx="2"/><path d="M5 9l2-4h10l2 4"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/></svg> Car</button>
+      <button class="filter-btn" onclick="filterOps('van',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="1" y="6" width="15" height="12" rx="1"/><path d="M16 9l5 3v6h-5"/><circle cx="5" cy="18" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg> Van</button>
+      <button class="filter-btn" onclick="filterOps('tricycle',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="5" cy="17" r="2"/><circle cx="12" cy="17" r="2"/><path d="M5 17V9h7v8"/><path d="M12 12h5v5h-2"/></svg> Tricycle</button>
     </div>
     <div class="metrics-grid four">
       <div class="metric-card"><div class="metric-label">ONLINE DRIVERS</div><div class="metric-value" id="opsOnlineDrivers">--</div></div>
