@@ -17,6 +17,6 @@
       <button class="filter-btn" onclick="filterTripStatus('cancelled',this)">Cancelled</button>
     </div>
     <div class="scard">
-      <div id="tripList"><div class="loading-state">Loading deliveries…</div></div><div class="pagination" id="tripPagination"></div>
+      <div id="tripList"></div><div class="pagination" id="tripPagination"></div>
     </div>
   </div>

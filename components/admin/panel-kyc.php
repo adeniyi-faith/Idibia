@@ -17,7 +17,6 @@
       <button class="filter-btn" onclick="filterKyc('keke',this)">Tricycle</button>
     </div>
     <div class="scard" id="kycQueue">
-      <div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">Loading driver applications…</div>
       <div id="kyc-empty" style="display:none;padding:32px;text-align:center;color:var(--text-muted);font-size:13px">All applications reviewed ✓</div>
     </div>
     <!-- KYC DETAIL OVERLAY -->
