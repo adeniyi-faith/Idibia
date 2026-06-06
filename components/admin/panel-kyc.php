@@ -37,15 +37,7 @@
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">BANK DETAILS</div><div style="font-size:12px;font-weight:600" id="detail-bank">Bank details pending</div></div>
           </div>
           <div id="kycReviewDetails"></div>
-          <div class="form-group" id="kycRejectReasonGroup">
-            <label class="form-label">Rejection reason (if rejecting)</label>
-            <select class="form-input" id="reject-reason">
-              <option value="">Select reason…</option>
-              <option>Blurry/invalid ID photo</option><option>License expired</option>
-              <option>Vehicle inspection failed</option><option>Incomplete documents</option>
-              <option>Profile photo invalid (cap/glasses)</option><option>Other</option>
-            </select>
-          </div>
+          <select id="reject-reason" style="display:none" aria-hidden="true"></select>
           <div id="kycReviewActions" style="display:flex;gap:10px;flex-wrap:wrap;">
             <button class="btn-sm btn-reject" style="flex:1;min-width:140px;height:40px;font-size:13px" onclick="kycDetailAction('rejected')">Reject Application</button>
             <button class="btn-sm btn-approve" style="flex:1;min-width:140px;height:40px;font-size:13px" onclick="kycDetailAction('approved')">Approve Driver</button>

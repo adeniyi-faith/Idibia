@@ -119,4 +119,36 @@
   </div>
 </div>
 
+<!-- CONFIRM ACTION DIALOG -->
+<div class="modal-overlay" id="confirmActionModal" onclick="if(event.target===this)_confirmReject()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h3 style="font-size:15px" id="confirmActionTitle">Confirm Action</h3>
+      <button aria-label="Close" onclick="_confirmReject()" style="background:none;border:none;font-size:18px;color:var(--text-muted)">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirmActionDesc" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></p>
+      <div class="form-group" id="confirmReasonGroup">
+        <label class="form-label" id="confirmReasonLabel">Reason</label>
+        <div id="confirmReasonSelectWrap" style="display:none">
+          <select class="form-input" id="confirmReasonSelect">
+            <option value="">Select reason…</option>
+            <option>Blurry/invalid ID photo</option>
+            <option>License expired</option>
+            <option>Vehicle inspection failed</option>
+            <option>Incomplete documents</option>
+            <option>Profile photo invalid (cap/glasses)</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <textarea class="form-input" id="confirmReasonText" rows="3" placeholder="Enter reason…" style="resize:none;margin-top:0" oninput="document.getElementById('confirmActionSubmit').disabled=this.required&&!this.value.trim()"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="_confirmReject()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Cancel</button>
+      <button id="confirmActionSubmit" onclick="_confirmResolve()" style="padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;background:var(--danger);color:#fff;border:none;cursor:pointer">Confirm</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toastEl"></div>
