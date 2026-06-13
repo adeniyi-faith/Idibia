@@ -8,6 +8,25 @@
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
+ * Rewrite upload URLs to use the current request's host.
+ * Prevents broken image URLs when WordPress's siteurl in the DB doesn't
+ * match the domain the app is actually served from.
+ */
+add_filter( 'upload_dir', static function ( $dirs ) {
+    if ( empty( $_SERVER['HTTP_HOST'] ) ) {
+        return $dirs;
+    }
+    $scheme  = ( ! empty( $_SERVER['HTTPS'] ) && $_SERVER['HTTPS'] !== 'off' ) ? 'https' : 'http';
+    $origin  = $scheme . '://' . $_SERVER['HTTP_HOST'];
+    foreach ( [ 'url', 'baseurl' ] as $key ) {
+        if ( ! empty( $dirs[ $key ] ) ) {
+            $dirs[ $key ] = preg_replace( '#^https?://[^/]+#', $origin, $dirs[ $key ] );
+        }
+    }
+    return $dirs;
+} );
+
+/**
  * Sends a clean JSON response, ensuring output buffers are cleared.
  */
 function idibia_json_response( array $data, int $status_code = 200 ) {
