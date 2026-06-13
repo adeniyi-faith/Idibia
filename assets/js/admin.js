@@ -207,7 +207,21 @@ async function kycAction(btn, action){
     toast('This KYC record has already been resolved.');
     return;
   }
-  const notes = action === 'rejected' ? (document.getElementById('reject-reason')?.value || 'Rejected from admin KYC review.') : 'Approved from admin KYC review.';
+  let notes;
+  if(action === 'rejected'){
+    const reason = await showConfirmDialog({
+      title: 'Reject KYC Application',
+      desc: 'Reject the KYC application for ' + (driver.full_name || 'this driver') + '? They will be notified with the reason provided.',
+      reasonLabel: 'Rejection reason',
+      reasonRequired: true,
+      useSelect: true,
+      confirmLabel: 'Reject Application',
+    });
+    if(reason === null) return;
+    notes = reason || 'Rejected from admin KYC review.';
+  } else {
+    notes = 'Approved from admin KYC review.';
+  }
   btn.disabled = true;
   try {
     const data = await adminApi('kyc_action', { driver_id: driverId, decision: action, notes }, 'POST');
@@ -300,10 +314,20 @@ async function loadManualPayments(){
 }
 
 async function reviewManualPayment(paymentId, decision, source){
-  const notes = decision === 'reject' ? prompt('Why are you rejecting this proof?') : prompt('Approval note (optional)');
-  if(decision === 'reject' && !notes) return;
+  let notes = '';
+  if(decision === 'reject'){
+    const reason = await showConfirmDialog({
+      title: 'Reject Payment Proof',
+      desc: 'Reject this payment proof? The customer will be notified and the trip will remain unpaid.',
+      reasonLabel: 'Reason for rejection',
+      reasonRequired: true,
+      confirmLabel: 'Reject Payment',
+    });
+    if(reason === null) return;
+    notes = reason;
+  }
   try {
-    const data = await adminApi('review_manual_payment', {payment_id: paymentId, decision, admin_notes: notes || ''}, 'POST');
+    const data = await adminApi('review_manual_payment', {payment_id: paymentId, decision, admin_notes: notes}, 'POST');
     toast(data.message || (decision === 'approve' ? 'Payment approved' : 'Payment rejected'));
     if(source === 'payouts') loadManualPaymentsPayouts(); else loadManualPayments();
   } catch (e) {
@@ -576,8 +600,14 @@ function renderDriverDirectoryItem(driver){
   return `<div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name||'Unnamed driver')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadDriverDetail(${driver.id})">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendDriverFromDirectory(${Number(driver.id)}, '${escapeHtml(driver.full_name||'Driver').replace(/'/g,'&#39;')}')">Suspend</button>`}</div></div>`;
 }
 async function suspendDriverFromDirectory(driverId, name){
-  if(!confirm('Suspend '+name+'? They will be notified and go offline immediately.')) return;
-  const reason = prompt('Reason for suspension (optional):') ?? '';
+  const reason = await showConfirmDialog({
+    title: 'Suspend Driver',
+    desc: 'Suspend ' + name + '? They will be notified and go offline immediately.',
+    reasonLabel: 'Reason for suspension (optional)',
+    reasonRequired: false,
+    confirmLabel: 'Suspend Driver',
+  });
+  if(reason === null) return;
   try{ const data=await adminApi('suspend_driver',{driver_id:driverId, reason},'POST'); toast(data.message||'Driver suspended.'); loadDrivers(); loadDashboard(); }
   catch(e){ toast(e.message||'Could not suspend driver.'); }
 }
@@ -962,6 +992,41 @@ async function adminLogout(btn){
 }
 function searchTrips(val){ clearTimeout(searchTimers.trips); searchTimers.trips=setTimeout(()=>{pageState.trips.search=val; loadTrips(1);},300); }
 function filterTrips(cat){ pageState.trips.category=cat; loadTrips(1); }
+let _confirmResolve = () => {};
+let _confirmReject = () => {};
+function showConfirmDialog({ title, desc, reasonLabel = 'Reason', reasonRequired = false, useSelect = false, confirmLabel = 'Confirm', confirmClass = 'danger' }) {
+  return new Promise((resolve, reject) => {
+    const modal = document.getElementById('confirmActionModal');
+    document.getElementById('confirmActionTitle').textContent = title;
+    document.getElementById('confirmActionDesc').textContent = desc;
+    document.getElementById('confirmReasonLabel').textContent = reasonLabel;
+    const selectWrap = document.getElementById('confirmReasonSelectWrap');
+    const textarea = document.getElementById('confirmReasonText');
+    const select = document.getElementById('confirmReasonSelect');
+    const submitBtn = document.getElementById('confirmActionSubmit');
+    selectWrap.style.display = useSelect ? 'block' : 'none';
+    textarea.value = '';
+    select.value = '';
+    textarea.required = reasonRequired && !useSelect;
+    submitBtn.disabled = reasonRequired && !useSelect;
+    submitBtn.textContent = confirmLabel;
+    submitBtn.style.background = confirmClass === 'danger' ? 'var(--danger)' : 'var(--primary)';
+    if (useSelect) {
+      select.onchange = () => { textarea.placeholder = select.value ? 'Additional notes (optional)…' : 'Enter reason…'; };
+    }
+    modal.classList.add('open');
+    _confirmResolve = () => {
+      modal.classList.remove('open');
+      const reason = useSelect
+        ? (select.value ? select.value + (textarea.value.trim() ? ': ' + textarea.value.trim() : '') : textarea.value.trim())
+        : textarea.value.trim();
+      if (reasonRequired && !reason) { resolve(null); return; }
+      resolve(reason);
+    };
+    _confirmReject = () => { modal.classList.remove('open'); resolve(null); };
+  });
+}
+
 function toast(msg){
   const t=document.getElementById('toastEl');
   t.textContent=msg;t.classList.add('show');
