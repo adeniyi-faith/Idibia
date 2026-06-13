@@ -132,11 +132,9 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
             wp_send_json_error( [ 'message' => 'Could not create upload directory.' ] );
         }
 
-        // Ensure images are served directly (not intercepted by WordPress rewrite rules).
+        // Ensure images are served directly. Always overwrite to fix any bad .htaccess.
         $htaccess = trailingslashit( $upload['basedir'] ) . 'idibia-kyc/.htaccess';
-        if ( ! file_exists( $htaccess ) ) {
-            file_put_contents( $htaccess, "Options -Indexes\n<FilesMatch \"\.(jpg|jpeg|png|webp|gif)$\">\n    Require all granted\n</FilesMatch>\n" );
-        }
+        file_put_contents( $htaccess, "Options -Indexes\n" );
 
         $original = sanitize_file_name( wp_unslash( $file['name'] ) );
         $filename = wp_unique_filename( $target_dir, 'avatar-' . $original );
