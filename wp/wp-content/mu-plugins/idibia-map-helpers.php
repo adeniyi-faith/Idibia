@@ -7,6 +7,59 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+define( 'IDIBIA_GOOGLE_PLACES_KEY', defined( 'GOOGLE_PLACES_KEY' ) ? GOOGLE_PLACES_KEY : '' );
+
+/**
+ * Validates a Google Place ID and returns its coordinates and address.
+ *
+ * @param string $place_id The Google Place ID to validate.
+ * @return array|WP_Error Array with 'lat', 'lng', 'formatted_address' on success.
+ */
+function idibia_validate_place_id( string $place_id ) {
+    $url = add_query_arg( [
+        'place_id' => $place_id,
+        'fields'   => 'geometry,formatted_address',
+        'key'      => IDIBIA_GOOGLE_PLACES_KEY,
+    ], 'https://maps.googleapis.com/maps/api/place/details/json' );
+
+    $response = wp_remote_get( $url, [ 'timeout' => 10 ] );
+
+    if ( is_wp_error( $response ) ) {
+        return new WP_Error( 'place_lookup_failed', $response->get_error_message() );
+    }
+
+    $status_code = wp_remote_retrieve_response_code( $response );
+    if ( $status_code !== 200 ) {
+        return new WP_Error( 'place_lookup_failed', 'Google Places API returned status ' . $status_code );
+    }
+
+    $body = wp_remote_retrieve_body( $response );
+    $data = json_decode( $body, true );
+
+    if ( empty( $data['result']['geometry']['location'] ) ) {
+        return new WP_Error( 'place_lookup_failed', 'Could not retrieve place details.' );
+    }
+
+    $location = $data['result']['geometry']['location'];
+
+    return [
+        'lat'               => (float) $location['lat'],
+        'lng'               => (float) $location['lng'],
+        'formatted_address' => $data['result']['formatted_address'] ?? '',
+    ];
+}
+
+/**
+ * Checks whether coordinates fall within Nigeria's bounding box.
+ *
+ * @param float $lat Latitude.
+ * @param float $lng Longitude.
+ * @return bool
+ */
+function idibia_is_valid_nigeria_coords( float $lat, float $lng ): bool {
+    return $lat >= 4.0 && $lat <= 13.9 && $lng >= 2.7 && $lng <= 14.7;
+}
+
 /**
  * Geocodes an address using OpenStreetMap Nominatim.
  *
