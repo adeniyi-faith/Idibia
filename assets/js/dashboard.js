@@ -9,6 +9,10 @@ let pinMap = null;
 let pinField = null;
 let _pinReverseTimer = null;
 let _saveAddressInputId = null;
+let _savedAddresses = [];            // client-side cache of the customer's saved addresses
+let _savedFormCoords = null;         // coords picked while adding/editing in the manager modal
+let _editingOriginalLabel = null;    // when set, the manager form is updating this existing label
+let _savedManagerWired = false;      // ensures the manager's autocomplete is wired only once
 let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
@@ -111,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
   buildDateGrid();
   initPhotonAutocomplete('pickupInput',  'pickupSuggestions',  c => { pickupCoords  = c; });
   initPhotonAutocomplete('dropoffInput', 'dropoffSuggestions', c => { dropoffCoords = c; });
+  fetchSavedAddresses(); // load saved places so they're available in the inputs on first paint
   setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 500);
   // Trip progress is driven by trip-feed-api.php and driver actions; no demo countdown runs in production.
 });
@@ -337,10 +342,57 @@ function _wirePinRows(box) {
   });
 }
 
+// Saved-address quick-picks and the "Pin on map" escape hatch only make sense
+// on the booking inputs — not on the manager's address field, which reuses the
+// same autocomplete purely for searching.
+function _isBookingInput(input) {
+  return input.id === 'pickupInput' || input.id === 'dropoffInput';
+}
+
 function _showPinOnly(box, input) {
-  box.innerHTML = _pinRowHtml(input.id.replace('Input', ''));
+  if (!_isBookingInput(input)) { box.innerHTML = ''; box.style.display = 'none'; return; }
+  const field = input.id.replace('Input', '');
+  box.innerHTML = _savedAddressRowsHtml() + _pinRowHtml(field);
   box.style.display = 'block';
+  _wireSavedRows(box, input);
   _wirePinRows(box);
+}
+
+// Quick-pick rows for the customer's saved addresses, shown at the top of an
+// input's dropdown when it's focused/empty. Available to BOTH pickup and
+// drop-off without rendering a duplicated, always-on chip strip.
+function _savedAddressRowsHtml() {
+  if (!_savedAddresses.length) return '';
+  return _savedAddresses.map((a, i) => {
+    const short = escapeHtml((a.address || '').split(',').slice(0, 3).join(',').trim());
+    return `<div class="photon-saved-row" data-saved-idx="${i}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      <span><strong>${escapeHtml(a.label)}</strong> · ${short}</span>
+    </div>`;
+  }).join('');
+}
+
+function _wireSavedRows(box, input) {
+  box.querySelectorAll('.photon-saved-row').forEach(row => {
+    row.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const addr = _savedAddresses[parseInt(row.dataset.savedIdx, 10)];
+      if (addr) _applySavedAddress(input, addr);
+      box.innerHTML = '';
+      box.style.display = 'none';
+    });
+  });
+}
+
+// Fills an input from a saved address and restores its coordinates so the
+// quote uses the exact saved point instead of re-geocoding the text.
+function _applySavedAddress(input, addr) {
+  input.value = addr.address || '';
+  const lat = parseFloat(addr.lat);
+  const lng = parseFloat(addr.lng);
+  const coords = (lat && lng) ? { lat, lng } : null;
+  if (input.id === 'pickupInput') pickupCoords = coords;
+  else if (input.id === 'dropoffInput') dropoffCoords = coords;
 }
 
 async function _fetchPhoton(q, box, input, setCoords) {
@@ -395,8 +447,8 @@ async function _fetchPhoton(q, box, input, setCoords) {
       html += `<div class="photon-no-results">No results found</div>`;
     }
 
-    // Always show "Pin on map" as the last option
-    html += _pinRowHtml(field);
+    // Offer "Pin on map" as the last option — only for the booking inputs.
+    if (_isBookingInput(input)) html += _pinRowHtml(field);
 
     box.innerHTML = html;
     box.style.display = 'block';
@@ -1572,52 +1624,146 @@ async function fetchSavedAddresses() {
       headers: { 'Accept': 'application/json' }
     });
     const json = await res.json();
-    if (json.success && json.data.addresses) {
-      renderAddressChips(json.data.addresses);
+    if (json.success && Array.isArray(json.data.addresses)) {
+      _refreshSavedAddresses(json.data.addresses);
     }
   } catch (err) {
     console.error("Failed to load saved addresses", err);
   }
 }
 
-function renderAddressChips(addresses) {
-  const pickupCont = document.getElementById('pickupChips');
-  const dropoffCont = document.getElementById('dropoffChips');
-  if (!pickupCont || !dropoffCont) return;
-
-  let html = '';
-  addresses.forEach(addr => {
-    const shortAddr = escapeHtml(addr.address.split(',')[0]);
-    const lat = addr.lat || '';
-    const lng = addr.lng || '';
-    html += `<div class="filter-pill" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;font-size:11px;" title="${escapeHtml(addr.address)}" data-address="${escapeHtml(addr.address)}" data-lat="${lat}" data-lng="${lng}">
-      <span onclick="fillAddress(this)">${escapeHtml(addr.label)}: ${shortAddr}</span>
-      <span style="cursor:pointer;color:var(--danger);" onclick="deleteAddress('${escapeHtml(addr.label)}')">&times;</span>
-    </div>`;
-  });
-
-  pickupCont.innerHTML = html;
-  dropoffCont.innerHTML = html;
+// Single source of truth: update the cache, the Account count badge, and the
+// manager list (if it's open). Booking inputs read straight from the cache.
+function _refreshSavedAddresses(addresses) {
+  _savedAddresses = Array.isArray(addresses) ? addresses : [];
+  const countEl = document.getElementById('savedAddressesCount');
+  if (countEl) countEl.textContent = `${_savedAddresses.length} ${_savedAddresses.length === 1 ? 'place' : 'places'}`;
+  if (document.getElementById('savedAddressesList')) renderSavedAddressesList();
 }
 
-function fillAddress(el) {
-  const pill = el.parentElement;
-  const address = pill.dataset.address;
-  const lat = parseFloat(pill.dataset.lat);
-  const lng = parseFloat(pill.dataset.lng);
+// ── Saved Addresses manager (Account → Saved Addresses) ──
+function openSavedAddressesModal() {
+  if (!_savedManagerWired) {
+    initPhotonAutocomplete('savedAddrInput', 'savedAddrSuggestions', c => { _savedFormCoords = c; });
+    _savedManagerWired = true;
+  }
+  resetSavedAddressForm();
+  renderSavedAddressesList();
+  openModal('saved-addresses');
+  fetchSavedAddresses(); // refresh in the background in case it changed elsewhere
+}
 
-  const container = pill.parentElement.parentElement;
-  const input = container.querySelector('input');
-  if (!input) return;
+function renderSavedAddressesList() {
+  const list = document.getElementById('savedAddressesList');
+  if (!list) return;
+  if (!_savedAddresses.length) {
+    list.innerHTML = `<div style="text-align:center;padding:24px 12px;color:var(--text-muted);font-size:13px;">No saved places yet. Add one below to reuse it on every booking.</div>`;
+    return;
+  }
+  list.innerHTML = _savedAddresses.map((a, i) => `
+    <div class="saved-addr-item">
+      <div class="saved-addr-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+      </div>
+      <div class="saved-addr-text">
+        <div class="saved-addr-label">${escapeHtml(a.label)}</div>
+        <div class="saved-addr-addr">${escapeHtml(a.address || '')}</div>
+      </div>
+      <button type="button" class="saved-addr-action" title="Edit" data-saved-action="edit" data-saved-idx="${i}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>
+      <button type="button" class="saved-addr-action danger" title="Delete" data-saved-action="delete" data-saved-idx="${i}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>`).join('');
 
-  input.value = address;
+  // Wire actions via listeners (not inline onclick) so labels with quotes are safe.
+  list.querySelectorAll('[data-saved-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.savedIdx, 10);
+      const addr = _savedAddresses[i];
+      if (!addr) return;
+      if (btn.dataset.savedAction === 'edit') startEditSavedAddress(i);
+      else deleteSavedAddress(addr.label);
+    });
+  });
+}
 
-  if (lat && lng) {
-    if (input.id === 'pickupInput') {
-      pickupCoords = { lat, lng };
-    } else if (input.id === 'dropoffInput') {
-      dropoffCoords = { lat, lng };
+function resetSavedAddressForm() {
+  _editingOriginalLabel = null;
+  _savedFormCoords = null;
+  const label = document.getElementById('savedAddrLabel');
+  const addr = document.getElementById('savedAddrInput');
+  const btn = document.getElementById('savedAddrSubmitBtn');
+  const cancel = document.getElementById('savedAddrCancelEdit');
+  const title = document.getElementById('savedAddrFormTitle');
+  if (label) label.value = '';
+  if (addr) addr.value = '';
+  if (btn) btn.textContent = 'Add Address';
+  if (cancel) cancel.style.display = 'none';
+  if (title) title.textContent = 'Add a new place';
+}
+
+function startEditSavedAddress(idx) {
+  const a = _savedAddresses[idx];
+  if (!a) return;
+  _editingOriginalLabel = a.label;
+  const lat = parseFloat(a.lat), lng = parseFloat(a.lng);
+  _savedFormCoords = (lat && lng) ? { lat, lng } : null;
+  const label = document.getElementById('savedAddrLabel');
+  const addr = document.getElementById('savedAddrInput');
+  const btn = document.getElementById('savedAddrSubmitBtn');
+  const cancel = document.getElementById('savedAddrCancelEdit');
+  const title = document.getElementById('savedAddrFormTitle');
+  if (label) label.value = a.label;
+  if (addr) addr.value = a.address || '';
+  if (btn) btn.textContent = 'Update Address';
+  if (cancel) cancel.style.display = 'inline-flex';
+  if (title) title.textContent = `Editing “${a.label}”`;
+  if (label) label.focus();
+}
+
+async function saveSavedAddressFromForm() {
+  const labelEl = document.getElementById('savedAddrLabel');
+  const addrEl = document.getElementById('savedAddrInput');
+  const label = labelEl ? labelEl.value.trim() : '';
+  const address = addrEl ? addrEl.value.trim() : '';
+  if (!label) { showToast('Please enter a label (e.g. Home, Work).'); if (labelEl) labelEl.focus(); return; }
+  if (!address) { showToast('Please enter an address.'); if (addrEl) addrEl.focus(); return; }
+
+  // Block duplicate labels (case-insensitive) unless we're editing that same entry.
+  const clash = _savedAddresses.some(a =>
+    a.label.toLowerCase() === label.toLowerCase() &&
+    (!_editingOriginalLabel || a.label.toLowerCase() !== _editingOriginalLabel.toLowerCase()));
+  if (clash) { showToast(`You already have a place labelled “${label}”.`); return; }
+
+  const btn = document.getElementById('savedAddrSubmitBtn');
+  if (btn) { btn.disabled = true; btn.dataset.txt = btn.textContent; btn.textContent = 'Saving…'; }
+
+  try {
+    // Renaming a label means removing the old row first (the API keys on label).
+    if (_editingOriginalLabel && _editingOriginalLabel.toLowerCase() !== label.toLowerCase()) {
+      const del = new FormData();
+      del.append('label', _editingOriginalLabel);
+      await idibiaPost('delete-address-api.php', del);
     }
+    const body = new FormData();
+    body.append('label', label);
+    body.append('address', address);
+    if (_savedFormCoords) { body.append('lat', _savedFormCoords.lat); body.append('lng', _savedFormCoords.lng); }
+    const json = await idibiaPost('save-address-api.php', body);
+    if (json.success) {
+      showToast(_editingOriginalLabel ? 'Address updated.' : 'Address saved.');
+      _refreshSavedAddresses(json.data.addresses);
+      resetSavedAddressForm();
+    } else {
+      showToast(json.data?.message || 'Could not save address.');
+    }
+  } catch (err) {
+    console.error('Save address error:', err);
+    showToast('Could not reach server — check your connection and try again.');
+  } finally {
+    if (btn) { btn.disabled = false; if (btn.dataset.txt) btn.textContent = btn.dataset.txt; }
   }
 }
 
@@ -1695,7 +1841,7 @@ async function confirmSaveAddress() {
     if (json.success) {
       closeSaveAddressModal();
       showToast(json.data.message || 'Address saved.');
-      renderAddressChips(json.data.addresses);
+      _refreshSavedAddresses(json.data.addresses);
     } else {
       showToast(json.data?.message || 'Could not save address.');
       if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Address'; }
@@ -1709,15 +1855,16 @@ async function confirmSaveAddress() {
   }
 }
 
-async function deleteAddress(label) {
-  if (!confirm(`Delete saved address '${label}'?`)) return;
+async function deleteSavedAddress(label) {
+  if (!confirm(`Delete saved address “${label}”?`)) return;
   try {
     const body = new FormData();
     body.append('label', label);
     const json = await idibiaPost('delete-address-api.php', body);
     if (json.success) {
-      showToast(json.data.message);
-      renderAddressChips(json.data.addresses);
+      showToast(json.data.message || 'Address deleted.');
+      _refreshSavedAddresses(json.data.addresses);
+      if (_editingOriginalLabel && _editingOriginalLabel.toLowerCase() === label.toLowerCase()) resetSavedAddressForm();
     } else {
       showToast(json.data?.message || 'Could not delete address.');
     }

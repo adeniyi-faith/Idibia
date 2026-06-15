@@ -67,7 +67,6 @@
                     </div>
                     <div id="pickupSuggestions" class="photon-dropdown"></div>
                   </div>
-                  <div id="pickupChips" style="display:flex;gap:8px;margin-top:8px;overflow-x:auto;"></div>
                 </div>
               </div>
               <div class="loc-divider"></div>
@@ -88,7 +87,6 @@
                     </div>
                     <div id="dropoffSuggestions" class="photon-dropdown"></div>
                   </div>
-                  <div id="dropoffChips" style="display:flex;gap:8px;margin-top:8px;overflow-x:auto;"></div>
                 </div>
               </div>
               <button class="loc-swap" onclick="swapLocations()" title="Swap locations">
@@ -326,10 +324,10 @@
               <span class="account-row-meta">Bank Transfer</span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
-            <div class="account-row" onclick="switchTab('home')">
+            <div class="account-row" onclick="openSavedAddressesModal()">
               <div class="account-row-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
               <span class="account-row-label">Saved Addresses</span>
-              <span class="account-row-meta"><?php echo esc_html($saved_addresses_count); ?> places</span>
+              <span class="account-row-meta" id="savedAddressesCount"><?php echo esc_html($saved_addresses_count); ?> <?php echo $saved_addresses_count === 1 ? 'place' : 'places'; ?></span>
               <div class="account-row-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 18l6-6-6-6"/></svg></div>
             </div>
             <div class="account-row" onclick="openPreferencesModal()">
