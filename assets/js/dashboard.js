@@ -1621,22 +1621,42 @@ function fillAddress(el) {
   }
 }
 
+function _saveModalKeyboardFix() {
+  const modal = document.getElementById('save-address-modal');
+  const sheet = modal ? modal.querySelector('div') : null;
+  if (!sheet || !window.visualViewport) return;
+  const vv = window.visualViewport;
+  const keyboardH = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+  sheet.style.paddingBottom = `calc(${keyboardH + 20}px + env(safe-area-inset-bottom))`;
+}
+
 function saveAddress(inputId) {
   const input = document.getElementById(inputId);
   if (!input || !input.value.trim()) {
-    showToast('Please enter an address to save.');
+    showToast('Please type a location first, then tap the bookmark to save it.');
     return;
   }
   _saveAddressInputId = inputId;
   const modal = document.getElementById('save-address-modal');
+  if (!modal) { showToast('Save feature unavailable — please refresh the page.'); return; }
   document.getElementById('save-address-preview').textContent = input.value.trim();
   document.getElementById('save-address-label-input').value = '';
   modal.style.display = 'flex';
-  setTimeout(() => document.getElementById('save-address-label-input').focus(), 80);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', _saveModalKeyboardFix);
+  setTimeout(() => {
+    const lbl = document.getElementById('save-address-label-input');
+    if (lbl) lbl.focus();
+  }, 80);
 }
 
 function closeSaveAddressModal() {
-  document.getElementById('save-address-modal').style.display = 'none';
+  const modal = document.getElementById('save-address-modal');
+  if (modal) {
+    modal.style.display = 'none';
+    const sheet = modal.querySelector('div');
+    if (sheet) sheet.style.paddingBottom = '';
+  }
+  if (window.visualViewport) window.visualViewport.removeEventListener('resize', _saveModalKeyboardFix);
   _saveAddressInputId = null;
 }
 
@@ -1649,12 +1669,19 @@ async function confirmSaveAddress() {
   }
   const inputEl = _saveAddressInputId ? document.getElementById(_saveAddressInputId) : null;
   const address = inputEl ? inputEl.value.trim() : '';
-  if (!address) { closeSaveAddressModal(); return; }
+  if (!address) {
+    showToast('No address to save — please type a location first.');
+    closeSaveAddressModal();
+    return;
+  }
 
   const field = _saveAddressInputId === 'pickupInput' ? 'pickup' : 'dropoff';
   const coords = field === 'pickup' ? pickupCoords : dropoffCoords;
 
-  closeSaveAddressModal();
+  const saveBtn = document.querySelector('#save-address-modal button:last-child');
+  const cancelBtn = document.querySelector('#save-address-modal button:first-child');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+  if (cancelBtn) cancelBtn.disabled = true;
 
   try {
     const body = new FormData();
@@ -1666,13 +1693,19 @@ async function confirmSaveAddress() {
     }
     const json = await idibiaPost('save-address-api.php', body);
     if (json.success) {
+      closeSaveAddressModal();
       showToast(json.data.message || 'Address saved.');
       renderAddressChips(json.data.addresses);
     } else {
       showToast(json.data?.message || 'Could not save address.');
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Address'; }
+      if (cancelBtn) cancelBtn.disabled = false;
     }
   } catch (err) {
-    showToast('Connection error saving address.');
+    console.error('Save address error:', err);
+    showToast('Could not reach server — check your connection and try again.');
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Address'; }
+    if (cancelBtn) cancelBtn.disabled = false;
   }
 }
 

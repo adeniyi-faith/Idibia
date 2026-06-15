@@ -575,7 +575,11 @@ a { color: inherit; }
   /* Fix 4 — Swap icon gets its own clear column; no longer overlaps inputs */
   /* (padding-right on .loc-row is already applied globally above) */
 
-  /* Fix 5 — Tighten location icon buttons so input field stays readable */
-  .loc-icon-btn { width: 36px; }
-  .loc-input-row { gap: 4px; }
+  /* Fix 5 — Shrink location icon buttons and swap so nothing overflows on narrow screens */
+  .loc-icon-btn { width: 30px; }
+  .loc-icon-btn svg { width: 13px !important; height: 13px !important; }
+  .loc-input-row { gap: 3px; }
+  .loc-row { padding-right: 42px; }
+  .loc-swap { width: 26px; height: 26px; right: 8px; }
+  .loc-swap svg { width: 11px !important; height: 11px !important; }
 }
