@@ -17,6 +17,11 @@ require_once __DIR__ . '/auth-helper.php';
 global $wpdb;
 $customer_id = (int) $GLOBALS['auth_customer_id'];
 
+if ( ! idibia_ensure_saved_addresses_column() ) {
+    error_log( 'Idibia save-address: saved_addresses column missing and could not be created. ' . $wpdb->last_error );
+    wp_send_json_error( [ 'message' => 'Saved addresses are temporarily unavailable. Please try again shortly.' ] );
+}
+
 $label   = sanitize_text_field( wp_unslash( $_POST['label'] ?? '' ) );
 $address = sanitize_text_field( wp_unslash( $_POST['address'] ?? '' ) );
 $lat     = (float) ( $_POST['lat'] ?? 0 );
@@ -62,6 +67,7 @@ $updated = $wpdb->update(
 );
 
 if ( false === $updated ) {
+    error_log( 'Idibia save-address: update failed for customer ' . $customer_id . '. ' . $wpdb->last_error );
     wp_send_json_error( [ 'message' => 'Failed to save address.' ] );
 }
 
