@@ -8,6 +8,7 @@ let dropoffCoords = null;
 let pinMap = null;
 let pinField = null;
 let _pinReverseTimer = null;
+let _saveAddressInputId = null;
 let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
@@ -1586,11 +1587,12 @@ function renderAddressChips(addresses) {
 
   let html = '';
   addresses.forEach(addr => {
-    // Only display first part of address for brevity
     const shortAddr = escapeHtml(addr.address.split(',')[0]);
-    html += `<div class="filter-pill" style="display:inline-flex; align-items:center; gap:4px; padding:4px 8px;font-size:11px;" title="${escapeHtml(addr.address)}">
-      <span onclick="fillAddress(this, '${escapeHtml(addr.address)}')">${escapeHtml(addr.label)}: ${shortAddr}</span>
-      <span style="cursor:pointer; color:var(--danger);" onclick="deleteAddress('${escapeHtml(addr.label)}')">&times;</span>
+    const lat = addr.lat || '';
+    const lng = addr.lng || '';
+    html += `<div class="filter-pill" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;font-size:11px;" title="${escapeHtml(addr.address)}" data-address="${escapeHtml(addr.address)}" data-lat="${lat}" data-lng="${lng}">
+      <span onclick="fillAddress(this)">${escapeHtml(addr.label)}: ${shortAddr}</span>
+      <span style="cursor:pointer;color:var(--danger);" onclick="deleteAddress('${escapeHtml(addr.label)}')">&times;</span>
     </div>`;
   });
 
@@ -1598,35 +1600,79 @@ function renderAddressChips(addresses) {
   dropoffCont.innerHTML = html;
 }
 
-function fillAddress(el, address) {
-  const inputId = el.parentElement.parentElement.parentElement.querySelector('input').id;
-  document.getElementById(inputId).value = address;
+function fillAddress(el) {
+  const pill = el.parentElement;
+  const address = pill.dataset.address;
+  const lat = parseFloat(pill.dataset.lat);
+  const lng = parseFloat(pill.dataset.lng);
+
+  const container = pill.parentElement.parentElement;
+  const input = container.querySelector('input');
+  if (!input) return;
+
+  input.value = address;
+
+  if (lat && lng) {
+    if (input.id === 'pickupInput') {
+      pickupCoords = { lat, lng };
+    } else if (input.id === 'dropoffInput') {
+      dropoffCoords = { lat, lng };
+    }
+  }
 }
 
-async function saveAddress(inputId) {
-  const address = document.getElementById(inputId).value.trim();
-  if (!address) {
+function saveAddress(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input || !input.value.trim()) {
     showToast('Please enter an address to save.');
     return;
   }
-  const label = prompt('Enter a label for this address (e.g. Home, Work):');
-  if (!label) return;
+  _saveAddressInputId = inputId;
+  const modal = document.getElementById('save-address-modal');
+  document.getElementById('save-address-preview').textContent = input.value.trim();
+  document.getElementById('save-address-label-input').value = '';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('save-address-label-input').focus(), 80);
+}
+
+function closeSaveAddressModal() {
+  document.getElementById('save-address-modal').style.display = 'none';
+  _saveAddressInputId = null;
+}
+
+async function confirmSaveAddress() {
+  const label = document.getElementById('save-address-label-input').value.trim();
+  if (!label) {
+    showToast('Please enter a label (e.g. Home, Work).');
+    document.getElementById('save-address-label-input').focus();
+    return;
+  }
+  const inputEl = _saveAddressInputId ? document.getElementById(_saveAddressInputId) : null;
+  const address = inputEl ? inputEl.value.trim() : '';
+  if (!address) { closeSaveAddressModal(); return; }
+
+  const field = _saveAddressInputId === 'pickupInput' ? 'pickup' : 'dropoff';
+  const coords = field === 'pickup' ? pickupCoords : dropoffCoords;
+
+  closeSaveAddressModal();
 
   try {
     const body = new FormData();
     body.append('label', label);
     body.append('address', address);
-
+    if (coords) {
+      body.append('lat', coords.lat);
+      body.append('lng', coords.lng);
+    }
     const json = await idibiaPost('save-address-api.php', body);
-
     if (json.success) {
-      showToast(json.data.message);
+      showToast(json.data.message || 'Address saved.');
       renderAddressChips(json.data.addresses);
     } else {
       showToast(json.data?.message || 'Could not save address.');
     }
-  } catch(err) {
-     showToast('Connection error saving address.');
+  } catch (err) {
+    showToast('Connection error saving address.');
   }
 }
 
