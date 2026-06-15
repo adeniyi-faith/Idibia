@@ -82,6 +82,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <?php require_once __DIR__ . '/components/customer/modal-receipt.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-schedule.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-preferences.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-saved-addresses.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-support.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-faq.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-payment.php'; ?>
