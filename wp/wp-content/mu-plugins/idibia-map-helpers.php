@@ -19,7 +19,10 @@ function idibia_is_valid_nigeria_coords( float $lat, float $lng ): bool {
 }
 
 /**
- * Geocodes an address using OpenStreetMap Nominatim.
+ * Geocodes an address using a multi-strategy approach:
+ *   1. Nominatim with Nigeria bounding box
+ *   2. Nominatim with countrycodes=ng (broader, no bbox)
+ *   3. OpenCage (if API key is configured)
  *
  * @param string $address The address to search for.
  * @return array|WP_Error Associative array with 'lat' and 'lng' on success.
@@ -29,43 +32,68 @@ function idibia_geocode_address( string $address ) {
         return new WP_Error( 'empty_address', 'Address cannot be empty.' );
     }
 
+    $headers = [ 'User-Agent' => 'IdibiaLogistics/1.0 (contact@idibia.example.com)' ];
+
+    // Strategy 1: Nominatim with Nigeria viewbox
     $base_url = function_exists('idibia_get_setting') ? idibia_get_setting('nominatim_url', IDIBIA_NOMINATIM_URL) : IDIBIA_NOMINATIM_URL;
     $url = add_query_arg( [
-        'q'      => $address,
-        'format' => 'json',
-        'limit'  => 1
+        'q'            => $address,
+        'format'       => 'json',
+        'limit'        => 1,
+        'countrycodes' => 'ng',
+        'viewbox'      => '2.7,4.0,14.7,13.9',
+        'bounded'      => 0,
     ], $base_url );
 
-    $args = [
-        'headers' => [
-            'User-Agent' => 'IdibiaLogistics/1.0 (contact@idibia.example.com)' // Nominatim requires a valid UA
-        ],
-        'timeout' => 10
-    ];
+    $response = wp_remote_get( $url, [ 'headers' => $headers, 'timeout' => 10 ] );
 
-    $response = wp_remote_get( $url, $args );
-
-    if ( is_wp_error( $response ) ) {
-        // Fallback for development if API fails
-        return [ 'lat' => 6.5244, 'lng' => 3.3792 ]; // Default to Lagos, Nigeria
+    if ( ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) === 200 ) {
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+        if ( ! empty( $data ) && isset( $data[0]['lat'], $data[0]['lon'] ) ) {
+            return [ 'lat' => (float) $data[0]['lat'], 'lng' => (float) $data[0]['lon'] ];
+        }
     }
 
-    $status_code = wp_remote_retrieve_response_code( $response );
-    if ( $status_code !== 200 ) {
-        return [ 'lat' => 6.5244, 'lng' => 3.3792 ];
+    // Strategy 2: Nominatim without viewbox, Nigeria only — wider search
+    $url2 = add_query_arg( [
+        'q'            => $address . ', Nigeria',
+        'format'       => 'json',
+        'limit'        => 1,
+        'countrycodes' => 'ng',
+    ], $base_url );
+
+    $response2 = wp_remote_get( $url2, [ 'headers' => $headers, 'timeout' => 10 ] );
+
+    if ( ! is_wp_error( $response2 ) && wp_remote_retrieve_response_code( $response2 ) === 200 ) {
+        $data2 = json_decode( wp_remote_retrieve_body( $response2 ), true );
+        if ( ! empty( $data2 ) && isset( $data2[0]['lat'], $data2[0]['lon'] ) ) {
+            return [ 'lat' => (float) $data2[0]['lat'], 'lng' => (float) $data2[0]['lon'] ];
+        }
     }
 
-    $body = wp_remote_retrieve_body( $response );
-    $data = json_decode( $body, true );
+    // Strategy 3: OpenCage (if API key configured)
+    $opencage_key = function_exists('idibia_get_setting') ? idibia_get_setting('opencage_api_key', IDIBIA_OPENCAGE_API_KEY) : IDIBIA_OPENCAGE_API_KEY;
+    if ( ! empty( $opencage_key ) && $opencage_key !== 'OPENCAGE_API_KEY_REPLACE_ME' ) {
+        $oc_url = add_query_arg( [
+            'q'              => $address,
+            'key'            => $opencage_key,
+            'countrycode'    => 'ng',
+            'limit'          => 1,
+            'no_annotations' => 1,
+            'language'       => 'en',
+        ], 'https://api.opencagedata.com/geocode/v1/json' );
 
-    if ( empty( $data ) || ! isset( $data[0]['lat'], $data[0]['lon'] ) ) {
-        return new WP_Error( 'not_found', 'Address could not be geocoded.' );
+        $oc_response = wp_remote_get( $oc_url, [ 'timeout' => 10 ] );
+        if ( ! is_wp_error( $oc_response ) && wp_remote_retrieve_response_code( $oc_response ) === 200 ) {
+            $oc_data = json_decode( wp_remote_retrieve_body( $oc_response ), true );
+            if ( ! empty( $oc_data['results'][0]['geometry'] ) ) {
+                $geo = $oc_data['results'][0]['geometry'];
+                return [ 'lat' => (float) $geo['lat'], 'lng' => (float) $geo['lng'] ];
+            }
+        }
     }
 
-    return [
-        'lat' => (float) $data[0]['lat'],
-        'lng' => (float) $data[0]['lon']
-    ];
+    return new WP_Error( 'not_found', 'Could not locate that address. Try a nearby landmark, or use the Pin on Map option.' );
 }
 
 /**

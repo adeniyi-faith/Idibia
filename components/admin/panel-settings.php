@@ -7,6 +7,7 @@
         <div class="form-group"><label class="form-label">Nominatim URL</label><input class="form-input" data-setting="nominatim_url" placeholder="https://nominatim.openstreetmap.org/search"></div>
         <div class="form-group"><label class="form-label">ORS URL</label><input class="form-input" data-setting="ors_url" placeholder="https://api.openrouteservice.org/v2/directions/driving-car"></div>
         <div class="form-group"><label class="form-label">ORS API Key</label><input class="form-input" data-setting="ors_api_key" placeholder="ORS API Key"></div>
+        <div class="form-group"><label class="form-label">OpenCage API Key <span style="font-weight:400;color:var(--text-muted)">(improves Nigerian address search)</span></label><input class="form-input" data-setting="opencage_api_key" placeholder="Get free key at opencagedata.com"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Pusher App ID</label><input class="form-input" data-setting="pusher_app_id" placeholder="App ID"></div>
