@@ -538,10 +538,10 @@ a { color: inherit; }
 .photon-no-results { padding:10px 14px; font-size:13px; color:var(--text-muted); border-bottom:1px solid var(--surface-2); }
 
 /* ═══════════════════════ GPS / LOCATION BUTTONS ═══════════════════════ */
-.loc-input-row { display:flex; gap:6px; align-items:stretch; }
-.loc-icon-btn { background:var(--white); border:1.5px solid var(--surface-2); border-radius:var(--radius-sm); width:40px; flex-shrink:0; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; transition:border-color 0.2s, color 0.2s, background 0.2s; -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent; padding:0; }
-.loc-icon-btn:hover, .loc-icon-btn:active { border-color:var(--gold); color:var(--gold-dark); background:var(--surface); }
-.loc-gps-btn.loading { color:var(--gold-dark); border-color:var(--gold); pointer-events:none; }
+.loc-input-row { display:flex; gap:8px; align-items:center; }
+.loc-icon-btn { background:transparent; border:none; flex-shrink:0; cursor:pointer; color:#6B7280; display:flex; align-items:center; justify-content:center; transition:color 0.2s, background 0.2s; -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent; padding:10px; min-width:44px; min-height:44px; border-radius:8px; }
+.loc-icon-btn:hover, .loc-icon-btn:active { color:var(--gold-dark); background:rgba(245,200,66,0.08); }
+.loc-gps-btn.loading { color:var(--gold-dark); pointer-events:none; }
 .loc-gps-btn.loading svg { animation:spin360 1s linear infinite; }
 @keyframes spin360 { to { transform:rotate(360deg); } }
 
@@ -575,11 +575,9 @@ a { color: inherit; }
   /* Fix 4 — Swap icon gets its own clear column; no longer overlaps inputs */
   /* (padding-right on .loc-row is already applied globally above) */
 
-  /* Fix 5 — Shrink location icon buttons and swap so nothing overflows on narrow screens */
-  .loc-icon-btn { width: 30px; }
-  .loc-icon-btn svg { width: 13px !important; height: 13px !important; }
-  .loc-input-row { gap: 3px; }
+  /* Fix 5 — Swap button positioned tightly on narrow screens; flat icon buttons need no shrinking */
   .loc-row { padding-right: 42px; }
   .loc-swap { width: 26px; height: 26px; right: 8px; }
   .loc-swap svg { width: 11px !important; height: 11px !important; }
+  .loc-icon-btn { min-width: 36px; min-height: 36px; padding: 8px; }
 }
