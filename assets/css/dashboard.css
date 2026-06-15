@@ -239,8 +239,9 @@ a { color: inherit; }
 .loc-dot { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .loc-dot.pickup { background:var(--info-soft); }
 .loc-dot.dropoff { background:rgba(245,200,66,0.12); }
-.loc-input { flex:1; background:var(--white); border:1.5px solid var(--surface-2); border-radius:var(--radius-sm); padding:9px 14px; font-size:16px; /* MOBILE FIX */ color:var(--text-primary); outline:none; transition:border-color 0.2s, box-shadow 0.2s; min-width:0; -webkit-appearance:none; appearance:none; }
-.loc-input:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(245,200,66,0.12); }
+/* Borderless input — the border now lives on the .loc-input-row container */
+.loc-input { flex:1 1 auto; width:100%; min-width:0; background:transparent; border:none; border-radius:0; padding:11px 0; font-size:16px; /* MOBILE FIX: 16px prevents iOS zoom-on-focus */ color:var(--text-primary); outline:none; -webkit-appearance:none; appearance:none; }
+.loc-input:focus { outline:none; box-shadow:none; }
 .loc-input::placeholder { color:var(--text-muted); font-size:14px; }
 .loc-divider { height:1px; background:var(--surface-2); margin:0 0 0 52px; }
 .loc-swap { position:absolute; right:18px; top:50%; transform:translateY(-50%); width:32px; height:32px; background:var(--white); border:1.5px solid var(--surface-2); border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--text-secondary); transition:all 0.3s; box-shadow:var(--shadow-sm); z-index:2; }
@@ -538,9 +539,12 @@ a { color: inherit; }
 .photon-no-results { padding:10px 14px; font-size:13px; color:var(--text-muted); border-bottom:1px solid var(--surface-2); }
 
 /* ═══════════════════════ GPS / LOCATION BUTTONS ═══════════════════════ */
-.loc-input-row { display:flex; gap:8px; align-items:center; }
-.loc-icon-btn { background:transparent; border:none; flex-shrink:0; cursor:pointer; color:#6B7280; display:flex; align-items:center; justify-content:center; transition:color 0.2s, background 0.2s; -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent; padding:10px; min-width:44px; min-height:44px; border-radius:8px; }
-.loc-icon-btn:hover, .loc-icon-btn:active { color:var(--gold-dark); background:rgba(245,200,66,0.08); }
+/* The input row is the bordered container: text input flexes, icons sit inline at the end */
+.loc-input-row { display:flex; align-items:center; gap:8px; padding:0 12px; background:var(--white); border:1.5px solid var(--surface-2); border-radius:var(--radius-sm); transition:border-color 0.2s, box-shadow 0.2s; min-width:0; }
+.loc-input-row:focus-within { border-color:var(--gold); box-shadow:0 0 0 3px rgba(245,200,66,0.12); }
+/* Flat, borderless inline icons — transparent padding keeps a 44x44 touch target without bulk */
+.loc-icon-btn { background:transparent; border:none; box-shadow:none; flex-shrink:0; cursor:pointer; color:#6B7280; display:flex; align-items:center; justify-content:center; transition:color 0.2s; -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent; padding:10px; min-width:44px; min-height:44px; border-radius:8px; }
+.loc-icon-btn:hover, .loc-icon-btn:active { color:var(--gold-dark); }
 .loc-gps-btn.loading { color:var(--gold-dark); pointer-events:none; }
 .loc-gps-btn.loading svg { animation:spin360 1s linear infinite; }
 @keyframes spin360 { to { transform:rotate(360deg); } }
@@ -575,9 +579,11 @@ a { color: inherit; }
   /* Fix 4 — Swap icon gets its own clear column; no longer overlaps inputs */
   /* (padding-right on .loc-row is already applied globally above) */
 
-  /* Fix 5 — Swap button positioned tightly on narrow screens; flat icon buttons need no shrinking */
+  /* Fix 5 — Swap button positioned tightly on narrow screens; icons keep their full
+     44x44 touch target (accessibility) and shrink visually via a tighter gap, not size */
   .loc-row { padding-right: 42px; }
   .loc-swap { width: 26px; height: 26px; right: 8px; }
   .loc-swap svg { width: 11px !important; height: 11px !important; }
-  .loc-icon-btn { min-width: 36px; min-height: 36px; padding: 8px; }
+  .loc-input-row { gap: 4px; padding: 0 10px; }
+  .loc-icon-btn { min-width: 44px; min-height: 44px; padding: 8px; }
 }
