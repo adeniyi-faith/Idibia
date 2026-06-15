@@ -68,7 +68,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/dashboard.css">
+<link rel="stylesheet" href="assets/css/dashboard.css?v=<?php echo @filemtime( __DIR__ . '/assets/css/dashboard.css' ) ?: '1'; ?>">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
 </head>
 <body>
@@ -113,6 +113,6 @@ window.idibiaLegalContents = {
 };
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="assets/js/dashboard.js"></script>
+<script src="assets/js/dashboard.js?v=<?php echo @filemtime( __DIR__ . '/assets/js/dashboard.js' ) ?: '1'; ?>"></script>
 </body>
 </html>
