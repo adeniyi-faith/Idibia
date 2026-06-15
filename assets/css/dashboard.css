@@ -528,6 +528,12 @@ a { color: inherit; }
 /* Rider dot on map */
 .rider-dot { width:38px; height:38px; background:var(--white); border-radius:50%; border:3px solid var(--success); display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow-md); }
 
+/* ═══════════════════════ PHOTON AUTOCOMPLETE ═══════════════════════ */
+.photon-dropdown { display:none; position:absolute; left:0; right:0; top:calc(100% + 2px); background:var(--white); border:1px solid var(--surface-2); border-radius:var(--radius-sm); box-shadow:0 8px 24px rgba(11,22,40,0.14); z-index:9999; max-height:220px; overflow-y:auto; }
+.photon-item { padding:10px 14px; font-size:13px; color:var(--text-primary); cursor:pointer; border-bottom:1px solid var(--surface-2); line-height:1.4; }
+.photon-item:last-child { border-bottom:none; }
+.photon-item:hover, .photon-item:focus { background:var(--surface); }
+
 /* ═══════════════════════ MOBILE LAYOUT FIXES ═══════════════════════ */
 @media(max-width: 767px) {
   /* Fix 1 — Remove ghost map container so booking panel anchors to top */

@@ -29,34 +29,33 @@ if ( ! in_array( $vehicle, $allowed_vehicles, true ) ) {
     $vehicle = 'bike';
 }
 
-// MODE A — GPS + Place ID mode
-if ( isset( $_POST['pickup_lat'] ) ) {
-    $pickup_lat        = filter_var( wp_unslash( $_POST['pickup_lat'] ), FILTER_VALIDATE_FLOAT );
-    $pickup_lng        = filter_var( wp_unslash( $_POST['pickup_lng'] ), FILTER_VALIDATE_FLOAT );
-    $dropoff_place_id  = sanitize_text_field( wp_unslash( $_POST['dropoff_place_id'] ?? '' ) );
+// MODE A — Direct coordinates mode (from Photon autocomplete selection)
+if ( isset( $_POST['pickup_lat'], $_POST['pickup_lng'], $_POST['dropoff_lat'], $_POST['dropoff_lng'] ) ) {
+    $pickup_lat  = filter_var( wp_unslash( $_POST['pickup_lat'] ),  FILTER_VALIDATE_FLOAT );
+    $pickup_lng  = filter_var( wp_unslash( $_POST['pickup_lng'] ),  FILTER_VALIDATE_FLOAT );
+    $dropoff_lat = filter_var( wp_unslash( $_POST['dropoff_lat'] ), FILTER_VALIDATE_FLOAT );
+    $dropoff_lng = filter_var( wp_unslash( $_POST['dropoff_lng'] ), FILTER_VALIDATE_FLOAT );
 
-    // 1. Validate pickup GPS coordinates
     if ( $pickup_lat === false || $pickup_lng === false ) {
         wp_send_json_error( [ 'message' => 'Invalid pickup coordinates provided.' ] );
+    }
+
+    if ( $dropoff_lat === false || $dropoff_lng === false ) {
+        wp_send_json_error( [ 'message' => 'Invalid drop-off coordinates provided.' ] );
     }
 
     if ( ! idibia_is_valid_nigeria_coords( $pickup_lat, $pickup_lng ) ) {
         wp_send_json_error( [ 'message' => 'Pickup location must be within Nigeria.' ] );
     }
 
-    // 2. Resolve dropoff from Google Places place_id
-    if ( empty( $dropoff_place_id ) ) {
-        wp_send_json_error( [ 'message' => 'A drop-off place ID is required.' ] );
+    if ( ! idibia_is_valid_nigeria_coords( $dropoff_lat, $dropoff_lng ) ) {
+        wp_send_json_error( [ 'message' => 'Drop-off location must be within Nigeria.' ] );
     }
 
-    $dropoff_coords = idibia_validate_place_id( $dropoff_place_id );
-    if ( is_wp_error( $dropoff_coords ) ) {
-        wp_send_json_error( [ 'message' => 'Could not resolve the drop-off location from the provided place ID.' ] );
-    }
-
-    $pickup_coords  = [ 'lat' => $pickup_lat, 'lng' => $pickup_lng ];
-    $pickup_address = '';
-    $dropoff_address = '';
+    $pickup_coords   = [ 'lat' => $pickup_lat,  'lng' => $pickup_lng  ];
+    $dropoff_coords  = [ 'lat' => $dropoff_lat, 'lng' => $dropoff_lng ];
+    $pickup_address  = sanitize_text_field( wp_unslash( $_POST['pickup']  ?? '' ) );
+    $dropoff_address = sanitize_text_field( wp_unslash( $_POST['dropoff'] ?? '' ) );
 
 } else {
     // MODE B — Text address mode (original behaviour, unchanged)
