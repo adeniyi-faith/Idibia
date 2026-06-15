@@ -55,9 +55,12 @@
                   <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" style="color:var(--info)"><circle cx="12" cy="12" r="6"/></svg>
                 </div>
                 <div style="position:relative; display:flex; flex-direction:column; flex:1;">
-                  <div style="display:flex;">
-                    <input class="loc-input" type="text" id="pickupInput" placeholder="Pickup location" value="Agip Junction, Port Harcourt">
-                    <button type="button" onclick="saveAddress('pickupInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                  <div style="position:relative;">
+                    <div style="display:flex;">
+                      <input class="loc-input" type="text" id="pickupInput" placeholder="Pickup location" value="Agip Junction, Port Harcourt" autocomplete="off">
+                      <button type="button" onclick="saveAddress('pickupInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                    </div>
+                    <div id="pickupSuggestions" class="photon-dropdown"></div>
                   </div>
                   <div id="pickupChips" style="display:flex;gap:8px;margin-top:8px;overflow-x:auto;"></div>
                 </div>
@@ -68,9 +71,12 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13" style="color:var(--gold-dark)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
                 </div>
                 <div style="position:relative;flex:1; display:flex; flex-direction:column;">
-                  <div style="display:flex;">
-                    <input class="loc-input" type="text" id="dropoffInput" placeholder="Where to deliver?">
-                    <button type="button" onclick="saveAddress('dropoffInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                  <div style="position:relative;">
+                    <div style="display:flex;">
+                      <input class="loc-input" type="text" id="dropoffInput" placeholder="Where to deliver?" autocomplete="off">
+                      <button type="button" onclick="saveAddress('dropoffInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                    </div>
+                    <div id="dropoffSuggestions" class="photon-dropdown"></div>
                   </div>
                   <div id="dropoffChips" style="display:flex;gap:8px;margin-top:8px;overflow-x:auto;"></div>
                 </div>

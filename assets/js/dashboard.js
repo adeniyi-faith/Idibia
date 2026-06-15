@@ -3,6 +3,8 @@ let currentScreen = 'screen-main';
 let screenHistory = ['screen-main'];
 let onbSlide = 0;
 let selectedCategory = 'Package';
+let pickupCoords = null;
+let dropoffCoords = null;
 let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
@@ -103,6 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(start).classList.add('active');
   buildDateGrid();
+  initPhotonAutocomplete('pickupInput',  'pickupSuggestions',  c => { pickupCoords  = c; });
+  initPhotonAutocomplete('dropoffInput', 'dropoffSuggestions', c => { dropoffCoords = c; });
   setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 500);
   // Trip progress is driven by trip-feed-api.php and driver actions; no demo countdown runs in production.
 });
@@ -281,6 +285,65 @@ function switchTab(name, sideBtn, bnavId) {
   }
 }
 
+// ═══════════ PHOTON AUTOCOMPLETE ═══════════
+const _photonTimers = {};
+
+function initPhotonAutocomplete(inputId, suggestionsId, setCoords) {
+  const input = document.getElementById(inputId);
+  const box = document.getElementById(suggestionsId);
+  if (!input || !box) return;
+
+  input.addEventListener('input', () => {
+    setCoords(null);
+    clearTimeout(_photonTimers[inputId]);
+    const q = input.value.trim();
+    if (q.length < 3) { box.innerHTML = ''; box.style.display = 'none'; return; }
+    _photonTimers[inputId] = setTimeout(() => _fetchPhoton(q, box, input, setCoords), 400);
+  });
+
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !box.contains(e.target)) {
+      box.style.display = 'none';
+    }
+  });
+}
+
+async function _fetchPhoton(q, box, input, setCoords) {
+  try {
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lang=en&bbox=2.7,4.0,14.7,13.9`;
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    const features = (data.features || []).filter(f => f.geometry?.coordinates);
+    if (!features.length) { box.style.display = 'none'; return; }
+
+    box.innerHTML = features.map((f, i) => {
+      const p = f.properties;
+      const label = [p.name, p.city || p.county, p.state, 'Nigeria'].filter(Boolean).join(', ');
+      return `<div class="photon-item" data-idx="${i}">${escapeHtml(label)}</div>`;
+    }).join('');
+
+    box._features = features;
+    box.style.display = 'block';
+
+    box.querySelectorAll('.photon-item').forEach(item => {
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const f = box._features[parseInt(item.dataset.idx)];
+        const p = f.properties;
+        const displayName = [p.name, p.city || p.county, p.state, 'Nigeria'].filter(Boolean).join(', ');
+        const [lng, lat] = f.geometry.coordinates;
+        input.value = displayName;
+        setCoords({ lat, lng });
+        box.innerHTML = '';
+        box.style.display = 'none';
+      });
+    });
+  } catch (e) {
+    box.style.display = 'none';
+  }
+}
+
 // ═══════════ MAP SIZING ═══════════
 // Leaflet caches the container size at init time. Inside nested flexbox the
 // final height can settle a frame (or more) later, especially on mobile
@@ -367,6 +430,9 @@ function swapLocations() {
   const temp = pickup.value;
   pickup.value = dropoff.value;
   dropoff.value = temp;
+  const tempCoords = pickupCoords;
+  pickupCoords = dropoffCoords;
+  dropoffCoords = tempCoords;
   showToast('Locations swapped');
 }
 
@@ -1152,6 +1218,8 @@ async function requestQuote() {
     body.append('dropoff', dropoff);
     body.append('category', cat);
     body.append('vehicle_type', vehicle);
+    if (pickupCoords)  { body.append('pickup_lat',  pickupCoords.lat);  body.append('pickup_lng',  pickupCoords.lng);  }
+    if (dropoffCoords) { body.append('dropoff_lat', dropoffCoords.lat); body.append('dropoff_lng', dropoffCoords.lng); }
     if (typeof selectedScheduleTime !== 'undefined' && selectedScheduleTime !== null) {
       body.append('scheduled_time', selectedScheduleTime);
     }
@@ -1194,6 +1262,8 @@ async function confirmBooking() {
       document.getElementById('dropoffInput').value = '';
       currentQuoteId = null;
       selectedScheduleTime = null;
+      pickupCoords = null;
+      dropoffCoords = null;
       const schedBtn = document.getElementById('schedLater');
       if (schedBtn) {
         schedBtn.classList.remove('active');
