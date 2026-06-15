@@ -1,7 +1,7 @@
 <!-- SAVED ADDRESSES MANAGER -->
 <div class="modal-overlay" id="modal-saved-addresses" onclick="closeModal(event,'saved-addresses')">
   <div class="modal-content">
-    <div class="modal-header">
+    <div class="modal-header saved-addr-header">
       <h3>Saved Addresses</h3>
       <button class="icon-btn" aria-label="Close modal" onclick="closeModal(null,'saved-addresses')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
@@ -32,6 +32,8 @@
 </div>
 
 <style>
+.saved-addr-header { display:flex !important; flex-direction:row !important; align-items:center !important; justify-content:space-between !important; text-align:left !important; margin-bottom:8px !important; }
+.saved-addr-header h3 { font-size:17px; color:var(--text-primary); }
 .saved-addr-item { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--surface-2); }
 .saved-addr-item:first-child { padding-top:0; }
 .saved-addr-icon { width:34px; height:34px; flex-shrink:0; border-radius:10px; background:var(--surface); display:flex; align-items:center; justify-content:center; color:var(--primary); }

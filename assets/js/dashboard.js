@@ -388,6 +388,7 @@ function _wireSavedRows(box, input) {
 // quote uses the exact saved point instead of re-geocoding the text.
 function _applySavedAddress(input, addr) {
   input.value = addr.address || '';
+  input.blur(); // dismiss mobile keyboard cleanly before layout shifts
   const lat = parseFloat(addr.lat);
   const lng = parseFloat(addr.lng);
   const coords = (lat && lng) ? { lat, lng } : null;
