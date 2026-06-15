@@ -462,7 +462,12 @@ function idibia_add_customer_rating_and_prefs_columns(): void {
 function idibia_add_saved_addresses_column(): void {
     global $wpdb;
     $table = $wpdb->prefix . 'sd_customers';
-    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN IF NOT EXISTS `saved_addresses` TEXT NULL AFTER `phone`" );
+    // `ADD COLUMN IF NOT EXISTS` is MariaDB-only and is a syntax error on MySQL,
+    // so check for the column explicitly before adding it.
+    $columns = $wpdb->get_col( "SHOW COLUMNS FROM `$table`", 0 );
+    if ( is_array( $columns ) && ! in_array( 'saved_addresses', $columns, true ) ) {
+        $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `saved_addresses` TEXT NULL AFTER `phone`" );
+    }
 }
 
 

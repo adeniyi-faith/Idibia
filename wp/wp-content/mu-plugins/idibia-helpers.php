@@ -831,6 +831,35 @@ function idibia_admin_has_permission( string $permission, int $admin_id = 0 ): b
 }
 
 /**
+ * Ensures the `saved_addresses` column exists on the customers table.
+ *
+ * The schema migration adds this column with `ADD COLUMN IF NOT EXISTS`, which
+ * is MariaDB-only syntax. On MySQL that statement is a syntax error, so the
+ * column is never created even though the DB version option is bumped. This
+ * defensive check (mirroring the pattern in driver-profile-api.php) guarantees
+ * the column is present before we try to read or write it.
+ *
+ * @return bool True if the column exists (or was created), false otherwise.
+ */
+function idibia_ensure_saved_addresses_column(): bool {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sd_customers';
+
+    $columns = $wpdb->get_col( "SHOW COLUMNS FROM `$table`", 0 );
+    if ( ! is_array( $columns ) ) {
+        return false;
+    }
+    if ( in_array( 'saved_addresses', $columns, true ) ) {
+        return true;
+    }
+
+    $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `saved_addresses` TEXT NULL" );
+
+    $columns = $wpdb->get_col( "SHOW COLUMNS FROM `$table`", 0 );
+    return is_array( $columns ) && in_array( 'saved_addresses', $columns, true );
+}
+
+/**
  * Records an admin action in the audit log.
  */
 function idibia_admin_audit_log( string $action, string $entity_type, int $entity_id, array $metadata = [] ): void {
