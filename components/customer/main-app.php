@@ -441,6 +441,22 @@
   </nav>
 </div>
 
+<!-- SAVE ADDRESS MODAL -->
+<div id="save-address-modal" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(11,22,40,0.55);align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeSaveAddressModal()">
+  <div style="background:var(--white);border-radius:var(--radius) var(--radius) 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:480px;box-sizing:border-box;">
+    <div style="font-weight:700;font-size:16px;color:var(--text-primary);margin-bottom:4px;">Save This Address</div>
+    <div id="save-address-preview" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+    <label style="font-size:13px;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Label (e.g. Home, Work)</label>
+    <input id="save-address-label-input" type="text" placeholder="Enter a label…" maxlength="30" autocomplete="off"
+      style="width:100%;border:1.5px solid var(--surface-2);border-radius:var(--radius-sm);padding:10px 14px;font-size:15px;color:var(--text-primary);outline:none;box-sizing:border-box;-webkit-appearance:none;"
+      onkeydown="if(event.key==='Enter')confirmSaveAddress()">
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button onclick="closeSaveAddressModal()" style="flex:1;padding:13px;background:var(--surface);border:1.5px solid var(--surface-2);border-radius:var(--radius-sm);font-size:14px;font-weight:600;color:var(--text-secondary);cursor:pointer;">Cancel</button>
+      <button onclick="confirmSaveAddress()" style="flex:2;padding:13px;background:var(--primary);border:none;border-radius:var(--radius-sm);font-size:14px;font-weight:700;color:var(--white);cursor:pointer;">Save Address</button>
+    </div>
+  </div>
+</div>
+
 <!-- PIN ON MAP OVERLAY — fullscreen, position:fixed, z-index above everything -->
 <div id="pin-location-overlay" style="display:none;position:fixed;inset:0;z-index:9500;flex-direction:column;background:var(--white);">
   <!-- Header -->
@@ -450,7 +466,7 @@
     </button>
     <div>
       <div style="font-weight:700;font-size:15px;color:var(--text-primary)" id="pinModalTitle">Pin Pickup Location</div>
-      <div style="font-size:12px;color:var(--text-muted)">Move the map so the crosshair is on your spot</div>
+      <div style="font-size:12px;color:var(--text-muted)">Drag the map — keep the crosshair on your spot, then tap Confirm</div>
     </div>
   </div>
   <!-- Map area -->

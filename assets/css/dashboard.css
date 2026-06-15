@@ -574,4 +574,8 @@ a { color: inherit; }
 
   /* Fix 4 — Swap icon gets its own clear column; no longer overlaps inputs */
   /* (padding-right on .loc-row is already applied globally above) */
+
+  /* Fix 5 — Tighten location icon buttons so input field stays readable */
+  .loc-icon-btn { width: 36px; }
+  .loc-input-row { gap: 4px; }
 }
