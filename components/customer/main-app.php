@@ -56,12 +56,14 @@
                 </div>
                 <div style="position:relative; display:flex; flex-direction:column; flex:1;">
                   <div style="position:relative;">
-                    <div style="display:flex;gap:6px;">
+                    <div class="loc-input-row">
                       <input class="loc-input" type="text" id="pickupInput" placeholder="Pickup location" value="Agip Junction, Port Harcourt" autocomplete="off">
-                      <button type="button" id="pickupGpsBtn" class="loc-gps-btn" onclick="useMyLocation('pickup')" title="Use my current location" aria-label="Use current location">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                      <button type="button" id="pickupGpsBtn" class="loc-icon-btn loc-gps-btn" onclick="useMyLocation('pickup')" title="Use my current location" aria-label="Use my current location">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
                       </button>
-                      <button type="button" onclick="saveAddress('pickupInput')" style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;white-space:nowrap;">Save</button>
+                      <button type="button" class="loc-icon-btn loc-save-btn" onclick="saveAddress('pickupInput')" title="Save this address" aria-label="Save this address">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                      </button>
                     </div>
                     <div id="pickupSuggestions" class="photon-dropdown"></div>
                   </div>
@@ -75,12 +77,14 @@
                 </div>
                 <div style="position:relative;flex:1; display:flex; flex-direction:column;">
                   <div style="position:relative;">
-                    <div style="display:flex;gap:6px;">
+                    <div class="loc-input-row">
                       <input class="loc-input" type="text" id="dropoffInput" placeholder="Where to deliver?" autocomplete="off">
-                      <button type="button" id="dropoffGpsBtn" class="loc-gps-btn" onclick="useMyLocation('dropoff')" title="Use my current location" aria-label="Use current location">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                      <button type="button" id="dropoffGpsBtn" class="loc-icon-btn loc-gps-btn" onclick="useMyLocation('dropoff')" title="Use my current location" aria-label="Use my current location">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>
                       </button>
-                      <button type="button" onclick="saveAddress('dropoffInput')" style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;white-space:nowrap;">Save</button>
+                      <button type="button" class="loc-icon-btn loc-save-btn" onclick="saveAddress('dropoffInput')" title="Save this address" aria-label="Save this address">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                      </button>
                     </div>
                     <div id="dropoffSuggestions" class="photon-dropdown"></div>
                   </div>
@@ -393,7 +397,6 @@
         </div>
       </div>
     </div>
-  </div>
 
     <!-- MAP TAB -->
     <div class="tab-view" id="tab-map">
@@ -411,6 +414,7 @@
         </div>
       </div>
     </div>
+  </div><!-- /main-content -->
 
   <!-- Bottom Nav -->
   <nav class="bottom-nav">

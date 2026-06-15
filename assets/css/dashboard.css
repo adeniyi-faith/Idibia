@@ -538,9 +538,10 @@ a { color: inherit; }
 .photon-no-results { padding:10px 14px; font-size:13px; color:var(--text-muted); border-bottom:1px solid var(--surface-2); }
 
 /* ═══════════════════════ GPS / LOCATION BUTTONS ═══════════════════════ */
-.loc-gps-btn { background:none; border:1.5px solid var(--surface-2); border-radius:var(--radius-sm); padding:0 10px; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:border-color 0.2s, color 0.2s; height:auto; min-height:38px; }
-.loc-gps-btn:hover { border-color:var(--gold); color:var(--gold-dark); }
-.loc-gps-btn.loading { color:var(--gold-dark); border-color:var(--gold); }
+.loc-input-row { display:flex; gap:6px; align-items:stretch; }
+.loc-icon-btn { background:var(--white); border:1.5px solid var(--surface-2); border-radius:var(--radius-sm); width:40px; flex-shrink:0; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; transition:border-color 0.2s, color 0.2s, background 0.2s; -webkit-appearance:none; appearance:none; -webkit-tap-highlight-color:transparent; padding:0; }
+.loc-icon-btn:hover, .loc-icon-btn:active { border-color:var(--gold); color:var(--gold-dark); background:var(--surface); }
+.loc-gps-btn.loading { color:var(--gold-dark); border-color:var(--gold); pointer-events:none; }
 .loc-gps-btn.loading svg { animation:spin360 1s linear infinite; }
 @keyframes spin360 { to { transform:rotate(360deg); } }
 

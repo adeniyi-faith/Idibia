@@ -300,8 +300,13 @@ function initPhotonAutocomplete(inputId, suggestionsId, setCoords) {
     setCoords(null);
     clearTimeout(_photonTimers[inputId]);
     const q = input.value.trim();
-    if (q.length < 3) { box.innerHTML = ''; box.style.display = 'none'; return; }
+    if (q.length < 3) { _showPinOnly(box, input); return; }
     _photonTimers[inputId] = setTimeout(() => _fetchPhoton(q, box, input, setCoords), 400);
+  });
+
+  // Tapping into an empty/short field still surfaces the "Pin on map" escape hatch
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length < 3) _showPinOnly(box, input);
   });
 
   document.addEventListener('click', e => {
@@ -309,6 +314,32 @@ function initPhotonAutocomplete(inputId, suggestionsId, setCoords) {
       box.style.display = 'none';
     }
   });
+}
+
+// Renders the standalone "Pin location on map" row — the fallback escape hatch
+// shown whenever there are too few characters to search or a lookup fails.
+function _pinRowHtml(field) {
+  return `<div class="photon-pin-row" data-pin-field="${escapeHtml(field)}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    Can't find it? Pin location on map
+  </div>`;
+}
+
+function _wirePinRows(box) {
+  box.querySelectorAll('.photon-pin-row').forEach(row => {
+    row.addEventListener('mousedown', e => {
+      e.preventDefault();
+      box.innerHTML = '';
+      box.style.display = 'none';
+      openPinModal(row.dataset.pinField);
+    });
+  });
+}
+
+function _showPinOnly(box, input) {
+  box.innerHTML = _pinRowHtml(input.id.replace('Input', ''));
+  box.style.display = 'block';
+  _wirePinRows(box);
 }
 
 async function _fetchPhoton(q, box, input, setCoords) {
@@ -364,10 +395,7 @@ async function _fetchPhoton(q, box, input, setCoords) {
     }
 
     // Always show "Pin on map" as the last option
-    html += `<div class="photon-pin-row" data-pin-field="${escapeHtml(field)}">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Can't find it? Pin location on map
-    </div>`;
+    html += _pinRowHtml(field);
 
     box.innerHTML = html;
     box.style.display = 'block';
@@ -395,17 +423,11 @@ async function _fetchPhoton(q, box, input, setCoords) {
       });
     });
 
-    box.querySelectorAll('.photon-pin-row').forEach(row => {
-      row.addEventListener('mousedown', e => {
-        e.preventDefault();
-        box.innerHTML = '';
-        box.style.display = 'none';
-        openPinModal(row.dataset.pinField);
-      });
-    });
+    _wirePinRows(box);
 
   } catch (e) {
-    box.style.display = 'none';
+    // Network/search failure — still offer the pin-on-map escape hatch
+    _showPinOnly(box, input);
   }
 }
 
