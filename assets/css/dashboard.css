@@ -533,6 +533,21 @@ a { color: inherit; }
 .photon-item { padding:10px 14px; font-size:13px; color:var(--text-primary); cursor:pointer; border-bottom:1px solid var(--surface-2); line-height:1.4; }
 .photon-item:last-child { border-bottom:none; }
 .photon-item:hover, .photon-item:focus { background:var(--surface); }
+.photon-pin-row { padding:10px 14px; font-size:13px; color:var(--primary); cursor:pointer; display:flex; align-items:center; gap:8px; font-weight:600; border-top:1px solid var(--surface-2); }
+.photon-pin-row:hover { background:var(--surface); }
+.photon-no-results { padding:10px 14px; font-size:13px; color:var(--text-muted); border-bottom:1px solid var(--surface-2); }
+
+/* ═══════════════════════ GPS / LOCATION BUTTONS ═══════════════════════ */
+.loc-gps-btn { background:none; border:1.5px solid var(--surface-2); border-radius:var(--radius-sm); padding:0 10px; cursor:pointer; color:var(--text-secondary); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:border-color 0.2s, color 0.2s; height:auto; min-height:38px; }
+.loc-gps-btn:hover { border-color:var(--gold); color:var(--gold-dark); }
+.loc-gps-btn.loading { color:var(--gold-dark); border-color:var(--gold); }
+.loc-gps-btn.loading svg { animation:spin360 1s linear infinite; }
+@keyframes spin360 { to { transform:rotate(360deg); } }
+
+/* ═══════════════════════ PIN ON MAP OVERLAY ═══════════════════════ */
+#pin-location-overlay { display:none; }
+#pin-location-overlay.active { display:flex !important; }
+.pin-crosshair { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; z-index:1000; filter:drop-shadow(0 2px 4px rgba(11,22,40,0.3)); }
 
 /* ═══════════════════════ MOBILE LAYOUT FIXES ═══════════════════════ */
 @media(max-width: 767px) {

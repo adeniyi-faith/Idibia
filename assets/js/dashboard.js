@@ -5,6 +5,9 @@ let onbSlide = 0;
 let selectedCategory = 'Package';
 let pickupCoords = null;
 let dropoffCoords = null;
+let pinMap = null;
+let pinField = null;
+let _pinReverseTimer = null;
 let currentRating = 5;
 let etaInterval = null;
 const IDIBIA_API_BASE = new URL('.', window.location.href).href.replace(/\/$/, '');
@@ -309,39 +312,227 @@ function initPhotonAutocomplete(inputId, suggestionsId, setCoords) {
 }
 
 async function _fetchPhoton(q, box, input, setCoords) {
+  const inputId = input.id;
   try {
     const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lang=en&bbox=2.7,4.0,14.7,13.9`;
     const res = await fetch(url);
-    if (!res.ok) return;
-    const data = await res.json();
-    const features = (data.features || []).filter(f => f.geometry?.coordinates);
-    if (!features.length) { box.style.display = 'none'; return; }
+    let photonFeatures = [];
+    if (res.ok) {
+      const data = await res.json();
+      photonFeatures = (data.features || []).filter(f => f.geometry?.coordinates);
+    }
 
-    box.innerHTML = features.map((f, i) => {
-      const p = f.properties;
-      const label = [p.name, p.city || p.county, p.state, 'Nigeria'].filter(Boolean).join(', ');
-      return `<div class="photon-item" data-idx="${i}">${escapeHtml(label)}</div>`;
-    }).join('');
+    // If Photon has no results, fall back to Nominatim with Nigeria country code
+    let nominatimResults = [];
+    if (photonFeatures.length < 2) {
+      nominatimResults = await _fetchNominatimSuggestions(q);
+    }
 
-    box._features = features;
+    const hasResults = photonFeatures.length > 0 || nominatimResults.length > 0;
+    const field = inputId.replace('Input', '');
+
+    let html = '';
+
+    // Render Photon results
+    if (photonFeatures.length > 0) {
+      box._photonFeatures = photonFeatures;
+      html += photonFeatures.map((f, i) => {
+        const p = f.properties;
+        const label = [p.name, p.city || p.county, p.state, 'Nigeria'].filter(Boolean).join(', ');
+        return `<div class="photon-item" data-src="photon" data-idx="${i}">${escapeHtml(label)}</div>`;
+      }).join('');
+    }
+
+    // Render Nominatim fallback results (avoid duplicates)
+    if (nominatimResults.length > 0) {
+      box._nominatimResults = nominatimResults;
+      const photonNames = new Set(photonFeatures.map(f => {
+        const p = f.properties;
+        return [p.name, p.city || p.county].filter(Boolean).join(',').toLowerCase();
+      }));
+      nominatimResults.forEach((item, i) => {
+        const shortLabel = item.display_name.split(',').slice(0, 4).join(',').trim();
+        const key = shortLabel.split(',').slice(0, 2).join(',').toLowerCase();
+        if (!photonNames.has(key)) {
+          html += `<div class="photon-item" data-src="nominatim" data-idx="${i}">${escapeHtml(shortLabel)}</div>`;
+        }
+      });
+    }
+
+    if (!hasResults) {
+      html += `<div class="photon-no-results">No results found</div>`;
+    }
+
+    // Always show "Pin on map" as the last option
+    html += `<div class="photon-pin-row" data-pin-field="${escapeHtml(field)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Can't find it? Pin location on map
+    </div>`;
+
+    box.innerHTML = html;
     box.style.display = 'block';
 
     box.querySelectorAll('.photon-item').forEach(item => {
       item.addEventListener('mousedown', e => {
         e.preventDefault();
-        const f = box._features[parseInt(item.dataset.idx)];
-        const p = f.properties;
-        const displayName = [p.name, p.city || p.county, p.state, 'Nigeria'].filter(Boolean).join(', ');
-        const [lng, lat] = f.geometry.coordinates;
-        input.value = displayName;
-        setCoords({ lat, lng });
+        const src = item.dataset.src;
+        const idx = parseInt(item.dataset.idx);
+        if (src === 'photon') {
+          const f = box._photonFeatures[idx];
+          const p = f.properties;
+          const displayName = [p.name, p.city || p.county, p.state, 'Nigeria'].filter(Boolean).join(', ');
+          const [lng, lat] = f.geometry.coordinates;
+          input.value = displayName;
+          setCoords({ lat, lng });
+        } else {
+          const d = box._nominatimResults[idx];
+          const label = d.display_name.split(',').slice(0, 4).join(',').trim();
+          input.value = label;
+          setCoords({ lat: parseFloat(d.lat), lng: parseFloat(d.lon) });
+        }
         box.innerHTML = '';
         box.style.display = 'none';
       });
     });
+
+    box.querySelectorAll('.photon-pin-row').forEach(row => {
+      row.addEventListener('mousedown', e => {
+        e.preventDefault();
+        box.innerHTML = '';
+        box.style.display = 'none';
+        openPinModal(row.dataset.pinField);
+      });
+    });
+
   } catch (e) {
     box.style.display = 'none';
   }
+}
+
+async function _fetchNominatimSuggestions(q) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&countrycodes=ng&addressdetails=0&accept-language=en`;
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+async function _reverseGeocode(lat, lng) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`;
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    const data = await res.json();
+    if (data.display_name) {
+      return data.display_name.split(',').slice(0, 4).join(',').trim();
+    }
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
+}
+
+// ═══════════ USE MY LOCATION ═══════════
+function useMyLocation(field) {
+  if (!navigator.geolocation) {
+    showToast('Location not available on this device');
+    return;
+  }
+  const btn = document.getElementById(field + 'GpsBtn');
+  if (btn) btn.classList.add('loading');
+  showToast('Getting your location…');
+
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      if (field === 'pickup') pickupCoords = { lat, lng };
+      else dropoffCoords = { lat, lng };
+      const address = await _reverseGeocode(lat, lng);
+      const input = document.getElementById(field + 'Input');
+      if (input) input.value = address;
+      if (btn) btn.classList.remove('loading');
+    },
+    () => {
+      if (btn) btn.classList.remove('loading');
+      showToast('Could not get location — check permissions');
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+  );
+}
+
+// ═══════════ PIN ON MAP ═══════════
+function openPinModal(field) {
+  pinField = field;
+  const overlay = document.getElementById('pin-location-overlay');
+  if (!overlay) return;
+  document.getElementById('pinModalTitle').textContent =
+    field === 'pickup' ? 'Pin Pickup Location' : 'Pin Delivery Location';
+  overlay.style.display = 'flex';
+
+  if (!window.L) { showToast('Map not ready, try again'); overlay.style.display = 'none'; return; }
+
+  if (!pinMap) {
+    pinMap = L.map('pin-map', { zoomControl: true, attributionControl: true })
+      .setView([6.5244, 3.3792], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(pinMap);
+    pinMap.on('moveend', () => {
+      clearTimeout(_pinReverseTimer);
+      document.getElementById('pinAddressLabel').textContent = 'Getting address…';
+      _pinReverseTimer = setTimeout(_updatePinAddress, 700);
+    });
+  }
+
+  setTimeout(() => pinMap.invalidateSize(), 80);
+
+  const existingCoords = field === 'pickup' ? pickupCoords : dropoffCoords;
+  if (existingCoords) {
+    pinMap.setView([existingCoords.lat, existingCoords.lng], 16);
+  } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => { if (pinMap) pinMap.setView([pos.coords.latitude, pos.coords.longitude], 16); },
+      () => {}
+    );
+  }
+
+  _updatePinAddress();
+}
+
+async function _updatePinAddress() {
+  if (!pinMap) return;
+  const { lat, lng } = pinMap.getCenter();
+  const address = await _reverseGeocode(lat, lng);
+  const label = document.getElementById('pinAddressLabel');
+  if (label) label.textContent = address;
+}
+
+function confirmPin() {
+  if (!pinMap) return;
+  const { lat, lng } = pinMap.getCenter();
+  const label = document.getElementById('pinAddressLabel');
+  const address = (label && label.textContent && label.textContent !== 'Getting address…')
+    ? label.textContent
+    : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+  const input = document.getElementById(pinField + 'Input');
+  if (input) input.value = address;
+  if (pinField === 'pickup') pickupCoords = { lat, lng };
+  else dropoffCoords = { lat, lng };
+
+  closePinModal();
+  showToast('Location pinned');
+}
+
+function closePinModal() {
+  const overlay = document.getElementById('pin-location-overlay');
+  if (overlay) overlay.style.display = 'none';
+  clearTimeout(_pinReverseTimer);
 }
 
 // ═══════════ MAP SIZING ═══════════

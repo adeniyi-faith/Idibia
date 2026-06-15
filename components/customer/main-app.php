@@ -56,9 +56,12 @@
                 </div>
                 <div style="position:relative; display:flex; flex-direction:column; flex:1;">
                   <div style="position:relative;">
-                    <div style="display:flex;">
+                    <div style="display:flex;gap:6px;">
                       <input class="loc-input" type="text" id="pickupInput" placeholder="Pickup location" value="Agip Junction, Port Harcourt" autocomplete="off">
-                      <button type="button" onclick="saveAddress('pickupInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                      <button type="button" id="pickupGpsBtn" class="loc-gps-btn" onclick="useMyLocation('pickup')" title="Use my current location" aria-label="Use current location">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                      </button>
+                      <button type="button" onclick="saveAddress('pickupInput')" style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;white-space:nowrap;">Save</button>
                     </div>
                     <div id="pickupSuggestions" class="photon-dropdown"></div>
                   </div>
@@ -72,9 +75,12 @@
                 </div>
                 <div style="position:relative;flex:1; display:flex; flex-direction:column;">
                   <div style="position:relative;">
-                    <div style="display:flex;">
+                    <div style="display:flex;gap:6px;">
                       <input class="loc-input" type="text" id="dropoffInput" placeholder="Where to deliver?" autocomplete="off">
-                      <button type="button" onclick="saveAddress('dropoffInput')" style="margin-left:8px;background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;">Save</button>
+                      <button type="button" id="dropoffGpsBtn" class="loc-gps-btn" onclick="useMyLocation('dropoff')" title="Use my current location" aria-label="Use current location">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                      </button>
+                      <button type="button" onclick="saveAddress('dropoffInput')" style="background:none;border:none;color:var(--primary);font-size:12px;cursor:pointer;white-space:nowrap;">Save</button>
                     </div>
                     <div id="dropoffSuggestions" class="photon-dropdown"></div>
                   </div>
@@ -429,4 +435,40 @@
       Account
     </button>
   </nav>
+</div>
+
+<!-- PIN ON MAP OVERLAY — fullscreen, position:fixed, z-index above everything -->
+<div id="pin-location-overlay" style="display:none;position:fixed;inset:0;z-index:9500;flex-direction:column;background:var(--white);">
+  <!-- Header -->
+  <div style="display:flex;align-items:center;gap:12px;padding:max(14px,env(safe-area-inset-top)) 16px 14px;background:var(--white);border-bottom:1px solid var(--surface-2);flex-shrink:0;">
+    <button onclick="closePinModal()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--text-primary);display:flex;align-items:center;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="22" height="22"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <div>
+      <div style="font-weight:700;font-size:15px;color:var(--text-primary)" id="pinModalTitle">Pin Pickup Location</div>
+      <div style="font-size:12px;color:var(--text-muted)">Move the map so the crosshair is on your spot</div>
+    </div>
+  </div>
+  <!-- Map area -->
+  <div style="flex:1;position:relative;min-height:0;">
+    <div id="pin-map" style="width:100%;height:100%;"></div>
+    <!-- Crosshair fixed at center -->
+    <div class="pin-crosshair" aria-hidden="true">
+      <svg viewBox="0 0 44 44" width="44" height="44" fill="none">
+        <circle cx="22" cy="22" r="10" stroke="var(--primary)" stroke-width="2.5"/>
+        <line x1="22" y1="2" x2="22" y2="14" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="22" y1="30" x2="22" y2="42" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="2" y1="22" x2="14" y2="22" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="30" y1="22" x2="42" y2="22" stroke="var(--primary)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="22" cy="22" r="3" fill="var(--primary)"/>
+      </svg>
+    </div>
+  </div>
+  <!-- Footer -->
+  <div style="padding:14px 16px calc(14px + env(safe-area-inset-bottom));background:var(--white);border-top:1px solid var(--surface-2);flex-shrink:0;">
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;min-height:18px;" id="pinAddressLabel">Move map to your location…</div>
+    <button onclick="confirmPin()" style="width:100%;padding:14px;background:var(--primary);color:var(--white);border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;">
+      Confirm This Location
+    </button>
+  </div>
 </div>

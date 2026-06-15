@@ -24,6 +24,12 @@ if ( ! defined( 'IDIBIA_ORS_API_KEY' ) ) {
     define( 'IDIBIA_ORS_API_KEY', 'ORS_API_KEY_REPLACE_ME' );
 }
 
+// OpenCage Geocoding API Key (optional — improves address search for obscure Nigerian locations)
+// Get a free key at https://opencagedata.com (2,500 requests/day free tier)
+if ( ! defined( 'IDIBIA_OPENCAGE_API_KEY' ) ) {
+    define( 'IDIBIA_OPENCAGE_API_KEY', 'OPENCAGE_API_KEY_REPLACE_ME' );
+}
+
 
 // ── Pusher Realtime Configuration ────────────────────────────────────────
 // Replace these placeholders before enabling realtime in production.
