@@ -472,6 +472,7 @@ async function _fetchPhoton(q, box, input, setCoords) {
           input.value = label;
           setCoords({ lat: parseFloat(d.lat), lng: parseFloat(d.lon) });
         }
+        input.blur(); // dismiss mobile keyboard cleanly before layout shifts (mirrors _applySavedAddress)
         box.innerHTML = '';
         box.style.display = 'none';
       });
