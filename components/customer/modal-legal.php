@@ -2,7 +2,7 @@
   <div class="modal-content" style="height: 80vh; max-height: 800px; display: flex; flex-direction: column;">
     <div class="modal-header" style="flex-shrink: 0;">
       <h3 id="legal_modal_title">Legal Content</h3>
-      <button class="icon-btn" aria-label="Close modal" onclick="closeModal('modal-legal')">
+      <button class="icon-btn" aria-label="Close modal" onclick="closeModal(null,'legal')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
