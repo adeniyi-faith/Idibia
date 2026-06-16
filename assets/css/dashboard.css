@@ -497,6 +497,25 @@ a { color: inherit; }
 .feedback-chip.active { border-color:var(--navy); background:var(--navy); color:var(--white); }
 .report-issue { display:block; width:100%; text-align:center; color:var(--danger); font-size:13px; font-weight:700; cursor:pointer; border:none; background:none; margin-top:12px; margin-bottom: 4px; text-decoration:underline; text-underline-offset:3px; padding: 4px; user-select: none; }
 
+/* Modal header row variant (title left + close button right) */
+.modal-header h3 { color:var(--text-primary); font-size:18px; }
+.modal-header-row { display:flex; align-items:center; justify-content:space-between; text-align:left; }
+.modal-header-row h3 { font-size:18px; font-weight:700; color:var(--text-primary); }
+
+/* Form input group used in support, SOS, and other form modals */
+.fi-input { margin-bottom:16px; }
+.fi-input label { display:block; font-size:11.5px; font-weight:700; color:var(--text-secondary); margin-bottom:7px; letter-spacing:0.5px; text-transform:uppercase; }
+.fi-input input,
+.fi-input select,
+.fi-input textarea { display:block; width:100%; padding:13px 14px; border:1.5px solid var(--surface-2); border-radius:var(--radius-sm); font-size:15px; color:var(--text-primary); background:var(--surface); outline:none; font-family:'DM Sans',sans-serif; transition:border-color 0.2s, box-shadow 0.2s; -webkit-appearance:none; appearance:none; }
+.fi-input input:focus,
+.fi-input select:focus,
+.fi-input textarea:focus { border-color:var(--gold); box-shadow:0 0 0 3px rgba(245,200,66,0.12); }
+.fi-input textarea { resize:vertical; min-height:110px; line-height:1.5; }
+.fi-input select { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238A9AB8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; background-size:16px; padding-right:38px; cursor:pointer; }
+.fi-input input::placeholder,
+.fi-input textarea::placeholder { color:var(--text-muted); }
+
 /* Swipe Hint Animation */
 @keyframes swipeHintAnim { 0%,100%{transform:translateX(0)} 50%{transform:translateX(4px)} }
 .swipe-hint { font-size:10px; font-weight:600; color:var(--text-muted); display:inline-flex; align-items:center; gap:4px; animation:swipeHintAnim 1.5s infinite; text-transform:uppercase; letter-spacing:0.5px; }

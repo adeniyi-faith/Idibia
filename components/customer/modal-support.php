@@ -1,6 +1,6 @@
 <div class="modal" id="modal-support">
   <div class="modal-content">
-    <div class="modal-header">
+    <div class="modal-header modal-header-row">
       <h3>Customer Support</h3>
       <button class="icon-btn" aria-label="Close modal" onclick="closeModal(null,'support')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
