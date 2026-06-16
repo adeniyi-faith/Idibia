@@ -477,8 +477,7 @@ function goToDashboard() {
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
   subscribeToDriverRealtime();
-  // Mount the map after the dashboard panel is laid out so Leaflet can size it.
-  setTimeout(ensureDriverMap, 300);
+  setTimeout(ensureDriverMap, 500);
 }
 
 // ===== DASHBOARD =====
@@ -1008,7 +1007,6 @@ function switchTab(tab) {
   if (tab === 'earnings') {
     loadWalletData();
   } else if (tab === 'home') {
-    // The map container was hidden on other tabs; refresh its size on return.
     setTimeout(ensureDriverMap, 300);
   }
 
@@ -1184,6 +1182,17 @@ async function _sendLocationPing(lat, lng, heading) {
   } catch (e) { /* silent */ }
 }
 
+function keepMapSized(map) {
+  if (!map || typeof ResizeObserver === 'undefined') return;
+  const el = map.getContainer();
+  let raf = null;
+  const ro = new ResizeObserver(() => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => map.invalidateSize({ animate: false }));
+  });
+  ro.observe(el);
+}
+
 function initLeafletMap(containerId, lat, lng) {
   if (currentMap) {
     currentMap.remove();
@@ -1203,19 +1212,29 @@ function initLeafletMap(containerId, lat, lng) {
   const icon = L.divIcon({ html: iconHtml, className: 'leaflet-custom-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
   currentMarker = L.marker([lat, lng], { icon }).addTo(currentMap);
 
-  // The container may have been laid out (or resized) after Leaflet measured it,
-  // which leaves grey/blank tiles until a redraw is forced.
-  setTimeout(() => currentMap && currentMap.invalidateSize(), 100);
+  keepMapSized(currentMap);
+  setTimeout(() => currentMap && currentMap.invalidateSize(), 150);
+  setTimeout(() => currentMap && currentMap.invalidateSize(), 700);
 }
 
 // Mount the dashboard map once the dashboard is visible. Defaults to Lagos and
-// re-centres on the driver's real position as soon as geolocation reports it.
-function ensureDriverMap() {
+// re-centres on the driver's real GPS position once geolocation reports it.
+// Retries if Leaflet hasn't loaded yet or if the container has zero dimensions
+// (which happens when the panel is mid-transition or not yet laid out).
+function ensureDriverMap(_retries = 8) {
   if (currentMap) {
     currentMap.invalidateSize();
     return;
   }
-  if (!document.getElementById('driver-map-container') || !window.L) return;
+  const el = document.getElementById('driver-map-container');
+  if (!el || !window.L) {
+    if (_retries > 0) setTimeout(() => ensureDriverMap(_retries - 1), 500);
+    return;
+  }
+  if (!el.offsetWidth || !el.offsetHeight) {
+    if (_retries > 0) setTimeout(() => ensureDriverMap(_retries - 1), 200);
+    return;
+  }
   const lat = latestDriverCoords?.latitude ?? 6.5244;
   const lng = latestDriverCoords?.longitude ?? 3.3792;
   initLeafletMap('driver-map-container', lat, lng);
@@ -1665,7 +1684,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // An approved driver's dashboard is already active on page load (set via PHP),
   // but goToDashboard() is only called on login — so init the map here too.
   if (driverInitialContext?.is_approved) {
-    setTimeout(ensureDriverMap, 400);
+    setTimeout(ensureDriverMap, 500);
   }
 });
 
