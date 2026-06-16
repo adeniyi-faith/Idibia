@@ -512,6 +512,7 @@ async function toggleOnline() {
     const toggle = document.getElementById('onlineToggle');
     toggle.classList.toggle('online', isOnline);
     toggle.classList.toggle('offline', !isOnline);
+    toggle.setAttribute('aria-checked', isOnline ? 'true' : 'false');
     document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
     showToast(isOnline ? '✓ You are now online' : 'You are now offline');
     if (isOnline) startLocationWatch(); else stopLocationWatch();
@@ -586,10 +587,12 @@ function renderDriverOffers(offers, activeTrip = null) {
 
   if (!offers.length) {
     container.innerHTML = `
-      <div class="trip-request-card" id="driverNoOfferCard">
-        <div class="trq-header"><div class="trq-tag">Dispatch</div></div>
-        <div class="trq-fee">No live requests <span>· stay online</span></div>
-        <div class="trq-meta"><div class="trq-meta-chip">Waiting for nearby bookings</div></div>
+      <div class="dispatch-idle" id="driverNoOfferCard">
+        <span class="dispatch-idle-dot"></span>
+        <div class="dispatch-idle-text">
+          <strong>No live requests</strong>
+          <span>${isOnline ? 'Waiting for nearby bookings · stay online' : 'Go online to start receiving bookings'}</span>
+        </div>
       </div>`;
     return;
   }
@@ -1126,8 +1129,10 @@ if (driverInitialContext.logged_in) {
 }
 
 if (document.getElementById('onlineToggle')) {
-  document.getElementById('onlineToggle').classList.toggle('online', isOnline);
-  document.getElementById('onlineToggle').classList.toggle('offline', !isOnline);
+  const _toggle = document.getElementById('onlineToggle');
+  _toggle.classList.toggle('online', isOnline);
+  _toggle.classList.toggle('offline', !isOnline);
+  _toggle.setAttribute('aria-checked', isOnline ? 'true' : 'false');
   document.getElementById('onlineLabel').textContent = isOnline ? 'Online' : 'Offline';
 }
 
