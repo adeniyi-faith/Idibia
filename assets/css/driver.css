@@ -506,7 +506,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 /* Main dash area */
 .dash-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-/* Dashboard scroll container */
+/* Dashboard scroll container — hidden on the home tab (home panel replaces it) */
 .dash-content-scroll {
   flex: 1;
   overflow-y: auto;
@@ -514,6 +514,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   flex-direction: column;
 }
 .dash-content-scroll::-webkit-scrollbar { display: none; }
+#screen-driver-dash.tab-home .dash-content-scroll { display: none; }
 
 .dash-greeting { font-size: 13px; color: var(--text-muted); margin-bottom: 2px; }
 .dash-name { font-size: 18px; font-family: 'Syne', sans-serif; font-weight: 700; color: var(--text-primary); }
@@ -1069,53 +1070,35 @@ svg { display: block; }
 .stat-chip-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
 
 /* ═══════════════════════ MAP-FIRST HOME ═══════════════════════ */
-/* Every layer between the screen and the map must be transparent so the map
-   tiles are never obscured by a solid background. Heights must propagate
-   explicitly all the way down so position:absolute children have a real
-   coordinate system to anchor into. */
-#screen-driver-dash.tab-home .dash-main {
-  background: transparent !important;
-}
-#screen-driver-dash.tab-home .dash-content-scroll {
-  overflow: hidden;
-  background: transparent !important;
-  height: 100%;
-}
-#screen-driver-dash.tab-home .driver-dash-body {
-  padding: 0;
-  flex: 1;
+/* #panel-home lives as a direct flex child of .dash-main — never inside
+   the scroll wrapper — so the map container inherits the full column height
+   and is never clipped by any overflow:auto ancestor. */
+
+/* Home panel hidden by default; revealed by .tab-home + .active combo */
+.dash-panel.map-home { display: none; }
+
+#screen-driver-dash.tab-home .dash-panel.map-home.active {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  background: transparent !important;
-  height: 100%;
-}
-.dash-panel.map-home { background: transparent; }
-.dash-panel.map-home.active {
-  display: block;
-  flex: 1 1 auto;
-  position: relative;
-  min-height: 0;
-  height: 100%;
+  position: relative; /* coordinate system for all absolute overlays */
+  overflow: hidden;
   background: transparent;
 }
 
-/* ── Full-bleed live map (primary surface) ──────────────────────────────── */
-/* Uses 100vw/100vh so the map always fills the viewport regardless of whether
-   the parent flex chain has fully resolved its heights. z-index:0 keeps it
-   behind every overlay. */
+/* ── Full-bleed live map ────────────────────────────────────────────────── */
+/* inset:0 fills the home panel exactly — no viewport units that can be
+   clipped when a parent changes overflow. */
 .driver-map-fullscreen {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
   z-index: 0;
-  background: #e8edf3;
+  background: #c8d8ec;
 }
 .driver-map-fullscreen .leaflet-container {
   width: 100%;
   height: 100%;
-  background: #e8edf3;
+  background: transparent;
 }
 
 /* ── Floating identity header: avatar · greeting · online toggle ────────── */

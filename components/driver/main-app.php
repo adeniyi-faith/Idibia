@@ -20,69 +20,74 @@
 
     <!-- Main content -->
     <div class="dash-main">
-      <div class="dash-content-scroll" id="dashBody">
 
-        <div class="driver-dash-body">
+      <!-- ═══ HOME TAB ═══
+           Lives directly inside .dash-main — NOT inside the scroll wrapper.
+           This guarantees zero overflow-clipping ancestors between the screen
+           root and the map container. -->
+      <div class="dash-panel map-home active" id="panel-home">
 
-          <!-- HOME TAB · map-first -->
-          <div class="dash-panel map-home active" id="panel-home">
+        <!-- Full-bleed live map (position:absolute; inset:0 fills the panel) -->
+        <div id="driver-map-container" class="driver-map-fullscreen"></div>
 
-            <!-- Full-bleed live map (primary surface) -->
-            <div id="driver-map-container" class="driver-map-fullscreen"></div>
-
-            <!-- Floating identity header: avatar · greeting · online toggle -->
-            <div class="map-top-overlay">
-              <div class="driver-id-left">
-                <div class="driver-id-avatar">
-                  <img src="" alt="Profile" id="dashHomeAvatar" style="display:none;">
-                  <span id="dashHomeAvatarInitials" style="display:none;"></span>
-                </div>
-                <div class="driver-id-text">
-                  <div class="dash-greeting" id="dashGreeting">Good afternoon,</div>
-                  <div class="dash-name" id="dashHomeName"><?php echo esc_html($driver_row['full_name'] ?? 'Loading...'); ?></div>
-                </div>
-              </div>
-              <div class="online-switch-wrap">
-                <span class="online-switch-label" id="onlineLabel">Offline</span>
-                <button type="button" class="online-switch" id="onlineToggle" role="switch" aria-checked="false" aria-label="Toggle online status" onclick="toggleOnline()">
-                  <span class="online-switch-thumb"></span>
-                </button>
-              </div>
+        <!-- Floating identity header: avatar · greeting · online toggle -->
+        <div class="map-top-overlay">
+          <div class="driver-id-left">
+            <div class="driver-id-avatar">
+              <img src="" alt="Profile" id="dashHomeAvatar" style="display:none;">
+              <span id="dashHomeAvatarInitials" style="display:none;"></span>
             </div>
-
-            <!-- Incoming request overlay -->
-            <div id="driverOfferContainer" class="map-offer-overlay">
-              <div class="dispatch-idle" id="driverNoOfferCard">
-                <span class="dispatch-idle-dot"></span>
-                <div class="dispatch-idle-text">
-                  <strong>No live requests</strong>
-                  <span>Waiting for nearby bookings · stay online</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Bottom sheet: today's snapshot + campaigns -->
-            <div class="map-bottom-sheet" id="homeBottomSheet">
-              <div class="sheet-handle" onclick="toggleHomeSheet()"></div>
-              <div class="stat-row">
-                <div class="stat-chip">
-                  <div class="stat-chip-val" id="home-today-earnings">₦0</div>
-                  <div class="stat-chip-label">Today</div>
-                </div>
-                <div class="stat-chip">
-                  <div class="stat-chip-val" id="home-today-trips">0</div>
-                  <div class="stat-chip-label">Trips</div>
-                </div>
-                <div class="stat-chip">
-                  <div class="stat-chip-val" id="home-rating">0.0★</div>
-                  <div class="stat-chip-label">Rating</div>
-                </div>
-              </div>
-              <div id="home-active-campaigns" class="sheet-campaigns">
-                  <!-- Dynamically populated via JS -->
-              </div>
+            <div class="driver-id-text">
+              <div class="dash-greeting" id="dashGreeting">Good afternoon,</div>
+              <div class="dash-name" id="dashHomeName"><?php echo esc_html($driver_row['full_name'] ?? 'Loading...'); ?></div>
             </div>
           </div>
+          <div class="online-switch-wrap">
+            <span class="online-switch-label" id="onlineLabel">Offline</span>
+            <button type="button" class="online-switch" id="onlineToggle" role="switch" aria-checked="false" aria-label="Toggle online status" onclick="toggleOnline()">
+              <span class="online-switch-thumb"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Incoming request overlay -->
+        <div id="driverOfferContainer" class="map-offer-overlay">
+          <div class="dispatch-idle" id="driverNoOfferCard">
+            <span class="dispatch-idle-dot"></span>
+            <div class="dispatch-idle-text">
+              <strong>No live requests</strong>
+              <span>Waiting for nearby bookings · stay online</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom sheet: today's snapshot + campaigns -->
+        <div class="map-bottom-sheet" id="homeBottomSheet">
+          <div class="sheet-handle" onclick="toggleHomeSheet()"></div>
+          <div class="stat-row">
+            <div class="stat-chip">
+              <div class="stat-chip-val" id="home-today-earnings">₦0</div>
+              <div class="stat-chip-label">Today</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip-val" id="home-today-trips">0</div>
+              <div class="stat-chip-label">Trips</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip-val" id="home-rating">0.0★</div>
+              <div class="stat-chip-label">Rating</div>
+            </div>
+          </div>
+          <div id="home-active-campaigns" class="sheet-campaigns">
+              <!-- Dynamically populated via JS -->
+          </div>
+        </div>
+      </div><!-- end panel-home -->
+
+      <!-- ═══ SCROLLABLE PANELS (earnings / trips / profile) ═══
+           Separate from the home panel so overflow:auto never affects the map. -->
+      <div class="dash-content-scroll" id="dashBody">
+        <div class="driver-dash-body">
 
           <!-- EARNINGS TAB -->
           <div class="dash-panel" id="panel-earnings">
@@ -158,7 +163,7 @@
               </div>
             </div>
 
-          </div>
+          </div><!-- end panel-earnings -->
 
           <!-- TRIPS TAB -->
           <div class="dash-panel" id="panel-trips">
@@ -171,7 +176,7 @@
             <div id="trip-history-list">
                 <!-- Populated via JS -->
             </div>
-          </div>
+          </div><!-- end panel-trips -->
 
           <!-- PROFILE TAB -->
           <div class="dash-panel" id="panel-profile">
@@ -247,7 +252,7 @@
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
 
-            <!-- Help & Support (folded in from the former Help tab) -->
+            <!-- Help & Support -->
             <div class="section-head" style="margin-top:28px;margin-bottom:8px">
               <div class="section-head-title">Help & Support</div>
             </div>
@@ -308,7 +313,7 @@
                 Log Out
               </button>
             </div>
-          </div>
+          </div><!-- end panel-profile -->
 
         </div><!-- end driver-dash-body -->
       </div><!-- end dashBody scroll wrapper -->
