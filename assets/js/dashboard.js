@@ -292,6 +292,9 @@ function switchTab(name, sideBtn, bnavId) {
     // Delay past the 380ms screen transition so Leaflet measures the settled position
     setTimeout(() => initOrShowExploreMap(), 420);
   }
+  if (name === 'activity') {
+    fetchActivityTrips();
+  }
 }
 
 // ═══════════ PHOTON AUTOCOMPLETE ═══════════
@@ -1932,6 +1935,87 @@ async function fetchRecentActivity() {
     }
   } catch (err) {
     console.error("Failed to load trips", err);
+  }
+}
+
+// ═══════════ ACTIVITY TAB TRIPS ═══════════
+let _activityLoaded = false;
+
+function _tripFilterStatus(trip) {
+  const s = (trip.status || '').toLowerCase();
+  const d = (trip.dispatch_status || '').toLowerCase();
+  if (s === 'completed' || d === 'completed') return 'delivered';
+  if (s === 'cancelled' || d === 'cancelled') return 'cancelled';
+  if (['accepted','arriving','arrived_pickup','picked_up','arrived_dropoff'].includes(d)) return 'in-transit';
+  return 'scheduled';
+}
+
+function _buildTripCard(trip) {
+  const filterStatus = _tripFilterStatus(trip);
+  const statusLabels = { 'delivered': 'Delivered', 'in-transit': 'In Transit', 'cancelled': 'Cancelled', 'scheduled': 'Scheduled' };
+  const label = statusLabels[filterStatus] || filterStatus;
+  const isTerm = filterStatus === 'delivered' || filterStatus === 'cancelled';
+  const clickFn = isTerm ? `showTripDetails(${trip.id})` : `startLiveTracking(${trip.id})`;
+  const fare = trip.fare ? `₦${parseFloat(trip.fare).toLocaleString()}` : (trip.fare_estimate ? `~₦${parseFloat(trip.fare_estimate).toLocaleString()}` : '—');
+  const date = new Date(trip.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const pickup = trip.pickup_address || trip.pickup || 'Pickup location';
+  const dropoff = trip.dropoff_address || trip.dropoff || 'Drop-off location';
+  const actionBtn = isTerm
+    ? `<button class="trip-action-btn primary" onclick="event.stopPropagation();showTripDetails(${trip.id})">Details</button>`
+    : `<button class="trip-action-btn primary" onclick="event.stopPropagation();startLiveTracking(${trip.id})">Track</button>`;
+
+  return `
+    <div class="trip-card" data-status="${filterStatus}" data-trip-id="${trip.id}" onclick="${clickFn}">
+      <div class="trip-top">
+        <div>
+          <div class="trip-id">${trip.trip_ref || '#' + trip.id}</div>
+          <div class="trip-date">${date}</div>
+        </div>
+        <div class="trip-status ${filterStatus}">${label}</div>
+      </div>
+      <div class="trip-route">
+        <div class="trip-point"><div class="trip-point-dot from"></div>${pickup}</div>
+        <div class="trip-line"></div>
+        <div class="trip-point"><div class="trip-point-dot to"></div>${dropoff}</div>
+      </div>
+      <div class="trip-meta">
+        <div class="trip-price">${fare}</div>
+        <div class="trip-actions">${actionBtn}</div>
+      </div>
+    </div>`;
+}
+
+async function fetchActivityTrips(force = false) {
+  if (_activityLoaded && !force) return;
+  const container = document.getElementById('trips-container');
+  if (!container) return;
+
+  container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">Loading…</div>';
+
+  try {
+    const res = await fetch(`${IDIBIA_API_BASE}/customer-trips-api.php`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const json = await res.json();
+
+    if (json.success && json.data.trips && json.data.trips.length > 0) {
+      container.innerHTML = json.data.trips.map(_buildTripCard).join('');
+      _activityLoaded = true;
+      // Respect whichever filter pill is currently active
+      const activePill = document.querySelector('#tab-activity .filter-pill.active');
+      if (activePill) {
+        const status = activePill.getAttribute('onclick').match(/'([^']+)'\)$/)?.[1] || 'all';
+        filterTrips(activePill, status);
+      }
+    } else {
+      container.innerHTML = '<div class="empty-state" style="text-align:center;padding:40px 20px;color:var(--text-muted)">No trips yet. Book a delivery to get started!</div>';
+      _activityLoaded = true;
+    }
+  } catch (err) {
+    console.error('Failed to load activity trips', err);
+    container.innerHTML = '<div class="empty-state" style="text-align:center;padding:40px 20px;color:var(--text-muted)">Could not load trips. Pull down to retry.</div>';
   }
 }
 
