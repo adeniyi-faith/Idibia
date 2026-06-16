@@ -2,7 +2,7 @@
   <div class="modal-content">
     <div class="modal-header">
       <h3>Payment Methods</h3>
-      <button class="icon-btn" aria-label="Close modal" onclick="closeModal('modal-payment')">
+      <button class="icon-btn" aria-label="Close modal" onclick="closeModal(null, 'payment')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
@@ -11,14 +11,14 @@
     <div class="modal-body" style="padding: 20px;">
       <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">We currently only support manual bank transfers. Please make payments to the account below when required.</p>
 
-      <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+      <div style="background: var(--surface); border: 1px solid var(--surface-2); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
         <div style="margin-bottom: 15px;">
           <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Bank Name</div>
-          <div style="font-size: 16px; font-weight: 600;"><?php echo esc_html( $company_bank_name ); ?></div>
+          <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);"><?php echo esc_html( $company_bank_name ); ?></div>
         </div>
         <div style="margin-bottom: 15px;">
           <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Account Name</div>
-          <div style="font-size: 16px; font-weight: 600;"><?php echo esc_html( $company_account_name ); ?></div>
+          <div style="font-size: 16px; font-weight: 600; color: var(--text-primary);"><?php echo esc_html( $company_account_name ); ?></div>
         </div>
         <div>
           <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Account Number</div>
