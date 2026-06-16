@@ -1662,6 +1662,11 @@ function renderDashboardStats() {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderDashboardStats();
+  // An approved driver's dashboard is already active on page load (set via PHP),
+  // but goToDashboard() is only called on login — so init the map here too.
+  if (driverInitialContext?.is_approved) {
+    setTimeout(ensureDriverMap, 400);
+  }
 });
 
 async function doDriverLogout() {
