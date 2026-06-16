@@ -477,6 +477,8 @@ function goToDashboard() {
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
   subscribeToDriverRealtime();
+  // Mount the map after the dashboard panel is laid out so Leaflet can size it.
+  setTimeout(ensureDriverMap, 300);
 }
 
 // ===== DASHBOARD =====
@@ -1005,6 +1007,9 @@ function switchTab(tab) {
 
   if (tab === 'earnings') {
     loadWalletData();
+  } else if (tab === 'home') {
+    // The map container was hidden on other tabs; refresh its size on return.
+    setTimeout(ensureDriverMap, 300);
   }
 
   // bottom nav
@@ -1197,6 +1202,23 @@ function initLeafletMap(containerId, lat, lng) {
   const iconHtml = `<div class="rider-avatar" style="width: 32px; height: 32px; font-size: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);"><div class="rider-online"></div></div>`;
   const icon = L.divIcon({ html: iconHtml, className: 'leaflet-custom-icon', iconSize: [32, 32], iconAnchor: [16, 16] });
   currentMarker = L.marker([lat, lng], { icon }).addTo(currentMap);
+
+  // The container may have been laid out (or resized) after Leaflet measured it,
+  // which leaves grey/blank tiles until a redraw is forced.
+  setTimeout(() => currentMap && currentMap.invalidateSize(), 100);
+}
+
+// Mount the dashboard map once the dashboard is visible. Defaults to Lagos and
+// re-centres on the driver's real position as soon as geolocation reports it.
+function ensureDriverMap() {
+  if (currentMap) {
+    currentMap.invalidateSize();
+    return;
+  }
+  if (!document.getElementById('driver-map-container') || !window.L) return;
+  const lat = latestDriverCoords?.latitude ?? 6.5244;
+  const lng = latestDriverCoords?.longitude ?? 3.3792;
+  initLeafletMap('driver-map-container', lat, lng);
 }
 
 function updateMapLocation(lat, lng) {
