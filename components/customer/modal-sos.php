@@ -30,7 +30,7 @@
     </div>
 
     <div style="display:flex; gap: 12px;">
-        <button class="btn-primary" style="flex:1; background:var(--surface-2); color:var(--text-primary); border:none;" onclick="closeModal('modal-sos')">Cancel</button>
+        <button class="btn-primary" style="flex:1; background:var(--surface-2); color:var(--text-primary); border:none;" onclick="closeModal(null,'sos')">Cancel</button>
         <button class="btn-primary" style="flex:1; background:var(--danger); border:none;" onclick="submitSosReport()">Send SOS</button>
     </div>
   </div>
