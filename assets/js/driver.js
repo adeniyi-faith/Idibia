@@ -1004,6 +1004,12 @@ function switchTab(tab) {
   const panel = document.getElementById('panel-' + tab);
   if (panel) panel.classList.add('active');
 
+  // The map-first Home is a full-bleed surface; toggling this class on the
+  // screen switches the content area between scroll-with-padding (other tabs)
+  // and full-height map layout (home).
+  const screen = document.getElementById('screen-driver-dash');
+  if (screen) screen.classList.toggle('tab-home', tab === 'home');
+
   if (tab === 'earnings') {
     loadWalletData();
   } else if (tab === 'home') {
@@ -1017,11 +1023,17 @@ function switchTab(tab) {
   // sidebar icons
   document.querySelectorAll('.dash-sidebar-icon').forEach(i => i.classList.remove('active'));
   const sidebarItems = document.querySelectorAll('.dash-sidebar-icon');
-  const tabOrder = ['home','earnings','trips','help','profile'];
+  const tabOrder = ['home','earnings','trips','profile'];
   const idx = tabOrder.indexOf(tab);
   if (sidebarItems[idx]) sidebarItems[idx].classList.add('active');
 
   document.getElementById('dashBody').scrollTop = 0;
+}
+
+// Peek/expand toggle for the Home bottom sheet (today's snapshot + campaigns).
+function toggleHomeSheet() {
+  const sheet = document.getElementById('homeBottomSheet');
+  if (sheet) sheet.classList.toggle('expanded');
 }
 
 function togglePasswordVisibility(inputId, btn) {
