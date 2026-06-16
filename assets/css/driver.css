@@ -461,7 +461,6 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 
 /* ===== DRIVER DASHBOARD ===== */
 #screen-driver-dash { background: transparent; }
-#screen-driver-dash.tab-home { background: transparent !important; }
 
 /* Dashboard sidebar (desktop) */
 .dash-sidebar {
@@ -503,8 +502,9 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   margin-bottom: 16px;
 }
 
-/* Main dash area */
-.dash-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+/* Main dash area — position:relative makes it the containing block for the
+   absolutely-positioned home panel so the map never relies on 100vw/100vh. */
+.dash-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
 /* Dashboard scroll container */
 .dash-content-scroll {
@@ -1069,46 +1069,29 @@ svg { display: block; }
 .stat-chip-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
 
 /* ═══════════════════════ MAP-FIRST HOME ═══════════════════════ */
-/* Every layer between the screen and the map must be transparent so the map
-   tiles are never obscured by a solid background. Heights must propagate
-   explicitly all the way down so position:absolute children have a real
-   coordinate system to anchor into. */
-#screen-driver-dash.tab-home .dash-main {
-  background: transparent !important;
-}
-#screen-driver-dash.tab-home .dash-content-scroll {
-  overflow: hidden;
-  background: transparent !important;
-  height: 100%;
-}
-#screen-driver-dash.tab-home .driver-dash-body {
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: transparent !important;
-  height: 100%;
-}
+/* The home panel breaks out of the normal flex-scroll flow by using
+   position:absolute + inset:0 relative to .dash-main (its nearest
+   position:relative ancestor). This guarantees the panel — and every
+   overlay inside it — always has fully resolved dimensions without
+   depending on a fragile flex height chain. Non-home panels remain in
+   the normal flow of .dash-content-scroll and scroll as usual. */
 .dash-panel.map-home { background: transparent; }
 .dash-panel.map-home.active {
   display: block;
-  flex: 1 1 auto;
-  position: relative;
-  min-height: 0;
-  height: 100%;
-  background: transparent;
+  position: absolute;
+  inset: 0;
+  /* No z-index here intentionally: keeps the panel from forming its own stacking
+     context so the internal overlay z-index values (map:0, nav:10, dispatch:15,
+     sheet:18, header:20) all compete within #screen-driver-dash directly. */
 }
 
 /* ── Full-bleed live map (primary surface) ──────────────────────────────── */
-/* Uses 100vw/100vh so the map always fills the viewport regardless of whether
-   the parent flex chain has fully resolved its heights. z-index:0 keeps it
-   behind every overlay. */
+/* inset:0 fills .dash-panel.map-home.active which itself fills .dash-main via
+   position:absolute+inset:0. Both dimensions are always resolved — no
+   100vw/100vh needed — so Leaflet receives a non-zero container on init. */
 .driver-map-fullscreen {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
   z-index: 0;
   background: #e8edf3;
 }
