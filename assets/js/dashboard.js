@@ -786,6 +786,21 @@ function closeAllModals() {
   document.querySelectorAll('.modal-overlay, .modal').forEach(m => m.classList.remove('show'));
 }
 
+function copyAccountNumber() {
+  const el = document.getElementById('company_account_number');
+  const text = el ? el.textContent.trim() : '';
+  if (!text || text === 'Not Available') { showToast('No account number to copy.'); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('Account number copied!')).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('Account number copied!');
+  });
+}
+
 
 async function submitCustomerRatingAndClose() {
   if (currentActiveTripId) {
