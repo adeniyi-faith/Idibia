@@ -81,7 +81,7 @@
             </div>
 
             <!-- Map container -->
-            <div id="driver-map-container" style="height: 200px; border-radius:var(--radius-lg); margin-bottom:16px; box-shadow:var(--shadow-md); z-index: 1;">
+            <div id="driver-map-container" style="height: 200px; border-radius:var(--radius-lg); margin-bottom:16px; box-shadow:var(--shadow-md); z-index: 1; background:#e8edf3; overflow:hidden;">
             </div>
           </div>
 
