@@ -41,7 +41,11 @@ function idibia_trip_feed_eta( array $trip, ?array $location ): array {
     }
 
     if ( in_array( $trip['dispatch_status'], [ 'searching', 'offered', 'no_driver' ], true ) ) {
-        return [ 'label' => 'Finding driver', 'minutes' => null, 'distance_km' => null ];
+        return [
+            'label'       => 'Finding driver',
+            'minutes'     => $base_minutes > 0 ? $base_minutes : null,
+            'distance_km' => $remaining_km !== null ? round( (float) $remaining_km, 1 ) : null,
+        ];
     }
 
     if ( in_array( $trip['dispatch_status'], [ 'arrived_pickup', 'arrived_dropoff' ], true ) ) {

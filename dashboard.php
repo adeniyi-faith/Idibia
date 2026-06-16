@@ -62,7 +62,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=0, interactive-widget=resizes-visual">
 <meta name="theme-color" content="#0B1628">
 <title>Idibia — Customer Dashboard</title>
 <link rel="icon" href="data:,">
