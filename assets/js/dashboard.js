@@ -538,7 +538,7 @@ function useMyLocation(field) {
     },
     () => {
       if (btn) btn.classList.remove('loading');
-      showToast('Could not get location — check permissions');
+      showLocPermissionHint('loc-perm-hint', field);
     },
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
   );
@@ -673,7 +673,7 @@ function centerExploreMap() {
   showToast('Locating you...');
   navigator.geolocation.getCurrentPosition(pos => {
     if (exploreMap) exploreMap.setView([pos.coords.latitude, pos.coords.longitude], 15);
-  }, () => showToast('Could not get location'));
+  }, () => showLocPermissionHint('explore-loc-perm-hint'));
 }
 
 // ═══════════ BOOKING OPTIONS TOGGLE ═══════════
@@ -1348,6 +1348,25 @@ function showToast(msg) {
   t.classList.add('show');
   if (toastTimeout) clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ═══════════ LOCATION PERMISSION HINT ═══════════
+function showLocPermissionHint(hintId, field) {
+  const el = document.getElementById(hintId);
+  if (!el) return;
+  const altBtn = el.querySelector('.lph-alt-btn');
+  if (altBtn && field) {
+    altBtn.onclick = () => { dismissLocHint(hintId); openPinModal(field); };
+    altBtn.style.display = '';
+  } else if (altBtn) {
+    altBtn.style.display = 'none';
+  }
+  el.classList.add('visible');
+}
+
+function dismissLocHint(hintId) {
+  const el = document.getElementById(hintId || 'loc-perm-hint');
+  if (el) el.classList.remove('visible');
 }
 
 // ═══════════ KEYBOARD / ACCESSIBILITY ═══════════
