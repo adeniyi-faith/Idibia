@@ -41,6 +41,25 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
             </button>
           </div>
+          <!-- Location permission hint (shown when GPS access is denied) -->
+          <div id="loc-perm-hint" class="loc-perm-hint" role="alert" aria-live="polite" aria-atomic="true">
+            <div class="lph-card">
+              <div class="lph-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M17.5 17.5 6.5 6.5"/><path d="M10.5 6.2A7 7 0 0 1 19 10c0 3.5-2 6.6-4.5 9"/><path d="M7.4 7.9C6.2 8.8 5 10.3 5 10c0 5 7 10 7 10 1-.7 2-1.5 2.8-2.4"/><circle cx="12" cy="10" r="2.5"/></svg>
+              </div>
+              <div class="lph-text">
+                <strong>Location access blocked</strong>
+                <span>Allow location in your browser settings, then retry</span>
+              </div>
+              <button class="lph-close" onclick="dismissLocHint('loc-perm-hint')" aria-label="Dismiss">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <button class="lph-alt-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              Pin location on map instead
+            </button>
+          </div>
         </div>
 
         <!-- BOOKING PANEL -->
@@ -403,6 +422,21 @@
           <button class="map-btn" onclick="centerExploreMap()" title="My location">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="19" height="19"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
           </button>
+        </div>
+        <!-- Location permission hint for explore map -->
+        <div id="explore-loc-perm-hint" class="loc-perm-hint" role="alert" aria-live="polite" aria-atomic="true">
+          <div class="lph-card">
+            <div class="lph-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M17.5 17.5 6.5 6.5"/><path d="M10.5 6.2A7 7 0 0 1 19 10c0 3.5-2 6.6-4.5 9"/><path d="M7.4 7.9C6.2 8.8 5 10.3 5 10c0 5 7 10 7 10 1-.7 2-1.5 2.8-2.4"/><circle cx="12" cy="10" r="2.5"/></svg>
+            </div>
+            <div class="lph-text">
+              <strong>Location access blocked</strong>
+              <span>Allow location in your browser settings to centre the map on you</span>
+            </div>
+            <button class="lph-close" onclick="dismissLocHint('explore-loc-perm-hint')" aria-label="Dismiss">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
         <div style="position:absolute;bottom:max(28px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:1000;">
           <button onclick="switchTab('home',null,'home')" class="explore-book-btn">
