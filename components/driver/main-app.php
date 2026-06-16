@@ -1,4 +1,4 @@
-<div class="screen <?php echo $driver_initial_context['is_approved'] ? 'active' : ''; ?>" id="screen-driver-dash">
+<div class="screen tab-home <?php echo $driver_initial_context['is_approved'] ? 'active' : ''; ?>" id="screen-driver-dash">
 
     <!-- Sidebar (desktop only) -->
     <div class="dash-sidebar">
@@ -12,9 +12,6 @@
       <div class="dash-sidebar-icon" onclick="switchTab('trips')" title="Trips">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7M9 20l6-3M9 20V7m6 13l4.553 2.276A1 1 0 0 0 21 21.382V10.618a1 1 0 0 0-.553-.894L15 7m0 13V7M9 7l6-3"/></svg>
       </div>
-      <div class="dash-sidebar-icon" onclick="switchTab('help')" title="Help">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-      </div>
       <div style="flex:1"></div>
       <div class="dash-sidebar-icon" onclick="switchTab('profile')" title="Profile">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -27,11 +24,14 @@
 
         <div class="driver-dash-body">
 
-          <!-- HOME TAB -->
-          <div class="dash-panel active" id="panel-home">
+          <!-- HOME TAB · map-first -->
+          <div class="dash-panel map-home active" id="panel-home">
 
-            <!-- Clean, minimal Top Bar restricted to Home Tab -->
-            <div class="home-top-bar">
+            <!-- Full-bleed live map (primary surface) -->
+            <div id="driver-map-container" class="driver-map-fullscreen"></div>
+
+            <!-- Top overlay: identity + online toggle -->
+            <div class="map-top-overlay">
               <div class="dash-top-left">
                 <img class="dash-avatar-img" src="" alt="Profile" id="dashHomeAvatar" style="display:none; object-fit: cover;">
                 <div class="dash-avatar-img" id="dashHomeAvatarInitials" style="display:none; align-items:center; justify-content:center; background:rgba(255,255,255,0.2); color:white; font-size:16px; font-weight:600;"></div>
@@ -46,8 +46,8 @@
               </div>
             </div>
 
-            <!-- Incoming request -->
-            <div id="driverOfferContainer">
+            <!-- Incoming request overlay -->
+            <div id="driverOfferContainer" class="map-offer-overlay">
               <div class="trip-request-card" id="driverNoOfferCard">
                 <div class="trq-header">
                   <div class="trq-tag">Dispatch</div>
@@ -59,29 +59,26 @@
               </div>
             </div>
 
-            <!-- Quick stats -->
-            <div class="stat-row">
-              <div class="stat-chip">
-                <div class="stat-chip-val" id="home-today-earnings">₦0</div>
-                <div class="stat-chip-label">Today</div>
+            <!-- Bottom sheet: today's snapshot + campaigns -->
+            <div class="map-bottom-sheet" id="homeBottomSheet">
+              <div class="sheet-handle" onclick="toggleHomeSheet()"></div>
+              <div class="stat-row">
+                <div class="stat-chip">
+                  <div class="stat-chip-val" id="home-today-earnings">₦0</div>
+                  <div class="stat-chip-label">Today</div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip-val" id="home-today-trips">0</div>
+                  <div class="stat-chip-label">Trips</div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip-val" id="home-rating">0.0★</div>
+                  <div class="stat-chip-label">Rating</div>
+                </div>
               </div>
-              <div class="stat-chip">
-                <div class="stat-chip-val" id="home-today-trips">0</div>
-                <div class="stat-chip-label">Trips</div>
+              <div id="home-active-campaigns" class="sheet-campaigns">
+                  <!-- Dynamically populated via JS -->
               </div>
-              <div class="stat-chip">
-                <div class="stat-chip-val" id="home-rating">0.0★</div>
-                <div class="stat-chip-label">Rating</div>
-              </div>
-            </div>
-
-            <!-- Campaign -->
-            <div id="home-active-campaigns">
-                <!-- Dynamically populated via JS -->
-            </div>
-
-            <!-- Map container -->
-            <div id="driver-map-container" style="height: 200px; border-radius:var(--radius-lg); margin-bottom:16px; box-shadow:var(--shadow-md); z-index: 1; background:#e8edf3; overflow:hidden;">
             </div>
           </div>
 
@@ -174,92 +171,6 @@
             </div>
           </div>
 
-          <!-- HELP TAB -->
-          <div class="dash-panel" id="panel-help">
-            <div class="section-head" style="margin-bottom:16px">
-              <div class="section-head-title">Driver Help</div>
-            </div>
-            <div class="info-note" style="margin-bottom:20px">Select a recent trip below to get targeted support, or browse help topics.</div>
-
-            <div class="card">
-              <div class="card-title">Get help for a specific trip</div>
-              <div class="trip-history-item" style="margin-bottom:8px" onclick="showToast('Support ticket opened for TRP-00142')">
-                <div class="trip-icon completed">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div class="trip-details">
-                  <div class="trip-route">#TRP-00142 · Eagle Island → Rumuola Rd</div>
-                  <div class="trip-meta">Today · ₦3,400</div>
-                </div>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
-              </div>
-              <div class="trip-history-item" style="margin-bottom:0" onclick="showToast('Support ticket opened for TRP-00141')">
-                <div class="trip-icon completed">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-                <div class="trip-details">
-                  <div class="trip-route">#TRP-00141 · GRA Phase 2 → Trans Amadi</div>
-                  <div class="trip-meta">Today · ₦2,100</div>
-                </div>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
-              </div>
-            </div>
-
-            <div class="section-head">
-              <div class="section-head-title">Help topics</div>
-            </div>
-            <div class="help-category" onclick="showToast('Opening: Payments & Earnings help')">
-              <div class="help-cat-icon" style="background:rgba(34,196,122,0.1);color:var(--success)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              </div>
-              <div class="help-cat-text">
-                <div class="help-cat-title">Payments & Earnings</div>
-                <div class="help-cat-sub">Payout issues, missing earnings, bank details</div>
-              </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
-            </div>
-            <div class="help-category" onclick="showToast('Opening: Trip issues help')">
-              <div class="help-cat-icon" style="background:var(--info-pale);color:var(--info)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7M9 20l6-3M9 20V7m6 13l4.553 2.276A1 1 0 0 0 21 21.382V10.618a1 1 0 0 0-.553-.894L15 7m0 13V7M9 7l6-3"/></svg>
-              </div>
-              <div class="help-cat-text">
-                <div class="help-cat-title">Trip & Delivery issues</div>
-                <div class="help-cat-sub">Wrong route, item damaged, dispute with customer</div>
-              </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
-            </div>
-            <div class="help-category" onclick="showToast('Opening: Account & documents help')">
-              <div class="help-cat-icon" style="background:var(--gold-pale);color:var(--gold-dark)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              </div>
-              <div class="help-cat-text">
-                <div class="help-cat-title">Account & Documents</div>
-                <div class="help-cat-sub">KYC update, vehicle change, profile issues</div>
-              </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
-            </div>
-            <div class="help-category" onclick="showToast('Opening: Safety & emergency help')">
-              <div class="help-cat-icon" style="background:rgba(232,72,74,0.08);color:var(--danger)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              </div>
-              <div class="help-cat-text">
-                <div class="help-cat-title">Safety & Emergency</div>
-                <div class="help-cat-sub">Report an incident, emergency support</div>
-              </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
-            </div>
-            <div class="help-category" onclick="openModal('modal-faq')">
-              <div class="help-cat-icon" style="background:rgba(100,100,100,0.1);color:var(--text-primary)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              </div>
-              <div class="help-cat-text">
-                <div class="help-cat-title">FAQs</div>
-                <div class="help-cat-sub">Frequently asked questions</div>
-              </div>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
-            </div>
-          </div>
-
           <!-- PROFILE TAB -->
           <div class="dash-panel" id="panel-profile">
             <div class="profile-header">
@@ -334,7 +245,62 @@
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
 
-            <div style="margin-top:8px">
+            <!-- Help & Support (folded in from the former Help tab) -->
+            <div class="section-head" style="margin-top:28px;margin-bottom:8px">
+              <div class="section-head-title">Help & Support</div>
+            </div>
+            <div class="help-category" onclick="showToast('Opening: Payments & Earnings help')">
+              <div class="help-cat-icon" style="background:rgba(34,196,122,0.1);color:var(--success)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </div>
+              <div class="help-cat-text">
+                <div class="help-cat-title">Payments & Earnings</div>
+                <div class="help-cat-sub">Payout issues, missing earnings, bank details</div>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+            <div class="help-category" onclick="showToast('Opening: Trip issues help')">
+              <div class="help-cat-icon" style="background:var(--info-pale);color:var(--info)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7M9 20l6-3M9 20V7m6 13l4.553 2.276A1 1 0 0 0 21 21.382V10.618a1 1 0 0 0-.553-.894L15 7m0 13V7M9 7l6-3"/></svg>
+              </div>
+              <div class="help-cat-text">
+                <div class="help-cat-title">Trip & Delivery issues</div>
+                <div class="help-cat-sub">Wrong route, item damaged, dispute with customer</div>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+            <div class="help-category" onclick="showToast('Opening: Account & documents help')">
+              <div class="help-cat-icon" style="background:var(--gold-pale);color:var(--gold-dark)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div class="help-cat-text">
+                <div class="help-cat-title">Account & Documents</div>
+                <div class="help-cat-sub">KYC update, vehicle change, profile issues</div>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+            <div class="help-category" onclick="showToast('Opening: Safety & emergency help')">
+              <div class="help-cat-icon" style="background:rgba(232,72,74,0.08);color:var(--danger)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div class="help-cat-text">
+                <div class="help-cat-title">Safety & Emergency</div>
+                <div class="help-cat-sub">Report an incident, emergency support</div>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+            <div class="help-category" onclick="openModal('modal-faq')">
+              <div class="help-cat-icon" style="background:rgba(100,100,100,0.1);color:var(--text-primary)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div class="help-cat-text">
+                <div class="help-cat-title">FAQs</div>
+                <div class="help-cat-sub">Frequently asked questions</div>
+              </div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+
+            <div style="margin-top:20px">
               <button class="global-btn ghost" style="width:100%;justify-content:center" onclick="doDriverLogout()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Log Out
@@ -493,13 +459,6 @@
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7M9 20l6-3M9 20V7m6 13l4.553 2.276A1 1 0 0 0 21 21.382V10.618a1 1 0 0 0-.553-.894L15 7m0 13V7M9 7l6-3"/></svg>
           </div>
           <span class="nav-label">Trips</span>
-        </div>
-        <div class="nav-item" id="nav-help" onclick="switchTab('help')">
-          <div class="nav-icon-wrap">
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            <div class="nav-badge">1</div>
-          </div>
-          <span class="nav-label">Help</span>
         </div>
         <div class="nav-item" id="nav-profile" onclick="switchTab('profile')">
           <div class="nav-icon-wrap">
