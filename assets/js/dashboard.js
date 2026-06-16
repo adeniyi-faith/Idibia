@@ -2200,7 +2200,7 @@ async function submitSupportTicket() {
   try {
     const json = await idibiaPost('/support-api.php', body);
     if (json.success) {
-      showToast(json.data?.message || 'Support ticket opened.');
+      showToast('Ticket submitted. Track it in My Tickets.');
       closeModal(null, 'support');
       document.getElementById('supportForm')?.reset();
     } else {
@@ -2208,6 +2208,150 @@ async function submitSupportTicket() {
     }
   } catch (e) {
     showToast('Connection error submitting support ticket.');
+  } finally {
+    btn.textContent = oldText;
+    btn.disabled = false;
+  }
+}
+
+// ═══════════ SUPPORT TICKET TRACKING ═══════════
+let _currentTicketId = null;
+
+async function openMyTickets() {
+  openModal('tickets');
+  await fetchMyTickets();
+}
+
+async function fetchMyTickets() {
+  const container = document.getElementById('tickets-list-container');
+  if (!container) return;
+  container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">Loading…</div>';
+  try {
+    const res = await fetch('/customer-tickets-api.php', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    const json = await res.json();
+    if (json.success && json.data.tickets.length > 0) {
+      container.innerHTML = json.data.tickets.map(_buildTicketCard).join('');
+    } else if (json.success) {
+      container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">No tickets yet.<br>Open a new ticket if you need help.</div>';
+    } else {
+      container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">Could not load tickets.</div>';
+    }
+  } catch (_) {
+    container.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-muted)">Connection error. Please try again.</div>';
+  }
+}
+
+function _buildTicketCard(ticket) {
+  const statusLabels = { open: 'Open', in_progress: 'In Progress', escalated: 'Escalated', resolved: 'Resolved', closed: 'Closed' };
+  const catLabels = { general: 'General', trip_issue: 'Trip Issue', billing: 'Billing', account: 'Account', emergency_safety: 'Safety' };
+  const statusLabel = statusLabels[ticket.status] || ticket.status;
+  const catLabel = catLabels[ticket.category] || ticket.category;
+  const date = new Date(ticket.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const rawMsg = ticket.last_message || '';
+  const subject = rawMsg.match(/^Subject:\s*([^\n]+)/)?.[1] || rawMsg.slice(0, 60) || 'Support Ticket';
+  const preview = rawMsg.replace(/^Subject:[^\n]*\n\n?/, '').slice(0, 80);
+
+  return `
+    <div class="ticket-card" onclick="openTicketDetail(${ticket.id})">
+      <div class="ticket-card-top">
+        <span class="ticket-card-ref">Ticket #${ticket.id}</span>
+        <span class="ticket-status ${ticket.status}">${statusLabel}</span>
+      </div>
+      <div class="ticket-card-subject">${_escHtml(subject)}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+        <span class="ticket-card-category">${catLabel}</span>
+        <span class="ticket-card-date">${date}</span>
+      </div>
+      ${preview ? `<div class="ticket-card-preview">${_escHtml(preview)}</div>` : ''}
+    </div>`;
+}
+
+function _escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function openTicketDetail(ticketId) {
+  _currentTicketId = ticketId;
+  closeModal(null, 'tickets');
+  openModal('ticket-detail');
+  document.getElementById('ticket-detail-title').textContent = `Ticket #${ticketId}`;
+  document.getElementById('ticket-detail-status').innerHTML = '';
+  document.getElementById('ticket-reply-box').style.display = 'none';
+  const container = document.getElementById('ticket-thread-container');
+  container.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted)">Loading…</div>';
+
+  try {
+    const res = await fetch(`/customer-tickets-api.php?ticket_id=${ticketId}`, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    const json = await res.json();
+    if (!json.success) {
+      container.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted)">Could not load ticket.</div>';
+      return;
+    }
+
+    const { ticket, messages } = json.data;
+    const statusLabels = { open: 'Open', in_progress: 'In Progress', escalated: 'Escalated', resolved: 'Resolved', closed: 'Closed' };
+    const catLabels = { general: 'General', trip_issue: 'Trip Issue', billing: 'Billing', account: 'Account', emergency_safety: 'Safety' };
+    document.getElementById('ticket-detail-status').innerHTML =
+      `<span class="ticket-status ${ticket.status}">${statusLabels[ticket.status] || ticket.status}</span>` +
+      `<span style="font-size:11px;color:var(--text-muted)">${catLabels[ticket.category] || ticket.category}</span>`;
+
+    if (messages.length === 0) {
+      container.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted)">No messages yet.</div>';
+    } else {
+      container.innerHTML = messages.map(m => {
+        const side = m.is_mine ? 'customer' : 'support';
+        const senderLabel = m.is_mine ? 'You' : 'Support';
+        const time = new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        const text = _escHtml(m.message).replace(/\n/g, '<br>');
+        return `
+          <div class="ticket-bubble-wrap ${side}">
+            <div class="ticket-bubble">${text}</div>
+            <div class="ticket-bubble-meta">${senderLabel} · ${time}</div>
+          </div>`;
+      }).join('');
+      container.scrollTop = container.scrollHeight;
+    }
+
+    if (!['closed', 'resolved'].includes(ticket.status)) {
+      document.getElementById('ticket-reply-box').style.display = 'block';
+    }
+  } catch (_) {
+    container.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted)">Connection error.</div>';
+  }
+}
+
+async function submitTicketReply() {
+  if (!_currentTicketId) return;
+  const input = document.getElementById('ticket-reply-input');
+  const message = input?.value?.trim();
+  if (!message) { showToast('Write a message first.'); return; }
+
+  const btn = document.getElementById('btnSendReply');
+  const oldText = btn.textContent;
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+
+  const body = new FormData();
+  body.append('action', 'add_message');
+  body.append('ticket_id', _currentTicketId);
+  body.append('message', message);
+
+  try {
+    const json = await idibiaPost('/support-api.php', body);
+    if (json.success) {
+      input.value = '';
+      await openTicketDetail(_currentTicketId);
+    } else {
+      showToast(json.data?.message || 'Could not send reply.');
+    }
+  } catch (_) {
+    showToast('Connection error.');
   } finally {
     btn.textContent = oldText;
     btn.disabled = false;

@@ -90,6 +90,8 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <?php require_once __DIR__ . '/components/customer/modal-logout.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-sos.php'; ?>
 <?php require_once __DIR__ . '/components/customer/modal-profile.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-tickets.php'; ?>
+<?php require_once __DIR__ . '/components/customer/modal-ticket-detail.php'; ?>
 
 </div>
 
