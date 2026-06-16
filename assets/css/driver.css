@@ -460,7 +460,8 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 .pending-step-text strong { color: var(--text-primary); display: block; font-size: 14px; }
 
 /* ===== DRIVER DASHBOARD ===== */
-#screen-driver-dash { background: var(--surface); }
+#screen-driver-dash { background: transparent; }
+#screen-driver-dash.tab-home { background: transparent !important; }
 
 /* Dashboard sidebar (desktop) */
 .dash-sidebar {
@@ -1068,18 +1069,25 @@ svg { display: block; }
 .stat-chip-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
 
 /* ═══════════════════════ MAP-FIRST HOME ═══════════════════════ */
-/* On the Home tab the content area stops scrolling/padding so the map can
-   own the full surface. Every layer between the map and the screen must be
-   transparent, otherwise a solid background paints over the map tiles. */
+/* Every layer between the screen and the map must be transparent so the map
+   tiles are never obscured by a solid background. Heights must propagate
+   explicitly all the way down so position:absolute children have a real
+   coordinate system to anchor into. */
+#screen-driver-dash.tab-home .dash-main {
+  background: transparent !important;
+}
 #screen-driver-dash.tab-home .dash-content-scroll {
   overflow: hidden;
-  background: transparent;
+  background: transparent !important;
+  height: 100%;
 }
 #screen-driver-dash.tab-home .driver-dash-body {
   padding: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  background: transparent;
+  background: transparent !important;
+  height: 100%;
 }
 .dash-panel.map-home { background: transparent; }
 .dash-panel.map-home.active {
@@ -1091,44 +1099,48 @@ svg { display: block; }
   background: transparent;
 }
 
-/* Full-bleed live map — the primary surface. Strict full size + absolute
-   inset so the container can never collapse to zero height (which is what
-   hides the Leaflet tiles), and z-index:0 so it sits behind every overlay. */
+/* ── Full-bleed live map (primary surface) ──────────────────────────────── */
+/* Uses 100vw/100vh so the map always fills the viewport regardless of whether
+   the parent flex chain has fully resolved its heights. z-index:0 keeps it
+   behind every overlay. */
 .driver-map-fullscreen {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   z-index: 0;
   background: #e8edf3;
 }
-.driver-map-fullscreen .leaflet-container { width: 100%; height: 100%; background: #e8edf3; }
+.driver-map-fullscreen .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: #e8edf3;
+}
 
-/* ── Floating identity header (avatar · greeting · online toggle) ───────── */
+/* ── Floating identity header: avatar · greeting · online toggle ────────── */
 .map-top-overlay {
   position: absolute;
-  top: max(14px, env(safe-area-inset-top, 14px));
-  left: 14px;
-  right: 14px;
+  top: max(15px, env(safe-area-inset-top, 15px));
+  left: 15px;
+  right: 15px;
   z-index: 20;
-  display: flex;
+  display: flex !important;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 12px 10px 12px;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.6);
-  border-radius: 18px;
-  box-shadow: 0 8px 28px rgba(11,22,40,0.16);
+  padding: 15px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
 }
+/* Left side: avatar + greeting/name */
 .driver-id-left {
   display: flex;
   align-items: center;
   gap: 10px;
   min-width: 0;
+  flex: 1;
 }
 .driver-id-avatar {
   width: 40px;
@@ -1144,9 +1156,11 @@ svg { display: block; }
 }
 .driver-id-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .driver-id-avatar span {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%; height: 100%;
+  width: 100%;
+  height: 100%;
   color: #fff;
   font-family: 'Syne', sans-serif;
   font-size: 15px;
@@ -1170,7 +1184,9 @@ svg { display: block; }
   text-overflow: ellipsis;
 }
 
-/* ── Online / Offline toggle switch (iOS / Material style) ──────────────── */
+/* ── Online / Offline toggle switch (iOS-style) ─────────────────────────── */
+/* Implemented as a <button> + <span> so JavaScript can toggle the .online
+   class directly without needing a checkbox. */
 .online-switch-wrap {
   display: flex;
   align-items: center;
@@ -1185,7 +1201,10 @@ svg { display: block; }
   color: var(--text-muted);
   transition: color 0.25s ease;
 }
-.online-switch-wrap:has(.online-switch.online) .online-switch-label { color: var(--success); }
+.online-switch-wrap:has(.online-switch.online) .online-switch-label {
+  color: var(--success);
+}
+/* The button itself is the track */
 .online-switch {
   position: relative;
   width: 50px;
@@ -1193,32 +1212,76 @@ svg { display: block; }
   flex-shrink: 0;
   padding: 0;
   border: none;
-  border-radius: 28px;
-  background: var(--surface-2);
+  border-radius: 34px;
+  background: #cccccc;
   cursor: pointer;
   transition: background 0.25s ease;
   -webkit-tap-highlight-color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
 }
+/* The sliding white thumb */
 .online-switch-thumb {
   position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(11,22,40,0.3);
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(11,22,40,0.35);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+/* Checked / online state */
+.online-switch.online {
+  background: var(--success);
+}
+.online-switch.online .online-switch-thumb {
+  transform: translateX(22px);
+}
+/* Also support a plain <label><input type="checkbox" class="toggle-switch"> pattern */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  border-radius: 34px;
+  background: #cccccc;
+  cursor: pointer;
+  transition: background 0.25s ease;
+  outline: none;
+  vertical-align: middle;
+}
+.toggle-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.online-switch.online { background: var(--success); }
-.online-switch.online .online-switch-thumb { transform: translateX(22px); }
+.toggle-switch:checked {
+  background: var(--success);
+}
+.toggle-switch:checked::before {
+  transform: translateX(22px);
+}
 
-/* ── Dispatch overlay: compact floating cards under the header ──────────── */
+/* ── Dispatch overlay ────────────────────────────────────────────────────── */
 .map-offer-overlay {
   position: absolute;
-  left: 14px;
-  right: 14px;
-  top: calc(max(14px, env(safe-area-inset-top, 14px)) + 72px);
+  left: 10%;
+  right: 10%;
+  top: calc(max(15px, env(safe-area-inset-top, 15px)) + 76px);
   z-index: 15;
   display: flex;
   flex-direction: column;
@@ -1231,33 +1294,46 @@ svg { display: block; }
 .map-offer-overlay::-webkit-scrollbar { display: none; }
 .map-offer-overlay > * { pointer-events: auto; }
 
-/* Compact idle ("no live requests") chip — no longer dominates the map */
+/* Black dispatch chip */
 .dispatch-idle {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 16px;
-  box-shadow: 0 6px 22px rgba(11,22,40,0.12);
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 15px;
+  background: #000000;
+  color: #ffffff;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
 }
 .dispatch-idle-dot {
-  width: 10px; height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--success);
-  box-shadow: 0 0 0 4px rgba(34,196,122,0.18);
+  box-shadow: 0 0 0 3px rgba(34,196,122,0.3);
   animation: pulse-dot 2s ease-in-out infinite;
 }
 @keyframes pulse-dot {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(34,196,122,0.22); }
-  50%      { box-shadow: 0 0 0 7px rgba(34,196,122,0); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(34,196,122,0.3); }
+  50%      { box-shadow: 0 0 0 6px rgba(34,196,122,0); }
 }
-.dispatch-idle-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; }
-.dispatch-idle-text strong { font-size: 14px; font-weight: 700; color: var(--text-primary); }
-.dispatch-idle-text span { font-size: 12px; color: var(--text-muted); }
+.dispatch-idle-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.dispatch-idle-text strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.dispatch-idle-text span {
+  font-size: 12px;
+  color: rgba(255,255,255,0.75);
+}
 
 /* Live offer cards stay rich but float compactly inside the scroll overlay */
 .map-offer-overlay .trip-request-card { margin-bottom: 0; }
