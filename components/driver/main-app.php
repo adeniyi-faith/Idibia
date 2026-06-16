@@ -30,31 +30,33 @@
             <!-- Full-bleed live map (primary surface) -->
             <div id="driver-map-container" class="driver-map-fullscreen"></div>
 
-            <!-- Top overlay: identity + online toggle -->
+            <!-- Floating identity header: avatar · greeting · online toggle -->
             <div class="map-top-overlay">
-              <div class="dash-top-left">
-                <img class="dash-avatar-img" src="" alt="Profile" id="dashHomeAvatar" style="display:none; object-fit: cover;">
-                <div class="dash-avatar-img" id="dashHomeAvatarInitials" style="display:none; align-items:center; justify-content:center; background:rgba(255,255,255,0.2); color:white; font-size:16px; font-weight:600;"></div>
-                <div>
+              <div class="driver-id-left">
+                <div class="driver-id-avatar">
+                  <img src="" alt="Profile" id="dashHomeAvatar" style="display:none;">
+                  <span id="dashHomeAvatarInitials" style="display:none;"></span>
+                </div>
+                <div class="driver-id-text">
                   <div class="dash-greeting" id="dashGreeting">Good afternoon,</div>
-                  <div class="dash-name"><span id="dashHomeName"><?php echo esc_html($driver_row['full_name'] ?? 'Loading...'); ?></span> 👋</div>
+                  <div class="dash-name" id="dashHomeName"><?php echo esc_html($driver_row['full_name'] ?? 'Loading...'); ?></div>
                 </div>
               </div>
-              <div class="online-pill online" id="onlineToggle" onclick="toggleOnline()">
-                <span class="online-status-dot"></span>
-                <span id="onlineLabel">Online</span>
+              <div class="online-switch-wrap">
+                <span class="online-switch-label" id="onlineLabel">Offline</span>
+                <button type="button" class="online-switch" id="onlineToggle" role="switch" aria-checked="false" aria-label="Toggle online status" onclick="toggleOnline()">
+                  <span class="online-switch-thumb"></span>
+                </button>
               </div>
             </div>
 
             <!-- Incoming request overlay -->
             <div id="driverOfferContainer" class="map-offer-overlay">
-              <div class="trip-request-card" id="driverNoOfferCard">
-                <div class="trq-header">
-                  <div class="trq-tag">Dispatch</div>
-                </div>
-                <div class="trq-fee">No live requests <span>· stay online</span></div>
-                <div class="trq-meta">
-                  <div class="trq-meta-chip">Waiting for nearby bookings</div>
+              <div class="dispatch-idle" id="driverNoOfferCard">
+                <span class="dispatch-idle-dot"></span>
+                <div class="dispatch-idle-text">
+                  <strong>No live requests</strong>
+                  <span>Waiting for nearby bookings · stay online</span>
                 </div>
               </div>
             </div>
