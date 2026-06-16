@@ -474,7 +474,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   gap: 8px;
   border-right: 1px solid rgba(255,255,255,0.06);
   position: relative;
-  z-index: 2;
+  z-index: 5;
 }
 @media (min-width: 768px) {
   .dash-sidebar { display: flex; }
@@ -541,7 +541,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   justify-content: space-around;
   box-shadow: 0 -4px 20px rgba(11,22,40,0.1);
   flex-shrink: 0;
-  z-index: 10;
+  z-index: 100;
 }
 @media (min-width: 768px) {
   .bottom-nav { display: none; }
@@ -1069,46 +1069,41 @@ svg { display: block; }
 .stat-chip-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
 
 /* ═══════════════════════ MAP-FIRST HOME ═══════════════════════ */
-/* Every layer between the screen and the map must be transparent so the map
-   tiles are never obscured by a solid background. Heights must propagate
-   explicitly all the way down so position:absolute children have a real
-   coordinate system to anchor into. */
-#screen-driver-dash.tab-home .dash-main {
-  background: transparent !important;
-}
-#screen-driver-dash.tab-home .dash-content-scroll {
-  overflow: hidden;
-  background: transparent !important;
-  height: 100%;
-}
-#screen-driver-dash.tab-home .driver-dash-body {
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: transparent !important;
-  height: 100%;
-}
-.dash-panel.map-home { background: transparent; }
+/*
+ * Architecture: .dash-panel.map-home.active uses position:absolute; inset:0,
+ * anchoring directly to #screen-driver-dash (position:absolute; inset:0).
+ * This escapes the entire flex / overflow / height chain in one shot.
+ * No height:100% propagation needed. No tab-home class dependency.
+ *
+ * z-index layering inside #screen-driver-dash's stacking context:
+ *   2  = map home panel  (base layer)
+ *   5  = desktop sidebar (above map panel)
+ *  18  = bottom sheet   (above map tiles)
+ *  20  = header overlay  (top of UI)
+ * 100  = bottom nav      (always on top)
+ * 200+ = modals
+ */
+
+/* Home panel fills the entire screen area */
 .dash-panel.map-home.active {
-  display: block;
-  flex: 1 1 auto;
-  position: relative;
-  min-height: 0;
-  height: 100%;
-  background: transparent;
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
 }
 
-/* ── Full-bleed live map (primary surface) ──────────────────────────────── */
-/* Uses 100vw/100vh so the map always fills the viewport regardless of whether
-   the parent flex chain has fully resolved its heights. z-index:0 keeps it
-   behind every overlay. */
+/* On desktop: leave room for the 72px sidebar */
+@media (min-width: 768px) {
+  .dash-panel.map-home.active {
+    left: 72px;
+  }
+}
+
+/* ── Leaflet map fills the panel (no 100vw/100vh hacks needed) ─────────── */
 .driver-map-fullscreen {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
   z-index: 0;
   background: #e8edf3;
 }
@@ -1118,23 +1113,22 @@ svg { display: block; }
   background: #e8edf3;
 }
 
-/* ── Floating identity header: avatar · greeting · online toggle ────────── */
+/* ── Identity header card (avatar · greeting · online toggle) ───────────── */
 .map-top-overlay {
   position: absolute;
-  top: max(15px, env(safe-area-inset-top, 15px));
-  left: 15px;
-  right: 15px;
+  top: max(16px, env(safe-area-inset-top, 16px));
+  left: 16px;
+  right: 16px;
   z-index: 20;
-  display: flex !important;
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 15px;
+  padding: 14px 16px;
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(11,22,40,0.14), 0 1px 4px rgba(11,22,40,0.06);
 }
-/* Left side: avatar + greeting/name */
 .driver-id-left {
   display: flex;
   align-items: center;
@@ -1184,9 +1178,7 @@ svg { display: block; }
   text-overflow: ellipsis;
 }
 
-/* ── Online / Offline toggle switch (iOS-style) ─────────────────────────── */
-/* Implemented as a <button> + <span> so JavaScript can toggle the .online
-   class directly without needing a checkbox. */
+/* ── iOS-style online / offline toggle ─────────────────────────────────── */
 .online-switch-wrap {
   display: flex;
   align-items: center;
@@ -1199,18 +1191,21 @@ svg { display: block; }
   letter-spacing: 0.3px;
   font-family: 'Syne', sans-serif;
   color: var(--text-muted);
+  white-space: nowrap;
   transition: color 0.25s ease;
 }
 .online-switch-wrap:has(.online-switch.online) .online-switch-label {
   color: var(--success);
 }
-/* The button itself is the track */
+/* Button = the pill track */
 .online-switch {
   position: relative;
+  display: block;
   width: 50px;
   height: 28px;
   flex-shrink: 0;
   padding: 0;
+  margin: 0;
   border: none;
   border-radius: 34px;
   background: #cccccc;
@@ -1221,9 +1216,10 @@ svg { display: block; }
   appearance: none;
   outline: none;
 }
-/* The sliding white thumb */
+/* Span = the white sliding thumb */
 .online-switch-thumb {
   position: absolute;
+  display: block;
   top: 2px;
   left: 2px;
   width: 24px;
@@ -1234,78 +1230,44 @@ svg { display: block; }
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
-/* Checked / online state */
-.online-switch.online {
-  background: var(--success);
-}
-.online-switch.online .online-switch-thumb {
-  transform: translateX(22px);
-}
-/* Also support a plain <label><input type="checkbox" class="toggle-switch"> pattern */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 50px;
-  height: 28px;
-  -webkit-appearance: none;
-  appearance: none;
-  border: none;
-  border-radius: 34px;
-  background: #cccccc;
-  cursor: pointer;
-  transition: background 0.25s ease;
-  outline: none;
-  vertical-align: middle;
-}
-.toggle-switch::before {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.toggle-switch:checked {
-  background: var(--success);
-}
-.toggle-switch:checked::before {
-  transform: translateX(22px);
-}
+/* Online (active) state */
+.online-switch.online { background: var(--success); }
+.online-switch.online .online-switch-thumb { transform: translateX(22px); }
 
-/* ── Dispatch overlay ────────────────────────────────────────────────────── */
+/* ── Dispatch / incoming-request overlay ────────────────────────────────── */
 .map-offer-overlay {
   position: absolute;
-  left: 10%;
-  right: 10%;
-  top: calc(max(15px, env(safe-area-inset-top, 15px)) + 76px);
+  left: 0;
+  right: 0;
+  top: calc(max(16px, env(safe-area-inset-top, 16px)) + 80px);
+  padding: 0 16px;
   z-index: 15;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 10px;
-  max-height: 52%;
+  max-height: 50%;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   pointer-events: none;
 }
 .map-offer-overlay::-webkit-scrollbar { display: none; }
-.map-offer-overlay > * { pointer-events: auto; }
+.map-offer-overlay > * { pointer-events: auto; width: 100%; }
 
-/* Black dispatch chip */
+/* Black pill — idle / no-requests chip */
 .dispatch-idle {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 10px 15px;
-  background: #000000;
+  padding: 10px 18px;
+  background: #0B1628;
   color: #ffffff;
-  border-radius: 20px;
-  text-align: center;
+  border-radius: 24px;
   box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  align-self: center;
+  width: auto !important;
+  max-width: 82%;
 }
 .dispatch-idle-dot {
   width: 8px;
@@ -1318,28 +1280,21 @@ svg { display: block; }
 }
 @keyframes pulse-dot {
   0%, 100% { box-shadow: 0 0 0 3px rgba(34,196,122,0.3); }
-  50%      { box-shadow: 0 0 0 6px rgba(34,196,122,0); }
+  50%       { box-shadow: 0 0 0 6px rgba(34,196,122,0); }
 }
 .dispatch-idle-text {
   display: flex;
   flex-direction: column;
   line-height: 1.35;
 }
-.dispatch-idle-text strong {
-  font-size: 14px;
-  font-weight: 700;
-  color: #ffffff;
-}
-.dispatch-idle-text span {
-  font-size: 12px;
-  color: rgba(255,255,255,0.75);
-}
+.dispatch-idle-text strong { font-size: 13px; font-weight: 700; color: #ffffff; }
+.dispatch-idle-text span   { font-size: 11px; color: rgba(255,255,255,0.72); }
 
-/* Live offer cards stay rich but float compactly inside the scroll overlay */
+/* Live trip-request cards float inside the scroll overlay */
 .map-offer-overlay .trip-request-card { margin-bottom: 0; }
 .map-offer-overlay .trq-fee { font-size: 28px; margin-bottom: 14px; }
 
-/* ── Today's snapshot bottom sheet (peek / expand) ──────────────────────── */
+/* ── Today's snapshot bottom sheet (peeked / fully expanded) ────────────── */
 .map-bottom-sheet {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -1366,7 +1321,7 @@ svg { display: block; }
 .sheet-campaigns { margin-top: 14px; }
 .sheet-campaigns:empty { display: none; }
 
-/* Section header */
+/* Section header (shared across panels) */
 .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .section-head-title { font-size: 16px; font-weight: 700; color: var(--text-primary); font-family: 'Syne', sans-serif; }
 .section-head-link { font-size: 13px; color: var(--gold-dark); font-weight: 600; cursor: pointer; }
