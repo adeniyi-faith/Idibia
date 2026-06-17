@@ -650,17 +650,6 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   padding: 5px 12px;
   border-radius: 20px;
 }
-.trq-timer-wrap { display: flex; align-items: center; gap: 6px; }
-.trq-timer {
-  font-family: 'Syne', sans-serif;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--white);
-  min-width: 28px;
-  text-align: right;
-}
-.trq-timer.urgent { color: var(--danger); animation: blink 0.8s ease-in-out infinite; }
-.trq-timer-label { font-size: 11px; color: var(--slate-light); }
 .trq-fee {
   font-family: 'Syne', sans-serif;
   font-size: 34px;
@@ -1327,6 +1316,26 @@ svg { display: block; }
 /* Live offer cards stay rich but float compactly inside the scroll overlay */
 .map-offer-overlay .trip-request-card { margin-bottom: 0; }
 .map-offer-overlay .trq-fee { font-size: 28px; margin-bottom: 14px; }
+
+/* Mobile: tighten the offer overlay and card */
+@media (max-width: 480px) {
+  .map-offer-overlay {
+    left: 8px;
+    right: 8px;
+    max-height: 60%;
+  }
+  .trip-request-card { padding: 14px; }
+  .map-offer-overlay .trq-fee { font-size: 24px; margin-bottom: 10px; }
+  .trq-fee { font-size: 28px; }
+  .trq-meta { flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .trq-meta-chip { font-size: 11px; padding: 4px 10px; }
+  .trq-route { padding: 12px; margin-bottom: 12px; }
+  .trq-point-addr { font-size: 13px; }
+  .trq-actions { gap: 8px; }
+  .trq-decline { flex: 0 0 44px; height: 44px; font-size: 13px; }
+  .trq-accept { height: 44px; font-size: 14px; }
+  .trq-header { margin-bottom: 12px; }
+}
 
 /* ── Today's snapshot bottom sheet (peek / expand) ──────────────────────── */
 .map-bottom-sheet {
