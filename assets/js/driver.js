@@ -1230,8 +1230,7 @@ function initLeafletMap(containerId, lat, lng) {
   currentMarker = L.marker([lat, lng], { icon }).addTo(currentMap);
 
   keepMapSized(currentMap);
-  setTimeout(() => currentMap && currentMap.invalidateSize(), 150);
-  setTimeout(() => currentMap && currentMap.invalidateSize(), 700);
+  [100, 500, 1500, 2500].forEach(ms => setTimeout(() => currentMap && currentMap.invalidateSize(), ms));
 }
 
 // Mount the dashboard map once the dashboard is visible. Defaults to Lagos and

@@ -460,6 +460,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 .pending-step-text strong { color: var(--text-primary); display: block; font-size: 14px; }
 
 /* ===== DRIVER DASHBOARD ===== */
+.kyc-file-input { display: none; }
 #screen-driver-dash { background: transparent; }
 #screen-driver-dash.tab-home { background: transparent !important; }
 
@@ -512,6 +513,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  background: var(--surface);
 }
 .dash-content-scroll::-webkit-scrollbar { display: none; }
 #screen-driver-dash.tab-home .dash-content-scroll { display: none; }
