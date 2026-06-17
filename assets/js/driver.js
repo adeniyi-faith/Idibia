@@ -476,6 +476,10 @@ function goToDashboard() {
   }
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
+  // Re-render the overlay from the (now-hydrated) context. On the SPA login path
+  // the dashboard becomes visible without a page reload, so the server-rendered
+  // overlay still holds pre-login (empty) values until we repaint it here.
+  renderDriverProfile();
   subscribeToDriverRealtime();
   setTimeout(ensureDriverMap, 500);
 }
@@ -1230,7 +1234,19 @@ function initLeafletMap(containerId, lat, lng) {
   currentMarker = L.marker([lat, lng], { icon }).addTo(currentMap);
 
   keepMapSized(currentMap);
-  [100, 500, 1500, 2500].forEach(ms => setTimeout(() => currentMap && currentMap.invalidateSize(), ms));
+
+  // Cold (hard-reload) loads initialise Leaflet while the absolutely-positioned,
+  // flex + --app-height-derived container height is still settling, so Leaflet
+  // caches a collapsed size and paints only its grey background. Re-measure on
+  // the layout milestones that actually coincide with the container reaching its
+  // final size: the next paint frame, full document load (fonts/CSS done), and
+  // the screen's reveal transition — in addition to the staggered fallbacks.
+  const invalidate = () => currentMap && currentMap.invalidateSize({ animate: false });
+  requestAnimationFrame(() => requestAnimationFrame(invalidate));
+  if (document.readyState !== 'complete') window.addEventListener('load', invalidate, { once: true });
+  const screen = document.getElementById('screen-driver-dash');
+  if (screen) screen.addEventListener('transitionend', invalidate, { once: true });
+  [100, 500, 1500, 2500].forEach(ms => setTimeout(invalidate, ms));
 }
 
 // Mount the dashboard map once the dashboard is visible. Defaults to Lagos and
