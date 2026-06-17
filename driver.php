@@ -131,8 +131,8 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <title>Idibia – Driver App</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/driver.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<link rel="stylesheet" href="assets/css/driver.css?v=<?php echo time(); ?>">
 </head>
 <body>
 <div id="app">
@@ -159,7 +159,7 @@ window.driverInitialContext = <?php echo wp_json_encode( $driver_initial_context
 window.idibiaLogoutUrl = '/';
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<script src="assets/js/driver.js"></script>
+<script src="assets/js/driver.js?v=<?php echo time(); ?>"></script>
 
 </body>
 </html>
