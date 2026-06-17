@@ -47,9 +47,12 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
             wp_send_json_error( [ 'message' => 'Could not create upload directory.' ] );
         }
 
-        // Ensure images are served directly. Always overwrite to fix any bad .htaccess.
+        // Write an empty .htaccess to clear any previously-written bad content.
+        // "Options -Indexes" requires AllowOverride Options, which many servers deny,
+        // causing a 500 for every file in the directory. WordPress rewrites already
+        // serve existing static files directly, so no directive is needed here.
         $htaccess = trailingslashit( $upload['basedir'] ) . 'idibia-avatars/.htaccess';
-        file_put_contents( $htaccess, "Options -Indexes\n" );
+        file_put_contents( $htaccess, "" );
 
         $original = sanitize_file_name( wp_unslash( $file['name'] ) );
         $filename = wp_unique_filename( $target_dir, 'avatar-' . $original );
