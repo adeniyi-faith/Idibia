@@ -1235,36 +1235,28 @@ function initLeafletMap(containerId, lat, lng) {
 
   keepMapSized(currentMap);
 
-  // Cold (hard-reload) loads initialise Leaflet while the absolutely-positioned,
-  // flex + --app-height-derived container height is still settling, so Leaflet
-  // caches a collapsed size and paints only its grey background. Re-measure on
-  // the layout milestones that actually coincide with the container reaching its
-  // final size: the next paint frame, full document load (fonts/CSS done), and
-  // the screen's reveal transition — in addition to the staggered fallbacks.
+  // Leaflet may be initialised before the flex container reaches its final size
+  // (especially on hard reload where CSS layout settles after the first paint).
+  // Re-measure on several milestones so tiles always fill the map viewport.
   const invalidate = () => currentMap && currentMap.invalidateSize({ animate: false });
   requestAnimationFrame(() => requestAnimationFrame(invalidate));
   if (document.readyState !== 'complete') window.addEventListener('load', invalidate, { once: true });
-  const screen = document.getElementById('screen-driver-dash');
-  if (screen) screen.addEventListener('transitionend', invalidate, { once: true });
-  [100, 500, 1500, 2500].forEach(ms => setTimeout(invalidate, ms));
+  [50, 200, 500, 1000, 2000, 3500].forEach(ms => setTimeout(invalidate, ms));
 }
 
 // Mount the dashboard map once the dashboard is visible. Defaults to Lagos and
 // re-centres on the driver's real GPS position once geolocation reports it.
-// Retries if Leaflet hasn't loaded yet or if the container has zero dimensions
-// (which happens when the panel is mid-transition or not yet laid out).
+// Retries only until Leaflet is available — the dimension check was removed
+// because flex layout may not have settled yet, and Leaflet initialises fine
+// on a zero-size container; keepMapSized() + invalidateSize() handle the rest.
 function ensureDriverMap(_retries = 8) {
   if (currentMap) {
-    currentMap.invalidateSize();
+    currentMap.invalidateSize({ animate: false });
     return;
   }
   const el = document.getElementById('driver-map-container');
   if (!el || !window.L) {
-    if (_retries > 0) setTimeout(() => ensureDriverMap(_retries - 1), 500);
-    return;
-  }
-  if (!el.offsetWidth || !el.offsetHeight) {
-    if (_retries > 0) setTimeout(() => ensureDriverMap(_retries - 1), 200);
+    if (_retries > 0) setTimeout(() => ensureDriverMap(_retries - 1), 300);
     return;
   }
   const lat = latestDriverCoords?.latitude ?? 6.5244;
