@@ -7,7 +7,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
       <h2>Trip Completed! 🎉</h2>
-      <p>Package safely delivered to D-Line, Rumuola Rd.</p>
+      <p>Package safely delivered to your destination.</p>
     </div>
     <!-- Receipt -->
     <div class="receipt-box">

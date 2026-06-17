@@ -1260,7 +1260,7 @@ svg { display: block; }
   left: 10%;
   right: 10%;
   top: calc(max(15px, env(safe-area-inset-top, 15px)) + 76px);
-  z-index: 15;
+  z-index: 20;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1322,7 +1322,8 @@ svg { display: block; }
   .map-offer-overlay {
     left: 8px;
     right: 8px;
-    max-height: 60%;
+    bottom: 8px;
+    max-height: calc(100% - 100px);
   }
   .trip-request-card { padding: 14px; }
   .map-offer-overlay .trq-fee { font-size: 24px; margin-bottom: 10px; }

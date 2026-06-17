@@ -56,6 +56,12 @@ $customer_id = idibia_find_or_create_profile_row( get_current_user_id(), 'custom
 $customer    = $wpdb->get_row( $wpdb->prepare( "SELECT rating FROM `{$wpdb->prefix}sd_customers` WHERE id = %d LIMIT 1", $customer_id ), ARRAY_A );
 $customer_rating = !empty($customer['rating']) && (float)$customer['rating'] > 0 ? number_format((float)$customer['rating'], 1) : '5.0';
 
+$active_trip_row = $wpdb->get_row( $wpdb->prepare(
+    "SELECT id FROM `{$wpdb->prefix}sd_trips` WHERE customer_id = %d AND status NOT IN ('completed','cancelled') ORDER BY created_at DESC LIMIT 1",
+    $customer_id
+), ARRAY_A );
+$active_trip_id = $active_trip_row ? (int) $active_trip_row['id'] : null;
+
 if ( ob_get_level() > 0 ) ob_end_flush();
 ?>
 <!DOCTYPE html>
@@ -104,6 +110,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <script>
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ); ?>;
 window.idibiaLogoutUrl = '/';
+window.idibiaActiveTrip = <?php echo $active_trip_id ? (int) $active_trip_id : 'null'; ?>;
 window.idibiaCustomerRating = '<?php echo esc_js( $customer_rating ); ?>';
 window.idibiaCustomerAvatar = '<?php echo esc_js( $customer_avatar_path ); ?>';
 window.idibiaUploadBaseUrl = '<?php echo esc_url( $upload_baseurl ); ?>';
