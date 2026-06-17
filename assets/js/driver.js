@@ -1214,14 +1214,22 @@ function keepMapSized(map) {
   ro.observe(el);
 }
 
-function initLeafletMap(containerId, lat, lng) {
+function initLeafletMap(containerId, lat, lng, _retries = 6) {
   if (currentMap) {
     currentMap.remove();
     currentMap = null;
   }
 
   const el = document.getElementById(containerId);
-  if (!el || !window.L) return;
+  if (!el) return;
+  if (!window.L) {
+    if (_retries > 0) setTimeout(() => initLeafletMap(containerId, lat, lng, _retries - 1), 800);
+    return;
+  }
+  if (!el.offsetWidth || !el.offsetHeight) {
+    if (_retries > 0) setTimeout(() => initLeafletMap(containerId, lat, lng, _retries - 1), 200);
+    return;
+  }
 
   currentMap = L.map(containerId, { zoomControl: false }).setView([lat, lng], 14);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -1246,9 +1254,6 @@ function initLeafletMap(containerId, lat, lng) {
 
 // Mount the dashboard map once the dashboard is visible. Defaults to Lagos and
 // re-centres on the driver's real GPS position once geolocation reports it.
-// Retries only until Leaflet is available — the dimension check was removed
-// because flex layout may not have settled yet, and Leaflet initialises fine
-// on a zero-size container; keepMapSized() + invalidateSize() handle the rest.
 function ensureDriverMap(_retries = 8) {
   if (currentMap) {
     currentMap.invalidateSize({ animate: false });
