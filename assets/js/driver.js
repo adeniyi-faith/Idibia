@@ -104,7 +104,7 @@ async function driverLogin() {
     const json = await driverAuthPost('driver-login-handler.php', body);
     if (json.success) {
       Object.assign(driverInitialContext, json.data || {}, { logged_in: true });
-      if (!driverInitialContext.email_verified) {
+      if (!driverInitialContext.email_verified && !driverInitialContext.is_approved) {
         driverAuthenticated = false;
         driverAwaitingEmailVerification = true;
         const help = document.getElementById('driverEmailVerifyHelp');
@@ -1226,11 +1226,12 @@ function initLeafletMap(containerId, lat, lng, _retries = 6) {
     if (_retries > 0) setTimeout(() => initLeafletMap(containerId, lat, lng, _retries - 1), 800);
     return;
   }
-  if (!el.offsetWidth || !el.offsetHeight) {
-    if (_retries > 0) setTimeout(() => initLeafletMap(containerId, lat, lng, _retries - 1), 200);
-    return;
-  }
 
+  // No zero-dimension guard here: the driver map container uses position:absolute
+  // inside a flex chain whose height may not have settled when this runs, so
+  // offsetHeight returns 0 even though the element is correctly sized once paint
+  // occurs. Leaflet initialises fine on a zero-size container; keepMapSized() +
+  // the staggered invalidateSize() calls below guarantee tiles fill the viewport.
   currentMap = L.map(containerId, { zoomControl: false }).setView([lat, lng], 14);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
