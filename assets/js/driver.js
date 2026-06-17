@@ -605,7 +605,6 @@ function renderDriverOffers(offers, activeTrip = null) {
     <div class="trip-request-card" data-offer-id="${offer.offer_id}">
       <div class="trq-header">
         <div class="trq-tag">New Request</div>
-        <div class="trq-timer-wrap"><div class="trq-timer">${Math.max(0, offer.expires_in || 0)}</div><div class="trq-timer-label">sec</div></div>
       </div>
       <div class="trq-fee">₦${Number(offer.fare || 0).toLocaleString()} <span>· ${Number(offer.pickup_distance_km || offer.distance_km || 0).toFixed(1)} km away</span></div>
       <div class="trq-meta">
@@ -1055,17 +1054,6 @@ function togglePasswordVisibility(inputId, btn) {
   }
 }
 
-// Timer countdown
-let trqCount = 14;
-setInterval(() => {
-  trqCount--;
-  if (trqCount <= 0) trqCount = 14;
-  const el = document.getElementById('trqTimer');
-  if (el) {
-    el.textContent = trqCount;
-    el.classList.toggle('urgent', trqCount <= 5);
-  }
-}, 1000);
 
 // Dynamic greeting
 function setGreeting() {

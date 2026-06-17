@@ -15,7 +15,7 @@ function idibia_dispatch_now(): string {
     return current_time( 'mysql', true );
 }
 
-function idibia_dispatch_expiry( int $seconds = 60 ): string {
+function idibia_dispatch_expiry( int $seconds = 86400 ): string {
     return gmdate( 'Y-m-d H:i:s', time() + $seconds );
 }
 
