@@ -117,6 +117,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initPhotonAutocomplete('dropoffInput', 'dropoffSuggestions', c => { dropoffCoords = c; });
   fetchSavedAddresses(); // load saved places so they're available in the inputs on first paint
   setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 500);
+  // Auto-resume tracking if the customer has an active trip (handles page refresh mid-trip).
+  if (window.idibiaActiveTrip) {
+    setTimeout(() => startLiveTracking(window.idibiaActiveTrip), 400);
+  }
   // Trip progress is driven by trip-feed-api.php and driver actions; no demo countdown runs in production.
 });
 
@@ -953,7 +957,8 @@ function showPostTripModal(trip) {
 
   // Delivery address in header
   const headerP = document.querySelector('#modal-post-trip .modal-header p');
-  if (headerP && trip.dropoff_address) headerP.textContent = `Package safely delivered to ${trip.dropoff_address}`;
+  const dropoffText = trip.dropoff || trip.dropoff_address;
+  if (headerP && dropoffText) headerP.textContent = `Package safely delivered to ${dropoffText}`;
 
   // Driver name in rating prompt
   const ratingPrompt = document.querySelector('#modal-post-trip [style*="font-weight:600"]');
