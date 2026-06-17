@@ -1125,7 +1125,6 @@ if (driverInitialContext.logged_in) {
     updateDriver();
   } else {
     goToDashboard();
-    subscribeToDriverRealtime();
     startLocationWatch();
     fetchDriverOffers();
     setInterval(fetchDriverOffers, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 15000);
@@ -1711,9 +1710,11 @@ function renderDashboardStats() {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderDashboardStats();
-  // An approved driver's dashboard is already active on page load (set via PHP),
-  // but goToDashboard() is only called on login — so init the map here too.
+  // On hard reload the dashboard is already active (PHP sets the class), so
+  // goToDashboard() is not called via the SPA login path. Re-run profile and
+  // map init here to guarantee consistent state regardless of how the page loads.
   if (driverInitialContext?.is_approved) {
+    renderDriverProfile();
     setTimeout(ensureDriverMap, 500);
   }
 });
