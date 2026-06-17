@@ -31,20 +31,38 @@
         <div id="driver-map-container" class="driver-map-fullscreen"></div>
 
         <!-- Floating identity header: avatar · greeting · online toggle -->
+        <?php
+          $__is_online    = !empty($driver_initial_context['is_online']);
+          $__full_name    = $driver_initial_context['full_name'] ?? '';
+          $__avatar_raw   = $driver_initial_context['avatar_path'] ?? ($driver_initial_context['selfie_path'] ?? '');
+          $__base_url     = $driver_initial_context['upload_baseurl'] ?? '';
+          if ($__avatar_raw) {
+            $__avatar_url = (strpos($__avatar_raw, 'http') === 0) ? $__avatar_raw : ($__base_url ? "{$__base_url}/{$__avatar_raw}" : "/{$__avatar_raw}");
+          } else {
+            $__avatar_url = '';
+          }
+          $__name_parts = array_values(array_filter(explode(' ', trim($__full_name))));
+          $__initials   = '';
+          if ($__name_parts) {
+            $__initials .= strtoupper(substr($__name_parts[0], 0, 1));
+            if (count($__name_parts) > 1) $__initials .= strtoupper(substr(end($__name_parts), 0, 1));
+          }
+          if (!$__initials) $__initials = '?';
+        ?>
         <div class="map-top-overlay">
           <div class="driver-id-left">
             <div class="driver-id-avatar">
-              <img src="" alt="Profile" id="dashHomeAvatar" style="display:none;">
-              <span id="dashHomeAvatarInitials" style="display:none;"></span>
+              <img src="<?php echo esc_attr($__avatar_url); ?>" alt="Profile" id="dashHomeAvatar"<?php echo $__avatar_url ? '' : ' style="display:none;"'; ?>>
+              <span id="dashHomeAvatarInitials"<?php echo !$__avatar_url ? '' : ' style="display:none;"'; ?>><?php echo esc_html($__initials); ?></span>
             </div>
             <div class="driver-id-text">
               <div class="dash-greeting" id="dashGreeting">Good afternoon,</div>
-              <div class="dash-name" id="dashHomeName"><?php echo esc_html($driver_row['full_name'] ?? 'Loading...'); ?></div>
+              <div class="dash-name" id="dashHomeName"><?php echo esc_html($__full_name); ?></div>
             </div>
           </div>
           <div class="online-switch-wrap">
-            <span class="online-switch-label" id="onlineLabel">Offline</span>
-            <button type="button" class="online-switch" id="onlineToggle" role="switch" aria-checked="false" aria-label="Toggle online status" onclick="toggleOnline()">
+            <span class="online-switch-label" id="onlineLabel"><?php echo $__is_online ? 'Online' : 'Offline'; ?></span>
+            <button type="button" class="online-switch<?php echo $__is_online ? ' online' : ''; ?>" id="onlineToggle" role="switch" aria-checked="<?php echo $__is_online ? 'true' : 'false'; ?>" aria-label="Toggle online status" onclick="toggleOnline()">
               <span class="online-switch-thumb"></span>
             </button>
           </div>
