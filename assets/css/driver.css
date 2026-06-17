@@ -1089,11 +1089,15 @@ svg { display: block; }
 }
 
 /* ── Full-bleed live map ────────────────────────────────────────────────── */
-/* inset:0 fills the home panel exactly — no viewport units that can be
-   clipped when a parent changes overflow. */
+/* inset:0 fills the home panel exactly. min-height:100dvh is the same
+   technique used by the customer .map-area (min-height:38dvh): it guarantees
+   a non-zero offsetHeight even if the flex parent chain hasn't settled yet
+   (common on hard reload), so Leaflet always initialises into a real viewport
+   rather than a 0×0 container where the initial tile grid is never calculated. */
 .driver-map-fullscreen {
   position: absolute;
   inset: 0;
+  min-height: 100dvh;
   z-index: 0;
   background: #c8d8ec;
 }
