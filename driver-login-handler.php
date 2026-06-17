@@ -47,7 +47,14 @@ global $wpdb;
 $driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online, email_verified, full_name, phone, vehicle_type, rating, total_trips, avatar_path, selfie_path FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
 $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
 $status     = $driver_row['status'] ?? ( get_user_meta( $user->ID, 'idibia_account_status', true ) ?: 'pending' );
+$is_approved = $kyc_status === 'approved' && $status === 'active';
 $email_verified = ! empty( $driver_row['email_verified'] );
+
+// An approved driver is fully onboarded — heal any stale email_verified=0 row.
+if ( $is_approved && ! $email_verified ) {
+    $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'email_verified' => 1 ], [ 'id' => $driver_id ], [ '%d' ], [ '%d' ] );
+    $email_verified = true;
+}
 
 $upload_dir     = wp_upload_dir();
 $upload_baseurl = rtrim( $upload_dir['baseurl'], '/' );
@@ -63,7 +70,7 @@ wp_send_json_success( [
     'driver_id'   => $driver_id,
     'kyc_status'  => $kyc_status,
     'status'      => $status,
-    'is_approved' => $kyc_status === 'approved' && $status === 'active',
+    'is_approved' => $is_approved,
     'is_online'   => ! empty( $driver_row['is_online'] ),
     'email_verified' => $email_verified,
     'vehicle_type' => $driver_row['vehicle_type'] ?? '',
