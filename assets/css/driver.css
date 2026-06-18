@@ -794,10 +794,12 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 .earnings-row { display: flex; gap: 10px; }
 .earnings-sub {
   flex: 1;
+  min-width: 0;
   background: var(--surface);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
   border: 1px solid var(--surface-2);
+  overflow: hidden;
 }
 .earnings-sub-label { font-size: 11px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 5px; }
 .earnings-sub-val {
