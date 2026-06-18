@@ -576,11 +576,34 @@ async function fetchDriverOffers() {
   }
 }
 
+// Drives the home-screen layout state machine. The map-first home has three
+// mutually-exclusive bottom states — idle / incoming / active. Only one set of
+// floating controls is ever on screen, which is what keeps the action buttons
+// from being clipped behind the stats sheet + bottom nav.
+function setDispatchState(state) {
+  const screen = document.getElementById('screen-driver-dash');
+  if (!screen) return;
+  const incoming = state === 'incoming';
+  const active = state === 'active';
+  screen.classList.toggle('disp-incoming', incoming);
+  screen.classList.toggle('disp-active', active);
+  // Always reveal full details when leaving a trip or a fresh offer lands.
+  if (!active && !incoming) screen.classList.remove('sheet-collapsed');
+}
+
+// Tap the sheet handle to collapse the dispatch sheet to a peek (fee + actions)
+// so the map / route underneath becomes dominant — or expand it back.
+function toggleDispatchSheet() {
+  const screen = document.getElementById('screen-driver-dash');
+  if (screen) screen.classList.toggle('sheet-collapsed');
+}
+
 function renderDriverOffers(offers, activeTrip = null) {
   const container = document.getElementById('driverOfferContainer');
   if (!container) return;
 
   if (activeTrip) {
+    setDispatchState('active');
     if (activeTrip.pickup_location && activeTrip.dropoff_location) {
         // Wait till next tick to draw
         setTimeout(() => drawRouteOnMap([[activeTrip.pickup_location.lat, activeTrip.pickup_location.lng], [activeTrip.dropoff_location.lat, activeTrip.dropoff_location.lng]]), 10);
@@ -590,6 +613,7 @@ function renderDriverOffers(offers, activeTrip = null) {
   }
 
   if (!offers.length) {
+    setDispatchState('idle');
     container.innerHTML = `
       <div class="dispatch-idle" id="driverNoOfferCard">
         <span class="dispatch-idle-dot"></span>
@@ -601,24 +625,28 @@ function renderDriverOffers(offers, activeTrip = null) {
     return;
   }
 
+  setDispatchState('incoming');
   container.innerHTML = offers.map(offer => `
     <div class="trip-request-card" data-offer-id="${offer.offer_id}">
-      <div class="trq-header">
-        <div class="trq-tag">New Request</div>
-      </div>
-      <div class="trq-fee">₦${Number(offer.fare || 0).toLocaleString()} <span>· ${Number(offer.pickup_distance_km || offer.distance_km || 0).toFixed(1)} km away</span></div>
-      <div class="trq-meta">
-        <div class="trq-meta-chip">~${offer.duration_mins || 0} mins</div>
-        <div class="trq-meta-chip">${escapeHtml(offer.service_category || 'Package')}</div>
-        <div class="trq-meta-chip">${escapeHtml(offer.vehicle_type || 'bike')}</div>
-      </div>
-      <div class="trq-route">
-        <div class="trq-route-line"></div>
-        <div class="trq-point"><div class="trq-dot from"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div><div class="trq-point-addr">${escapeHtml(offer.pickup_address)}</div></div></div>
-        <div class="trq-point"><div class="trq-dot to"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div><div class="trq-point-addr">${escapeHtml(offer.dropoff_address)}</div></div></div>
+      <div class="trq-sheet-handle" onclick="toggleDispatchSheet()" role="button" aria-label="Collapse or expand request"></div>
+      <div class="trq-scroll">
+        <div class="trq-header">
+          <div class="trq-tag">New Request</div>
+        </div>
+        <div class="trq-fee">₦${Number(offer.fare || 0).toLocaleString()} <span>· ${Number(offer.pickup_distance_km || offer.distance_km || 0).toFixed(1)} km away</span></div>
+        <div class="trq-meta">
+          <div class="trq-meta-chip">~${offer.duration_mins || 0} mins</div>
+          <div class="trq-meta-chip">${escapeHtml(offer.service_category || 'Package')}</div>
+          <div class="trq-meta-chip">${escapeHtml(offer.vehicle_type || 'bike')}</div>
+        </div>
+        <div class="trq-route">
+          <div class="trq-route-line"></div>
+          <div class="trq-point"><div class="trq-dot from"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div><div class="trq-point-addr">${escapeHtml(offer.pickup_address)}</div></div></div>
+          <div class="trq-point"><div class="trq-dot to"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div><div class="trq-point-addr">${escapeHtml(offer.dropoff_address)}</div></div></div>
+        </div>
       </div>
       <div class="trq-actions">
-        <button class="trq-decline" onclick="driverOfferAction('decline_offer', ${offer.offer_id})">Decline</button>
+        <button class="trq-decline trq-decline-wide" onclick="driverOfferAction('decline_offer', ${offer.offer_id})">Decline</button>
         <button class="trq-accept" onclick="driverOfferAction('accept_offer', ${offer.offer_id})">Accept Delivery</button>
       </div>
     </div>`).join('');
@@ -636,27 +664,35 @@ function renderActiveTrip(trip) {
     ? `${trip.dropoff_lat || ''},${trip.dropoff_lng || ''}`
     : `${trip.pickup_lat || ''},${trip.pickup_lng || ''}`;
   const navUrl = navTarget.replace(',', '').trim() ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(navTarget)}` : '#';
+  const navIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>';
+  const callIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.37 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.97-.86a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
+  const safetyIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>';
   return `
     <div class="trip-request-card">
-      <div class="trq-header"><div class="trq-tag">Active Trip · ${escapeHtml(trip.trip_ref || '')}</div></div>
-      <div class="trq-fee">₦${Number(trip.fare || 0).toLocaleString()} <span>· ${escapeHtml(trip.dispatch_status || '')}</span></div>
-      <div class="trq-meta">
-        <div class="trq-meta-chip">Next: ${escapeHtml(nextAction?.[1] || 'Await update')}</div>
-        <div class="trq-meta-chip">Customer: ${escapeHtml(trip.customer?.name || 'Customer')}</div>
-        <div class="trq-meta-chip">${escapeHtml(trip.customer?.masked_phone || 'Masked relay')}</div>
+      <div class="trq-sheet-handle" onclick="toggleDispatchSheet()" role="button" aria-label="Collapse or expand trip"></div>
+      <div class="trq-scroll">
+        <div class="trq-header"><div class="trq-tag">Active Trip · ${escapeHtml(trip.trip_ref || '')}</div></div>
+        <div class="trq-fee">₦${Number(trip.fare || 0).toLocaleString()} <span>· ${escapeHtml(trip.dispatch_status || '')}</span></div>
+        <div class="trq-meta">
+          <div class="trq-meta-chip">Next: ${escapeHtml(nextAction?.[1] || 'Await update')}</div>
+          <div class="trq-meta-chip">Customer: ${escapeHtml(trip.customer?.name || 'Customer')}</div>
+          <div class="trq-meta-chip">${escapeHtml(trip.customer?.masked_phone || 'Masked relay')}</div>
+        </div>
+        <div class="trq-route">
+          <div class="trq-route-line"></div>
+          <div class="trq-point"><div class="trq-dot from"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div><div class="trq-point-addr">${escapeHtml(trip.pickup_address)}</div></div></div>
+          <div class="trq-point"><div class="trq-dot to"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div><div class="trq-point-addr">${escapeHtml(trip.dropoff_address)}</div></div></div>
+        </div>
+        ${trip.delivery_pin_required ? '<div class="info-note" style="margin-top:12px">Delivery PIN required before completing handoff. Ask the customer for the PIN only at delivery.</div>' : ''}
       </div>
-      <div class="trq-route">
-        <div class="trq-route-line"></div>
-        <div class="trq-point"><div class="trq-dot from"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Pickup</div><div class="trq-point-addr">${escapeHtml(trip.pickup_address)}</div></div></div>
-        <div class="trq-point"><div class="trq-dot to"></div><div><div style="font-size:11px;color:var(--slate-light);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px">Drop-off</div><div class="trq-point-addr">${escapeHtml(trip.dropoff_address)}</div></div></div>
+      <div class="trq-actions trq-actions-active">
+        <div class="trq-secondary-row">
+          <button class="trq-icon-btn" onclick="window.open('${navUrl}', '_blank')">${navIcon}<span>Navigate</span></button>
+          <button class="trq-icon-btn" onclick="window.currentActiveTripId = ${trip.trip_id}; callTripCustomer('${encodeURIComponent(trip.customer?.phone || '')}')">${callIcon}<span>Contact</span></button>
+          <button class="trq-icon-btn danger" onclick="driverSafetyReport(${trip.trip_id})">${safetyIcon}<span>Safety</span></button>
+        </div>
+        ${nextAction ? `<button class="trq-accept trq-primary-full" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button>` : ''}
       </div>
-      <div class="trq-actions">
-        <button class="trq-decline" onclick="window.open('${navUrl}', '_blank')">Navigate</button>
-        <button class="trq-decline" onclick="window.currentActiveTripId = ${trip.trip_id}; callTripCustomer('${encodeURIComponent(trip.customer?.phone || '')}')">Contact</button>
-        <button class="trq-decline" onclick="driverSafetyReport(${trip.trip_id})">Safety</button>
-        ${nextAction ? `<button class="trq-accept" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button>` : ''}
-      </div>
-      ${trip.delivery_pin_required ? '<div class="info-note" style="margin-top:12px">Delivery PIN required before completing handoff. Ask the customer for the PIN only at delivery.</div>' : ''}
     </div>`;
 }
 

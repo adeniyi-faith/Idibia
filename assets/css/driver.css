@@ -732,6 +732,37 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 }
 .trq-accept:hover { filter: brightness(1.05); box-shadow: 0 6px 20px rgba(245,200,66,0.35); }
 
+/* Active-trip actions: an icon row of secondary actions + a full-width primary.
+   This replaces the old three fixed 52px squares whose text labels were clipped. */
+.trq-actions-active { flex-direction: column; gap: 10px; }
+.trq-secondary-row { display: flex; gap: 8px; }
+.trq-icon-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 56px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.trq-icon-btn svg { width: 18px; height: 18px; }
+.trq-icon-btn:hover { background: rgba(255,255,255,0.12); }
+.trq-icon-btn.danger { color: var(--danger); }
+.trq-primary-full { flex: 1 1 auto; width: 100%; }
+.trq-decline-wide { flex: 0 0 96px; }
+
+/* Sheet drag handle — only meaningful on the mobile bottom-sheet layout */
+.trq-sheet-handle { display: none; }
+
 /* Earnings */
 .earnings-card {
   background: var(--white);
@@ -1317,24 +1348,105 @@ svg { display: block; }
 .map-offer-overlay .trip-request-card { margin-bottom: 0; }
 .map-offer-overlay .trq-fee { font-size: 28px; margin-bottom: 14px; }
 
-/* Mobile: tighten the offer overlay and card */
-@media (max-width: 480px) {
+/* ════════════════════ MOBILE DISPATCH SHEET ════════════════════
+   The map-first home runs a small layout state machine on #screen-driver-dash:
+     · idle      → no class            (stats sheet + nav visible)
+     · incoming  → .disp-incoming      (offer docked as bottom sheet)
+     · active    → .disp-active        (active trip docked as bottom sheet)
+   In incoming/active the stats sheet and bottom nav slide away so the action
+   row can never be clipped, and the map keeps the top half of the screen. */
+@media (max-width: 767px) {
+
+  /* IDLE: the "no live requests" chip floats just under the header — it is NOT
+     a full-width sheet, so it never collides with the stats sheet or the nav. */
   .map-offer-overlay {
     left: 8px;
     right: 8px;
-    bottom: 8px;
-    max-height: calc(100% - 100px);
+    top: calc(max(15px, env(safe-area-inset-top, 15px)) + 84px);
+    bottom: auto;
+    max-height: calc(100% - 220px);
   }
+
+  /* INCOMING / ACTIVE: dock the request card to the bottom as a real sheet. */
+  #screen-driver-dash.disp-incoming .map-offer-overlay,
+  #screen-driver-dash.disp-active   .map-offer-overlay {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: none;
+    overflow: visible;
+    gap: 0;
+  }
+  #screen-driver-dash.disp-incoming .trip-request-card,
+  #screen-driver-dash.disp-active   .trip-request-card {
+    width: 100%;
+    margin: 0;
+    padding: 0 16px;
+    max-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -14px 40px rgba(0,0,0,0.45);
+  }
+  .trq-sheet-handle {
+    display: block;
+    width: 42px;
+    height: 4px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.28);
+    margin: 9px auto 12px;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  /* The fee/meta/route scroll; the action footer stays pinned within reach. */
+  .trq-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .trq-scroll::-webkit-scrollbar { display: none; }
+  #screen-driver-dash.disp-incoming .trq-actions,
+  #screen-driver-dash.disp-active   .trq-actions {
+    flex-shrink: 0;
+    background: var(--navy-mid);
+    margin: 0 -16px;
+    padding: 12px 16px max(14px, env(safe-area-inset-bottom));
+    box-shadow: 0 -8px 18px rgba(13,27,50,0.55);
+  }
+
+  /* Collapsed peek: drop the detail, keep fee + actions → map dominates. */
+  #screen-driver-dash.sheet-collapsed .trq-meta,
+  #screen-driver-dash.sheet-collapsed .trq-route,
+  #screen-driver-dash.sheet-collapsed .info-note { display: none; }
+
+  /* When a request/trip is live, the stats sheet + nav step aside entirely. */
+  #screen-driver-dash.disp-incoming .map-bottom-sheet,
+  #screen-driver-dash.disp-active   .map-bottom-sheet {
+    transform: translateY(100%);
+    pointer-events: none;
+  }
+  /* Drop the nav from flow so the map panel reclaims its height and the docked
+     sheet reaches the true bottom edge (its own safe-area padding handles the
+     home indicator). The incoming sheet covers the transition moment. */
+  #screen-driver-dash.tab-home.disp-incoming .bottom-nav,
+  #screen-driver-dash.tab-home.disp-active   .bottom-nav {
+    display: none;
+  }
+
+  /* Compact type scale for small screens */
   .trip-request-card { padding: 14px; }
-  .map-offer-overlay .trq-fee { font-size: 24px; margin-bottom: 10px; }
+  .map-offer-overlay .trq-fee { font-size: 26px; margin-bottom: 10px; }
   .trq-fee { font-size: 28px; }
   .trq-meta { flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .trq-meta-chip { font-size: 11px; padding: 4px 10px; }
   .trq-route { padding: 12px; margin-bottom: 12px; }
   .trq-point-addr { font-size: 13px; }
   .trq-actions { gap: 8px; }
-  .trq-decline { flex: 0 0 44px; height: 44px; font-size: 13px; }
-  .trq-accept { height: 44px; font-size: 14px; }
+  .trq-accept { height: 50px; font-size: 15px; }
+  .trq-decline-wide { flex: 0 0 88px; height: 50px; font-size: 14px; }
+  .trq-icon-btn { height: 52px; }
   .trq-header { margin-bottom: 12px; }
 }
 
