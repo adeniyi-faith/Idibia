@@ -52,7 +52,7 @@
         <div class="map-top-overlay">
           <div class="driver-id-left">
             <div class="driver-id-avatar">
-              <img src="<?php echo esc_attr($__avatar_url); ?>" alt="Profile" id="dashHomeAvatar"<?php echo $__avatar_url ? '' : ' style="display:none;"'; ?>>
+              <img src="<?php echo esc_attr($__avatar_url); ?>" alt="Profile" id="dashHomeAvatar"<?php echo $__avatar_url ? '' : ' style="display:none;"'; ?> onerror="this.style.display='none'; document.getElementById('dashHomeAvatarInitials').style.display='inline-block';">
               <span id="dashHomeAvatarInitials"<?php echo !$__avatar_url ? '' : ' style="display:none;"'; ?>><?php echo esc_html($__initials); ?></span>
             </div>
             <div class="driver-id-text">
@@ -201,7 +201,7 @@
             <div class="profile-header">
               <div class="profile-avatar-lg" onclick="document.getElementById('profileAvatarInput').click()">
                 <div class="avatar-initials" id="profileAvatarInitials" style="display:none;"></div>
-                <img src="" alt="Profile Image" id="profileAvatarImg" style="display:none;">
+                <img src="" alt="Profile Image" id="profileAvatarImg" style="display:none;" onerror="this.style.display='none'; document.getElementById('profileAvatarInitials').style.display='flex';">
                 <input type="file" id="profileAvatarInput" style="display:none;" accept="image/jpeg, image/png, image/webp" onchange="uploadDriverAvatar(event)">
                 <div class="avatar-edit-badge">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>

@@ -837,12 +837,20 @@ function renderDriverProfile() {
         if (imgDisplay) {
             imgDisplay.src = fullAvatarUrl;
             imgDisplay.style.display = 'block';
+            imgDisplay.onerror = function() {
+                this.style.display = 'none';
+                if (initialsDisplay) initialsDisplay.style.display = 'flex';
+            };
         }
         if (initialsDisplay) initialsDisplay.style.display = 'none';
 
         if (dashHomeAvatar) {
             dashHomeAvatar.src = fullAvatarUrl;
             dashHomeAvatar.style.display = 'block';
+            dashHomeAvatar.onerror = function() {
+                this.style.display = 'none';
+                if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'inline-block';
+            };
         }
         if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'none';
     } else {
@@ -1703,6 +1711,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // map init here to guarantee consistent state regardless of how the page loads.
   if (driverInitialContext?.is_approved) {
     renderDriverProfile();
+    startLocationWatch();
     setTimeout(ensureDriverMap, 500);
   }
 });
