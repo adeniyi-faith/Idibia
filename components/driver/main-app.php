@@ -126,10 +126,8 @@
                 </div>
                 <div class="earnings-sub">
                   <div class="earnings-sub-label">Rating</div>
-                  <div class="earnings-sub-val" style="display:flex;align-items:center;gap:4px">
-                      <span id="earnings-rating-text">0.0</span>
-                      <span id="earnings-rating-stars" style="display:flex;gap:2px;color:var(--gold)"></span>
-                  </div>
+                  <div class="earnings-sub-val" id="earnings-rating-text">0.0</div>
+                  <div id="earnings-rating-stars" style="color:var(--gold);margin-top:4px;"></div>
                 </div>
               </div>
             </div>
@@ -439,23 +437,24 @@
       </div>
 
       <!-- Trips Filter Modal -->
-      <div class="modal modal-overlay" id="modal-filter-trips" onclick="closeModal('modal-filter-trips')">
+      <div class="modal" id="modal-filter-trips" onclick="closeModal('modal-filter-trips')">
         <div class="modal-content" onclick="event.stopPropagation()">
+          <div class="modal-handle"></div>
           <h3>Filter Trips</h3>
           <p class="modal-sub">Filter your trip history by status and date.</p>
-          <div class="form-group" style="margin-top:16px;">
-            <label>Trip Status</label>
-            <select class="global-input" id="tripFilterSelect">
+          <div class="form-group">
+            <label class="form-label">Trip Status</label>
+            <select class="form-input" id="tripFilterSelect">
                 <option value="all">All Trips</option>
                 <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
             </select>
           </div>
-          <div class="form-group" style="margin-top:16px;">
-            <label>Date Range</label>
+          <div class="form-group">
+            <label class="form-label">Date Range</label>
             <div style="display:flex;gap:8px">
-              <input type="date" class="global-input" id="tripFilterDateStart" placeholder="Start Date">
-              <input type="date" class="global-input" id="tripFilterDateEnd" placeholder="End Date">
+              <input type="date" class="form-input" id="tripFilterDateStart">
+              <input type="date" class="form-input" id="tripFilterDateEnd">
             </div>
           </div>
           <div style="display:flex;gap:12px;margin-top:24px">

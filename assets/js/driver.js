@@ -1544,14 +1544,7 @@ async function loadWalletData() {
         if (ratingText) ratingText.textContent = parseFloat(e.rating).toFixed(1);
 
         const ratingStars = document.getElementById('earnings-rating-stars');
-        if (ratingStars) {
-          const full = Math.floor(e.rating);
-          const half = (e.rating - full) >= 0.5;
-          let stars = '★'.repeat(full);
-          if (half) stars += '½';
-          stars += '☆'.repeat(Math.max(0, 5 - full - (half ? 1 : 0)));
-          ratingStars.textContent = stars;
-        }
+        if (ratingStars) ratingStars.innerHTML = renderStars(e.rating);
 
         // Weekly bar chart
         const chart = document.getElementById('weekly-bar-chart');
@@ -1701,35 +1694,6 @@ function renderDashboardStats() {
     const homeRating = document.getElementById('home-rating');
     if (homeRating) homeRating.textContent = stats.avg_rating.toFixed(1) + '★';
 
-    // Earnings
-    const earningsWeekTotal = document.getElementById('earnings-week-total');
-    if (earningsWeekTotal) {
-        if (stats.week_earnings > 0) {
-            earningsWeekTotal.textContent = Number(stats.week_earnings).toLocaleString('en-NG');
-        } else {
-            earningsWeekTotal.parentElement.innerHTML = '<span style="font-size:16px; font-weight:500; color:var(--slate);">No earnings this week</span>';
-        }
-    }
-
-    const earningsTodayTotal = document.getElementById('earnings-today-total');
-    if (earningsTodayTotal) {
-        if (stats.today_earnings > 0) {
-            earningsTodayTotal.textContent = formatCurrency(stats.today_earnings);
-        } else {
-            earningsTodayTotal.textContent = '-';
-        }
-    }
-
-    const earningsWeekTrips = document.getElementById('earnings-week-trips');
-    if (earningsWeekTrips) earningsWeekTrips.textContent = stats.week_trips;
-
-    const earningsRatingText = document.getElementById('earnings-rating-text');
-    if (earningsRatingText) earningsRatingText.textContent = stats.avg_rating.toFixed(1);
-
-    const earningsRatingStars = document.getElementById('earnings-rating-stars');
-    if (earningsRatingStars) earningsRatingStars.innerHTML = renderStars(stats.avg_rating);
-
-    renderWeeklyChart(stats.daily_breakdown);
     renderTripHistory('all');
     renderCampaigns();
 }
