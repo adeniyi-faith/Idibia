@@ -1,11 +1,12 @@
 <?php
 require_once __DIR__ . '/wp-auth-config.php';
-require_once __DIR__ . '/wp/wp-content/mu-plugins/idibia-helpers.php';
 
-idibia_require_method('POST');
+$auth_type = 'driver';
+require_once __DIR__ . '/auth-helper.php';
 
-if (empty($GLOBALS['auth_driver_id'])) {
-    wp_send_json_error(['message' => 'Unauthorized access'], 401);
+if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
+    http_response_code( 405 );
+    wp_send_json_error( [ 'message' => 'Method not allowed' ] );
 }
 
 $driver_id = $GLOBALS['auth_driver_id'];
