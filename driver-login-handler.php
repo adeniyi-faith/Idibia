@@ -59,9 +59,29 @@ if ( $is_approved && ! $email_verified ) {
 $upload_dir     = wp_upload_dir();
 $upload_baseurl = rtrim( $upload_dir['baseurl'], '/' );
 
+// Dashboard stats and trip history — needed so the SPA login path can hydrate
+// the trips panel and earnings stats without requiring a full page reload.
+$today_start = gmdate( 'Y-m-d 00:00:00' );
+$today_end   = gmdate( 'Y-m-d 23:59:59' );
+$today_stats = $wpdb->get_row( $wpdb->prepare( "SELECT SUM(fare) as today_earnings, COUNT(id) as today_trips FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s", $driver_id, $today_start, $today_end ), ARRAY_A );
+
+$week_start = gmdate( 'Y-m-d 00:00:00', strtotime( 'monday this week' ) );
+$week_end   = gmdate( 'Y-m-d 23:59:59', strtotime( 'sunday this week' ) );
+$weekly_stats = $wpdb->get_row( $wpdb->prepare( "SELECT SUM(fare) as week_earnings, COUNT(id) as week_trips FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s", $driver_id, $week_start, $week_end ), ARRAY_A );
+
+$daily_breakdown_raw = $wpdb->get_results( $wpdb->prepare( "SELECT DATE(completed_at) as date, SUM(fare) as daily_earnings FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed' AND completed_at >= %s AND completed_at <= %s GROUP BY DATE(completed_at)", $driver_id, $week_start, $week_end ), ARRAY_A );
+$daily_breakdown = [];
+foreach ( $daily_breakdown_raw as $row ) {
+    $daily_breakdown[ $row['date'] ] = (float) $row['daily_earnings'];
+}
+
+$avg_rating = (float) $wpdb->get_var( $wpdb->prepare( "SELECT AVG(rating) FROM `{$wpdb->prefix}sd_ratings` WHERE subject_id = %d AND reviewer_type = 'customer'", $driver_id ) );
+$avg_rating = $avg_rating > 0 ? round( $avg_rating, 1 ) : 0.0;
+
+$trips_history = $wpdb->get_results( $wpdb->prepare( "SELECT id, trip_ref, pickup, dropoff, fare, status, created_at, completed_at FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d ORDER BY created_at DESC LIMIT 100", $driver_id ), ARRAY_A );
+
 // Return the full profile payload so the SPA login path hydrates the dashboard
 // overlay with the same data the server-rendered (hard reload) path produces.
-// Without these fields the avatar/name overlay would stay blank until a reload.
 wp_send_json_success( [
     'redirect'    => '/driver.php',
     'first_name'  => idibia_first_name_from_user( $user ),
@@ -79,4 +99,13 @@ wp_send_json_success( [
     'avatar_path' => $driver_row['avatar_path'] ?? '',
     'selfie_path' => $driver_row['selfie_path'] ?? '',
     'upload_baseurl' => $upload_baseurl,
+    'dashboard_stats' => [
+        'today_earnings'  => (float) ( $today_stats['today_earnings'] ?? 0 ),
+        'today_trips'     => (int) ( $today_stats['today_trips'] ?? 0 ),
+        'week_earnings'   => (float) ( $weekly_stats['week_earnings'] ?? 0 ),
+        'week_trips'      => (int) ( $weekly_stats['week_trips'] ?? 0 ),
+        'daily_breakdown' => $daily_breakdown,
+        'avg_rating'      => $avg_rating,
+    ],
+    'trips_history' => $trips_history ?: [],
 ] );

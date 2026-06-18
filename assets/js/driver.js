@@ -476,9 +476,9 @@ function goToDashboard() {
   }
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
-  // Re-render the overlay from the (now-hydrated) context. On the SPA login path
-  // the dashboard becomes visible without a page reload, so the server-rendered
-  // overlay still holds pre-login (empty) values until we repaint it here.
+  // Re-render from the now-hydrated context. On the SPA login path the dashboard
+  // becomes visible without a page reload, so all panels need an explicit repaint.
+  renderDashboardStats();
   renderDriverProfile();
   subscribeToDriverRealtime();
   setTimeout(ensureDriverMap, 500);
@@ -1056,6 +1056,8 @@ function switchTab(tab) {
     loadWalletData();
   } else if (tab === 'home') {
     setTimeout(ensureDriverMap, 300);
+  } else if (tab === 'trips') {
+    renderTripHistory('all');
   }
 
   // bottom nav
