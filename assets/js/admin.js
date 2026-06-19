@@ -845,6 +845,18 @@ setInterval(() => {
 setInterval(() => {
   if(document.getElementById('panel-overview')?.classList.contains('active')) loadDashboard();
 }, 30000);
+setInterval(() => {
+  if(document.getElementById('panel-trips')?.classList.contains('active')) loadTrips();
+}, 30000);
+setInterval(() => {
+  if(document.getElementById('panel-drivers')?.classList.contains('active')) loadDrivers();
+}, 60000);
+setInterval(() => {
+  if(document.getElementById('panel-customers')?.classList.contains('active')) loadCustomers();
+}, 60000);
+setInterval(() => {
+  if(document.getElementById('panel-disputes')?.classList.contains('active')) loadDisputes();
+}, 60000);
 
 function filterOps(type,btn){
   document.querySelectorAll('.filter-row .filter-btn').forEach(b=>b.classList.remove('active'));
