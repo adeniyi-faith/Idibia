@@ -661,6 +661,7 @@ h1, h2, h3, h4 { font-family: 'Syne', sans-serif; font-weight: 700; }
 .trq-fee span { font-size: 15px; font-weight: 400; color: var(--slate-light); margin-left: 6px; }
 .trq-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -1349,6 +1350,16 @@ svg { display: block; }
 /* Live offer cards stay rich but float compactly inside the scroll overlay */
 .map-offer-overlay .trip-request-card { margin-bottom: 0; }
 .map-offer-overlay .trq-fee { font-size: 28px; margin-bottom: 14px; }
+
+/* ── Desktop overlay cap: prevent cards clipping past viewport on wide screens */
+@media (min-width: 768px) {
+  .map-offer-overlay {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(480px, 80%);
+  }
+}
 
 /* ════════════════════ MOBILE DISPATCH LAYOUT ════════════════════
    The map-first home runs a small layout state machine on #screen-driver-dash:

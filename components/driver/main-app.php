@@ -52,7 +52,7 @@
         <div class="map-top-overlay">
           <div class="driver-id-left">
             <div class="driver-id-avatar">
-              <img src="<?php echo esc_attr($__avatar_url); ?>" alt="Profile" id="dashHomeAvatar"<?php echo $__avatar_url ? '' : ' style="display:none;"'; ?> onerror="this.style.display='none'; document.getElementById('dashHomeAvatarInitials').style.display='inline-block';">
+              <img src="<?php echo esc_attr($__avatar_url); ?>" alt="Profile" id="dashHomeAvatar"<?php echo $__avatar_url ? '' : ' style="display:none;"'; ?> onerror="this.style.display='none'; document.getElementById('dashHomeAvatarInitials').style.display='flex';">
               <span id="dashHomeAvatarInitials"<?php echo !$__avatar_url ? '' : ' style="display:none;"'; ?>><?php echo esc_html($__initials); ?></span>
             </div>
             <div class="driver-id-text">

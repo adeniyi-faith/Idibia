@@ -908,7 +908,7 @@ function renderDriverProfile() {
             dashHomeAvatar.style.display = 'block';
             dashHomeAvatar.onerror = function() {
                 this.style.display = 'none';
-                if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'inline-block';
+                if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'flex';
             };
         }
         if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'none';
