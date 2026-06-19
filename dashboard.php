@@ -113,6 +113,7 @@ window.idibiaLogoutUrl = '/';
 window.idibiaActiveTrip = <?php echo $active_trip_id ? (int) $active_trip_id : 'null'; ?>;
 window.idibiaCustomerRating = '<?php echo esc_js( $customer_rating ); ?>';
 window.idibiaCustomerAvatar = '<?php echo esc_js( $customer_avatar_path ); ?>';
+window.idibiaCustomerName = '<?php echo esc_js( $name_parts[0] ?? $customer_full_name ); ?>';
 window.idibiaUploadBaseUrl = '<?php echo esc_url( $upload_baseurl ); ?>';
 window.idibiaLegalContents = {
   legal_terms: <?php echo wp_json_encode( $legal_terms ); ?>,

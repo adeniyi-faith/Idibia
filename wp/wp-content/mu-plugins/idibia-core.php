@@ -662,7 +662,7 @@ function idibia_create_tables() {
         ('manual_bank_name', ''),
         ('manual_account_name', ''),
         ('manual_account_number', ''),
-        ('manual_payment_instructions', 'Transfer the exact fare, then upload your receipt for admin approval.'),
+        ('manual_payment_instructions', 'Transfer the exact fare to the account below, then upload your payment receipt.'),
         ('paystack_enabled', '0'),
         ('paystack_public_key', ''),
         ('paystack_secret_key', ''),

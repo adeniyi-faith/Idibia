@@ -928,7 +928,7 @@ function closeModalAndGoHome() {
   goBack();
   setTimeout(() => {
     switchTab('home', null, 'home');
-    showToast('Thanks for your feedback, John!');
+    showToast(`Thanks for your feedback, ${window.idibiaCustomerName || 'you'}!`);
   }, 100);
 }
 
@@ -957,7 +957,7 @@ function showPostTripModal(trip) {
   const payLabel = document.querySelector('#modal-post-trip .receipt-payment');
   if (payLabel) {
     const method = payment.settings?.active_provider || record?.payment_method || 'payment';
-    const methodLabel = method === 'manual_transfer' ? 'manual transfer' : method === 'card' ? 'card' : method;
+    const methodLabel = method === 'manual_transfer' ? 'bank transfer — payment verified' : method === 'card' ? 'card' : method;
     const textNode = payLabel.firstChild;
     if (textNode && textNode.nodeType === Node.TEXT_NODE) textNode.textContent = `Paid by ${methodLabel}`;
   }
@@ -1099,10 +1099,39 @@ async function cancelTrip() {
 // ═══════════ LIVE TRACKING (Phase 5) ═══════════
 let currentActiveTripId = null;
 let trackingInterval = null;
+let _lastDispatchStatus = null;
+
+function playMilestoneBeep(type) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const patterns = {
+      trip_created:      [[440, 0, 0.12], [550, 0.13, 0.12]],
+      driver_assigned:   [[520, 0, 0.1], [620, 0.12, 0.1], [720, 0.24, 0.15]],
+      driver_at_pickup:  [[660, 0, 0.1], [660, 0.15, 0.1]],
+      package_picked_up: [[500, 0, 0.08], [600, 0.1, 0.08], [700, 0.2, 0.08], [800, 0.3, 0.12]],
+      trip_completed:    [[523, 0, 0.1], [659, 0.12, 0.1], [784, 0.24, 0.18]],
+      default:           [[440, 0, 0.1]],
+    };
+    const tones = patterns[type] || patterns.default;
+    tones.forEach(([freq, delay, dur]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.18, ctx.currentTime + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+      osc.start(ctx.currentTime + delay);
+      osc.stop(ctx.currentTime + delay + dur + 0.05);
+    });
+  } catch (_) {}
+}
 
 function startLiveTracking(tripId) {
   if (!tripId) return;
   currentActiveTripId = tripId;
+  _lastDispatchStatus = null;
   goTo('screen-tracking');
   setTimeout(() => initLeafletMap('tracking-map-container', 6.5244, 3.3792, true), 300); // Default to Lagos, will update on feed
   subscribeToTripRealtime(tripId);
@@ -1166,16 +1195,16 @@ function renderManualPaymentPanel(trip) {
   document.getElementById('manualPaymentBank').textContent = manual.bank_name || 'Bank details not set yet';
   document.getElementById('manualPaymentAccountName').textContent = manual.account_name || 'Account name pending';
   document.getElementById('manualPaymentAccountNumber').textContent = manual.account_number || 'Account number pending';
-  document.getElementById('manualPaymentInstructions').textContent = manual.instructions || 'Transfer the exact fare, then upload your receipt for admin approval.';
+  document.getElementById('manualPaymentInstructions').textContent = manual.instructions || 'Transfer the exact fare to the account below, then upload your payment receipt.';
 
   const statusEl = document.getElementById('manualPaymentStatus');
   const uploadBtn = panel.querySelector('button');
   const hasProof = !!record?.proof_path;
   if (status === 'failed' || status === 'rejected') {
-    statusEl.textContent = record?.admin_notes ? `Rejected: ${record.admin_notes}` : 'Payment proof was rejected. Please upload a clearer proof.';
+    statusEl.textContent = record?.admin_notes ? `Unable to verify: ${record.admin_notes}` : 'We could not verify your receipt. Please upload a clearer copy.';
     uploadBtn.disabled = false;
   } else if (hasProof) {
-    statusEl.textContent = 'Proof uploaded. Waiting for admin approval.';
+    statusEl.textContent = 'Receipt received. Your payment is being processed.';
     uploadBtn.disabled = false;
   } else {
     statusEl.textContent = 'Upload your receipt or transfer screenshot after paying.';
@@ -1210,6 +1239,22 @@ async function uploadManualPaymentProof() {
 
 function updateTrackingUI(trip) {
   if (!trip) return;
+
+  // Beep on milestone transitions
+  const newStatus = trip.dispatch_status;
+  if (newStatus && newStatus !== _lastDispatchStatus) {
+    if (_lastDispatchStatus !== null) {
+      const beepMap = {
+        accepted:       'driver_assigned',
+        arriving:       'driver_assigned',
+        arrived_pickup: 'driver_at_pickup',
+        picked_up:      'package_picked_up',
+      };
+      if (trip.status === 'completed') playMilestoneBeep('trip_completed');
+      else if (beepMap[newStatus]) playMilestoneBeep(beepMap[newStatus]);
+    }
+    _lastDispatchStatus = newStatus;
+  }
 
   // Terminal states stop polling after rendering the final timeline once.
   const isTerminal = trip.status === 'completed' || trip.status === 'cancelled' || ['completed','cancelled'].includes(trip.dispatch_status);
@@ -1573,6 +1618,7 @@ async function confirmBooking() {
 
     if (json.success) {
       showToast(json.data.message);
+      playMilestoneBeep('trip_created');
       startLiveTracking(json.data.trip_id || 1);
 
       document.getElementById('pickupInput').value = '';
