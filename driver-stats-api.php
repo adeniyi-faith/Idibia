@@ -66,14 +66,35 @@ $avg_rating = (float) $wpdb->get_var( $wpdb->prepare(
 ) );
 $avg_rating = $avg_rating > 0 ? round( $avg_rating, 1 ) : 0.0;
 
-$trips_history = $wpdb->get_results( $wpdb->prepare(
-    "SELECT id, trip_ref, pickup, dropoff, fare, status, created_at, completed_at
-     FROM `{$wpdb->prefix}sd_trips`
-     WHERE driver_id = %d
-     ORDER BY created_at DESC
+$trips_history_raw = $wpdb->get_results( $wpdb->prepare(
+    "SELECT t.id, t.trip_ref, t.pickup, t.dropoff, t.fare, t.final_fare, t.fare_estimate, t.status, t.created_at, t.completed_at, p.status AS payment_status
+     FROM `{$wpdb->prefix}sd_trips` t
+     LEFT JOIN `{$wpdb->prefix}sd_payments` p ON p.trip_id = t.id
+     WHERE t.driver_id = %d
+     ORDER BY t.created_at DESC
      LIMIT 100",
     $driver_id
 ), ARRAY_A ) ?: [];
+
+$trips_history = [];
+foreach ( $trips_history_raw as $trip ) {
+    $receipt_url = null;
+    if ( in_array( $trip['payment_status'], [ 'approved', 'captured' ], true ) ) {
+        $token       = hash_hmac( 'sha256', (int) $trip['id'], wp_salt( 'auth' ) );
+        $receipt_url = '/receipt-handler.php?trip_id=' . $trip['id'] . '&token=' . $token;
+    }
+    $trips_history[] = [
+        'id'           => (int) $trip['id'],
+        'trip_ref'     => $trip['trip_ref'],
+        'pickup'       => $trip['pickup'],
+        'dropoff'      => $trip['dropoff'],
+        'fare'         => (float) ( $trip['final_fare'] ?: $trip['fare_estimate'] ?: $trip['fare'] ),
+        'status'       => $trip['status'],
+        'created_at'   => $trip['created_at'],
+        'completed_at' => $trip['completed_at'],
+        'receipt_url'  => $receipt_url,
+    ];
+}
 
 $now                = gmdate( 'Y-m-d H:i:s' );
 $active_campaigns_raw = $wpdb->get_results( $wpdb->prepare(
