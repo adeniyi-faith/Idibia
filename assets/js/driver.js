@@ -1385,42 +1385,23 @@ function renderStars(rating) {
   return html;
 }
 
-function renderWeeklyChart(breakdownData) {
+function renderWeeklyChart(dailyBreakdown, maxVal) {
   const chartContainer = document.getElementById('weekly-bar-chart');
-  if (!chartContainer) return;
+  if (!chartContainer || !dailyBreakdown || !dailyBreakdown.length) return;
 
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const amounts = [0, 0, 0, 0, 0, 0, 0];
+  const chartHeight = 80;
+  const max = maxVal || Math.max(...dailyBreakdown.map(d => d.total), 1);
+  const todayStr = new Date().toISOString().slice(0, 10);
 
-  Object.keys(breakdownData).forEach(dateStr => {
-      const date = new Date(dateStr);
-      let dayIdx = date.getDay() - 1;
-      if (dayIdx === -1) dayIdx = 6;
-      amounts[dayIdx] += breakdownData[dateStr];
-  });
-
-  const maxAmount = Math.max(...amounts, 1);
-  const maxLabel = document.getElementById('weekly-chart-max');
-  if(maxLabel) maxLabel.textContent = formatCurrency(maxAmount);
-
-  let html = '';
-  const todayDate = new Date();
-  let todayIdx = todayDate.getDay() - 1;
-  if (todayIdx === -1) todayIdx = 6;
-
-  days.forEach((day, idx) => {
-    const heightPct = (amounts[idx] / maxAmount) * 100;
-    const isActive = idx === todayIdx ? 'active' : '';
-    const activeColorStyle = idx === todayIdx ? 'color:var(--gold-dark);font-weight:700' : '';
-    html += `
-      <div class="week-bar-wrap" title="${formatCurrency(amounts[idx])}">
-        <div class="week-bar ${isActive}" style="height:${heightPct}%"></div>
-        <div class="week-day" style="${activeColorStyle}">${day}</div>
-      </div>
-    `;
-  });
-
-  chartContainer.innerHTML = html;
+  chartContainer.innerHTML = dailyBreakdown.map(day => {
+    const heightPx = day.total > 0 ? Math.max(Math.round((day.total / max) * chartHeight), 4) : 0;
+    const isToday = day.date === todayStr;
+    return `
+      <div class="week-bar-wrap" title="${formatCurrency(day.total)}">
+        <div class="week-bar ${isToday ? 'active' : ''}" style="height:${heightPx}px${heightPx === 0 ? ';min-height:0' : ''}"></div>
+        <div class="week-day" style="${isToday ? 'color:var(--gold-dark);font-weight:700' : ''}">${escapeHtml(day.label)}</div>
+      </div>`;
+  }).join('');
 }
 
 function applyTripFilters() {
@@ -1576,23 +1557,11 @@ async function loadWalletData() {
         if (ratingText) ratingText.innerHTML = parseFloat(e.rating).toFixed(1) + '<span style="color:var(--gold);font-size:14px;margin-left:2px;">★</span>';
 
         // Weekly bar chart
-        const chart = document.getElementById('weekly-bar-chart');
-        if (chart && e.daily_breakdown && e.daily_breakdown.length) {
+        if (e.daily_breakdown && e.daily_breakdown.length) {
           const maxVal = Math.max(...e.daily_breakdown.map(d => d.total), 1);
           const chartMax = document.getElementById('weekly-chart-max');
           if (chartMax) chartMax.textContent = formatCurrency(maxVal);
-
-          chart.innerHTML = e.daily_breakdown.map(day => {
-            const heightPct = Math.round((day.total / maxVal) * 100);
-            const isToday = day.date === new Date().toISOString().slice(0, 10);
-            return `
-              <div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px;">
-                <div style="font-size:11px;color:var(--text-muted);font-weight:${isToday ? '700' : '400'}">${escapeHtml(day.label)}</div>
-                <div style="flex:1;width:100%;display:flex;align-items:flex-end;">
-                  <div style="width:100%;height:${heightPct}%;min-height:${day.total > 0 ? 4 : 0}px;background:${isToday ? 'var(--primary)' : 'var(--surface-2)'};border-radius:4px 4px 0 0;" title="${formatCurrency(day.total)}"></div>
-                </div>
-              </div>`;
-          }).join('');
+          renderWeeklyChart(e.daily_breakdown, maxVal);
         }
       }
 
