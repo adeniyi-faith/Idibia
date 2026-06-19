@@ -860,6 +860,22 @@ function idibia_ensure_saved_addresses_column(): bool {
 }
 
 /**
+ * Returns a trip row if the given actor (customer or driver) is a participant,
+ * or null if the trip doesn't exist or doesn't belong to them.
+ */
+function idibia_get_trip_for_actor( int $trip_id, string $actor_type, int $actor_id ): ?array {
+    global $wpdb;
+    $col = $actor_type === 'customer' ? 'customer_id' : 'driver_id';
+    $row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, customer_id, driver_id, status, dispatch_status, delivery_pin
+         FROM `{$wpdb->prefix}sd_trips`
+         WHERE id = %d AND `{$col}` = %d LIMIT 1",
+        $trip_id, $actor_id
+    ), ARRAY_A );
+    return $row ?: null;
+}
+
+/**
  * Records an admin action in the audit log.
  */
 function idibia_admin_audit_log( string $action, string $entity_type, int $entity_id, array $metadata = [] ): void {

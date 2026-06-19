@@ -126,8 +126,7 @@
                 </div>
                 <div class="earnings-sub">
                   <div class="earnings-sub-label">Rating</div>
-                  <div class="earnings-sub-val" id="earnings-rating-text">0.0</div>
-                  <div id="earnings-rating-stars" style="color:var(--gold);margin-top:4px;"></div>
+                  <div class="earnings-sub-val" id="earnings-rating-text">0.0<span style="color:var(--gold);font-size:14px;margin-left:2px;">★</span></div>
                 </div>
               </div>
             </div>
