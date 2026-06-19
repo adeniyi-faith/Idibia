@@ -807,23 +807,75 @@ async function submitSosReport() {
   }
 }
 
-async function submitDriverCustomerRating(tripId) {
-  const rating = prompt('Rate the customer from 1 to 5 stars:', '5');
-  if (!rating) return;
-  const numeric = Number(rating);
-  if (!Number.isInteger(numeric) || numeric < 1 || numeric > 5) return showToast('Choose a rating from 1 to 5.');
-  const comment = prompt('Optional note about this customer:') || '';
+// ── Driver customer rating modal ──────────────────────────────────────────────
+let _driverRatingTripId = null;
+let _driverRatingValue = 0;
+
+const _ratingLabels = ['', 'Poor 😕', 'Fair 😐', 'Good 🙂', 'Great 😊', 'Amazing! 🌟'];
+
+function setDriverRatingStar(value) {
+  _driverRatingValue = value;
+  const stars = document.querySelectorAll('#driver-rating-stars .star-btn');
+  stars.forEach((btn, i) => {
+    const filled = i < value;
+    btn.classList.toggle('active', filled);
+    btn.querySelector('polygon').setAttribute('fill', filled ? 'var(--gold)' : 'none');
+    btn.querySelector('polygon').setAttribute('stroke', filled ? 'var(--gold-dark)' : 'currentColor');
+  });
+  const label = document.getElementById('driver-rating-label');
+  if (label) label.textContent = _ratingLabels[value] || '';
+  const submitBtn = document.getElementById('driver-rating-submit-btn');
+  if (submitBtn) submitBtn.disabled = false;
+}
+
+function openDriverRatingModal(tripId) {
+  _driverRatingTripId = tripId;
+  _driverRatingValue = 0;
+  // reset stars
+  document.querySelectorAll('#driver-rating-stars .star-btn').forEach(btn => {
+    btn.classList.remove('active');
+    btn.querySelector('polygon').setAttribute('fill', 'none');
+    btn.querySelector('polygon').setAttribute('stroke', 'currentColor');
+  });
+  const label = document.getElementById('driver-rating-label');
+  if (label) label.innerHTML = '&nbsp;';
+  const comment = document.getElementById('driver-rating-comment');
+  if (comment) comment.value = '';
+  const submitBtn = document.getElementById('driver-rating-submit-btn');
+  if (submitBtn) submitBtn.disabled = true;
+  openModal('modal-driver-rating');
+}
+
+function closeDriverRatingModal() {
+  closeModal('modal-driver-rating');
+  _driverRatingTripId = null;
+  _driverRatingValue = 0;
+}
+
+async function submitDriverRatingFromModal() {
+  if (!_driverRatingTripId || _driverRatingValue < 1) return showToast('Please select a star rating.');
+  const comment = (document.getElementById('driver-rating-comment')?.value || '').trim();
+  const submitBtn = document.getElementById('driver-rating-submit-btn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Submitting…'; }
   const body = new FormData();
-  body.append('trip_id', tripId);
-  body.append('rating', numeric);
-  body.append('comment', comment.trim());
+  body.append('trip_id', _driverRatingTripId);
+  body.append('rating', _driverRatingValue);
+  body.append('comment', comment);
   try {
     const response = await fetch('/rating-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
     const json = await parseDriverJson(response);
-    showToast(json.data?.message || (json.success ? 'Rating saved.' : 'Could not save rating.'));
+    closeDriverRatingModal();
+    showToast(json.data?.message || (json.success ? 'Rating saved. Thank you!' : 'Could not save rating.'));
   } catch (err) {
-    showToast('Could not save rating.');
+    showToast('Could not save rating. Please check your connection.');
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Submit Rating'; }
   }
+}
+
+// legacy alias kept for sendDriverTripAction callback
+async function submitDriverCustomerRating(tripId) {
+  openDriverRatingModal(tripId);
 }
 
 async function driverOfferAction(action, offerId) {
@@ -833,15 +885,41 @@ async function driverOfferAction(action, offerId) {
   await sendDriverTripAction(body);
 }
 
+// ── Delivery PIN modal ────────────────────────────────────────────────────────
+let _pendingCompleteTripId = null;
+
+function openDeliveryPinModal(tripId) {
+  _pendingCompleteTripId = tripId;
+  const input = document.getElementById('delivery-pin-input');
+  if (input) input.value = '';
+  const btn = document.getElementById('delivery-pin-submit-btn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Complete Delivery'; }
+  openModal('modal-delivery-pin');
+  setTimeout(() => { if (input) input.focus(); }, 350);
+}
+
+async function submitDeliveryPin() {
+  const input = document.getElementById('delivery-pin-input');
+  const pin = input?.value?.trim();
+  if (!pin) return showToast('Please enter the delivery PIN.');
+  const btn = document.getElementById('delivery-pin-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Completing…'; }
+  const body = new FormData();
+  body.append('action', 'complete');
+  body.append('trip_id', _pendingCompleteTripId);
+  body.append('delivery_pin', pin);
+  closeModal('modal-delivery-pin');
+  await sendDriverTripAction(body);
+}
+
 async function driverTripAction(action, tripId) {
+  if (action === 'complete') {
+    openDeliveryPinModal(tripId);
+    return;
+  }
   const body = new FormData();
   body.append('action', action);
   body.append('trip_id', tripId);
-  if (action === 'complete') {
-    const pin = prompt('Enter customer delivery PIN');
-    if (!pin) return;
-    body.append('delivery_pin', pin.trim());
-  }
   await sendDriverTripAction(body);
 }
 
@@ -1708,6 +1786,10 @@ function renderDashboardStats() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Allow Enter key to submit PIN modal
+  const pinInput = document.getElementById('delivery-pin-input');
+  if (pinInput) pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') submitDeliveryPin(); });
+
   renderDashboardStats();
   // On hard reload the dashboard is already active (PHP sets the class), so
   // goToDashboard() is not called via the SPA login path. Re-run profile and

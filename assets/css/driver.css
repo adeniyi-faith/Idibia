@@ -1531,3 +1531,53 @@ svg { display: block; }
 .modal-handle { width:36px; height:4px; background:var(--surface-3); border-radius:2px; margin:0 auto 16px; display:block; flex-shrink: 0; }
 @media(min-width:768px){.modal-handle{display:none;}}
 .modal-sub { font-size:13px; color:var(--text-secondary); margin-bottom: 20px; }
+
+/* ── Modal close button ── */
+.modal-close-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-secondary); transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+.modal-close-btn:hover { background: var(--surface-2); color: var(--text-primary); }
+
+/* ── Delivery PIN modal ── */
+.pin-icon-wrap {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold-pale), rgba(245,200,66,0.18));
+  border: 2px solid rgba(245,200,66,0.25);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto; color: var(--gold-dark);
+}
+.pin-otp-input {
+  text-align: center; font-size: 28px; font-weight: 700;
+  letter-spacing: 8px; font-family: 'Syne', sans-serif;
+  color: var(--text-primary);
+}
+
+/* ── Driver rating modal ── */
+.rating-stars-wrap { text-align: center; padding: 8px 0 4px; }
+.rating-stars {
+  display: flex; justify-content: center; gap: 6px;
+}
+.star-btn {
+  background: none; border: none; cursor: pointer; padding: 4px;
+  color: var(--surface-2); transition: color 0.15s, transform 0.15s;
+  line-height: 0; border-radius: 8px;
+}
+.star-btn:hover, .star-btn.active { color: var(--gold); }
+.star-btn:hover { transform: scale(1.15); }
+.star-btn:active { transform: scale(0.92); }
+@keyframes starPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.star-btn.active { animation: starPop 0.35s ease; }
+.rating-label {
+  margin-top: 10px; font-size: 16px; font-weight: 700;
+  color: var(--gold-dark); min-height: 24px; transition: opacity 0.2s;
+  font-family: 'Syne', sans-serif;
+}
