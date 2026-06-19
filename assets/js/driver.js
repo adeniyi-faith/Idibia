@@ -589,12 +589,25 @@ function setDispatchState(state) {
                || screen.classList.contains('disp-active') !== active;
   screen.classList.toggle('disp-incoming', incoming);
   screen.classList.toggle('disp-active', active);
-  // Always reveal full details when leaving a trip or a fresh offer lands.
   if (!active && !incoming) screen.classList.remove('sheet-collapsed');
-  // The map switches between full-bleed and a boxed top panel as the state
-  // changes; let the layout settle, then tell Leaflet to re-measure so tiles
-  // fill the new container size (the ResizeObserver also catches this, this is
-  // a belt-and-braces nudge for the transition).
+
+  // Apply boxed-map split via inline styles on mobile so the layout change is
+  // guaranteed regardless of CSS cascade order or browser quirks.
+  const mapEl  = document.getElementById('driver-map-container');
+  const cardEl = document.getElementById('driverOfferContainer');
+  if (mapEl && cardEl) {
+    if ((incoming || active) && window.innerWidth <= 767) {
+      const set = (el, props) => Object.entries(props).forEach(([k, v]) => el.style.setProperty(k, v, 'important'));
+      set(mapEl,  { position: 'relative', inset: 'auto', height: '44dvh', 'min-height': '0' });
+      set(cardEl, { position: 'relative', inset: 'auto', top: 'auto', left: 'auto', right: 'auto',
+                    bottom: 'auto', flex: '1 1 auto', 'min-height': '0', 'max-height': 'none', overflow: 'hidden' });
+    } else {
+      ['position','inset','height','min-height'].forEach(p => mapEl.style.removeProperty(p));
+      ['position','inset','top','left','right','bottom','flex','min-height','max-height','overflow']
+        .forEach(p => cardEl.style.removeProperty(p));
+    }
+  }
+
   if (changed && currentMap) {
     [60, 360].forEach(ms => setTimeout(() => currentMap.invalidateSize({ animate: false }), ms));
   }
