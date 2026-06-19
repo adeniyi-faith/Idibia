@@ -482,6 +482,7 @@ function goToDashboard() {
   renderDriverProfile();
   subscribeToDriverRealtime();
   setTimeout(ensureDriverMap, 500);
+  startDriverStatsPolling();
 }
 
 // ===== DASHBOARD =====
@@ -1135,6 +1136,7 @@ setDriverAuthMode(driverAuthMode);
 isOnline = !!driverInitialContext.is_online;
 
 let _kycPollTimer = null;
+let _driverStatsPollTimer = null;
 
 function startKycPolling() {
   if (_kycPollTimer) return;
@@ -1751,4 +1753,45 @@ async function doDriverLogout() {
     showToast('Logout failed. Please try again.');
     if (btn) btn.textContent = 'Log Out';
   }
+}
+
+async function fetchDriverStats() {
+  if (!driverAuthenticated || !driverInitialContext.is_approved) return;
+  try {
+    const res = await fetch('driver-stats-api.php', {
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    });
+    const json = await res.json();
+    if (!json.success) return;
+    const data = json.data;
+    if (data.dashboard_stats) {
+      driverInitialContext.dashboard_stats = data.dashboard_stats;
+      const stats = data.dashboard_stats;
+      const homeTodayEarnings = document.getElementById('home-today-earnings');
+      if (homeTodayEarnings) homeTodayEarnings.textContent = stats.today_earnings > 0 ? formatCurrency(stats.today_earnings) : '-';
+      const homeTodayTrips = document.getElementById('home-today-trips');
+      if (homeTodayTrips) homeTodayTrips.textContent = stats.today_trips;
+      const homeRating = document.getElementById('home-rating');
+      if (homeRating) homeRating.textContent = stats.avg_rating.toFixed(1) + '★';
+    }
+    if (Array.isArray(data.trips_history)) {
+      driverInitialContext.trips_history = data.trips_history;
+      if (currentTab === 'trips') {
+        const status = document.getElementById('tripFilterSelect')?.value || 'all';
+        renderTripHistory(status);
+      }
+    }
+    if (Array.isArray(data.active_campaigns)) {
+      driverInitialContext.active_campaigns = data.active_campaigns;
+      renderCampaigns();
+    }
+  } catch (_err) {
+    // silent background refresh
+  }
+}
+
+function startDriverStatsPolling() {
+  if (_driverStatsPollTimer) return;
+  _driverStatsPollTimer = setInterval(fetchDriverStats, 30000);
 }

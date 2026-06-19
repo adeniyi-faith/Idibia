@@ -2044,12 +2044,22 @@ async function fetchActivityTrips(force = false) {
 }
 
 // Call it when showing main screen
+let _activityRefreshTimer = null;
 const origEnter = window.enterCustomerApp;
 window.enterCustomerApp = function(msg) {
     if(origEnter) origEnter(msg);
     fetchRecentActivity();
     fetchSavedAddresses();
     setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 500);
+    if (!_activityRefreshTimer) {
+        _activityRefreshTimer = setInterval(() => {
+            fetchRecentActivity();
+            if (document.getElementById('tab-activity')?.classList.contains('active')) {
+                _activityLoaded = false;
+                fetchActivityTrips();
+            }
+        }, 30000);
+    }
 };
 
 // ═══════════ LEAFLET MAP INTEGRATION ═══════════
