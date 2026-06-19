@@ -43,8 +43,8 @@ function idibia_trip_feed_eta( array $trip, ?array $location ): array {
     if ( in_array( $trip['dispatch_status'], [ 'searching', 'offered', 'no_driver' ], true ) ) {
         return [
             'label'       => 'Finding driver',
-            'minutes'     => $base_minutes > 0 ? $base_minutes : null,
-            'distance_km' => $remaining_km !== null ? round( (float) $remaining_km, 1 ) : null,
+            'minutes'     => null,
+            'distance_km' => null,
         ];
     }
 
@@ -103,7 +103,7 @@ function idibia_build_trip_feed_payload( int $trip_id, string $payment_viewer_ty
     $driver_info = null;
     $driver_location = null;
     if ( ! empty( $trip['driver_id'] ) ) {
-        $driver = $wpdb->get_row( $wpdb->prepare( "SELECT full_name, first_name, phone, vehicle_type, vehicle_plate, rating, total_trips FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $trip['driver_id'] ), ARRAY_A );
+        $driver = $wpdb->get_row( $wpdb->prepare( "SELECT full_name, phone, vehicle_type, vehicle_plate, rating, total_trips FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $trip['driver_id'] ), ARRAY_A );
         $loc = $wpdb->get_row( $wpdb->prepare( "SELECT lat, lng, heading, updated_at FROM `{$wpdb->prefix}sd_driver_locations` WHERE driver_id = %d LIMIT 1", $trip['driver_id'] ), ARRAY_A );
         $driver_location = $loc ?: null;
 
