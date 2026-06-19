@@ -1376,9 +1376,9 @@ svg { display: block; }
      pan and zoom; it no longer sits behind the card. */
   #screen-driver-dash.disp-incoming .driver-map-fullscreen,
   #screen-driver-dash.disp-active   .driver-map-fullscreen {
-    position: relative;
-    inset: auto;
-    min-height: 0;
+    position: relative !important;
+    inset: auto !important;
+    min-height: 0 !important;
     height: 44dvh;
     flex: 0 0 44dvh;
   }
@@ -1387,16 +1387,16 @@ svg { display: block; }
      taking all remaining height below the map box. */
   #screen-driver-dash.disp-incoming .map-offer-overlay,
   #screen-driver-dash.disp-active   .map-offer-overlay {
-    position: relative;
-    inset: auto;
-    left: auto;
-    right: auto;
-    top: auto;
-    bottom: auto;
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
     flex: 1 1 auto;
     min-height: 0;
-    max-height: none;
-    overflow: hidden;      /* the card's .trq-scroll handles scrolling */
+    max-height: none !important;
+    overflow: hidden;
     gap: 0;
     z-index: 5;
   }
