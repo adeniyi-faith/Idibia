@@ -18,7 +18,7 @@
       <div class="receipt-row total"><span>Total Paid</span><span>₦2,800</span></div>
       <div class="receipt-payment">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        Paid by manual transfer after admin approval
+        Paid by bank transfer — payment verified
         <button type="button" id="receiptLinkBtn" onclick="viewReceipt()" style="margin-left:auto;background:none;border:none;font-size:12px;font-weight:700;color:var(--navy);cursor:pointer;text-decoration:underline;text-underline-offset:2px;padding:4px;display:none;">View Receipt</button>
       </div>
     </div>

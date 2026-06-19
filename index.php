@@ -1061,7 +1061,7 @@ function closeModalAndGoHome() {
   goBack();
   setTimeout(() => {
     switchTab('home', null, 'home');
-    showToast('Thanks for your feedback, John!');
+    showToast(`Thanks for your feedback, ${window.idibiaCustomerName || 'you'}!`);
   }, 100);
 }
 

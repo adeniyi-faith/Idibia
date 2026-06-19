@@ -84,7 +84,7 @@ idibia_log_event( $trip_id, 'payment_proof_uploaded', [ 'payment_id' => (int) $p
 idibia_notify_trip_participants( $trip_id, 'payment_proof_uploaded' );
 
 wp_send_json_success( [
-    'message' => 'Payment proof uploaded. Admin will review it shortly.',
+    'message' => 'Receipt received. Your payment is being processed.',
     'payment' => idibia_payment_public_payload( $trip_id ),
 ] );
 
