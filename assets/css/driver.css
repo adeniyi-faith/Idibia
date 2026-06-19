@@ -1350,13 +1350,15 @@ svg { display: block; }
 .map-offer-overlay .trip-request-card { margin-bottom: 0; }
 .map-offer-overlay .trq-fee { font-size: 28px; margin-bottom: 14px; }
 
-/* ════════════════════ MOBILE DISPATCH SHEET ════════════════════
+/* ════════════════════ MOBILE DISPATCH LAYOUT ════════════════════
    The map-first home runs a small layout state machine on #screen-driver-dash:
-     · idle      → no class            (stats sheet + nav visible)
-     · incoming  → .disp-incoming      (offer docked as bottom sheet)
-     · active    → .disp-active        (active trip docked as bottom sheet)
-   In incoming/active the stats sheet and bottom nav slide away so the action
-   row can never be clipped, and the map keeps the top half of the screen. */
+     · idle      → no class            (full-bleed map · stats sheet + nav)
+     · incoming  → .disp-incoming      (boxed map + scrollable request card)
+     · active    → .disp-active        (boxed map + scrollable trip card)
+   In incoming/active the layout mirrors the customer "Live Tracking" screen:
+   the map shrinks to a manipulable box up top and the card fills a scrollable
+   panel below it — so the driver keeps the whole map to pan/zoom while every
+   detail and action stays reachable, instead of the card covering the map. */
 @media (max-width: 767px) {
 
   /* IDLE: the "no live requests" chip floats just under the header — it is NOT
@@ -1369,28 +1371,50 @@ svg { display: block; }
     max-height: calc(100% - 220px);
   }
 
-  /* INCOMING / ACTIVE: dock the request card to the bottom as a real sheet. */
+  /* ── INCOMING / ACTIVE: boxed-map split (mirrors customer Live Tracking) ──
+     The full-bleed map becomes a fixed-height box that the driver can freely
+     pan and zoom; it no longer sits behind the card. */
+  #screen-driver-dash.disp-incoming .driver-map-fullscreen,
+  #screen-driver-dash.disp-active   .driver-map-fullscreen {
+    position: relative;
+    inset: auto;
+    min-height: 0;
+    height: 44dvh;
+    flex: 0 0 44dvh;
+  }
+
+  /* The offer/trip overlay stops floating and becomes the lower scroll panel,
+     taking all remaining height below the map box. */
   #screen-driver-dash.disp-incoming .map-offer-overlay,
   #screen-driver-dash.disp-active   .map-offer-overlay {
+    position: relative;
+    inset: auto;
+    left: auto;
+    right: auto;
     top: auto;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    bottom: auto;
+    flex: 1 1 auto;
+    min-height: 0;
     max-height: none;
-    overflow: visible;
+    overflow: hidden;      /* the card's .trq-scroll handles scrolling */
     gap: 0;
+    z-index: 5;
   }
+
+  /* The card fills the lower panel: body scrolls, action footer stays pinned. */
   #screen-driver-dash.disp-incoming .trip-request-card,
   #screen-driver-dash.disp-active   .trip-request-card {
     width: 100%;
+    height: 100%;
     margin: 0;
     padding: 0 16px;
-    max-height: 60vh;
     display: flex;
     flex-direction: column;
-    border-radius: 22px 22px 0 0;
-    box-shadow: 0 -14px 40px rgba(0,0,0,0.45);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.35);
   }
+  /* Decorative grip / seam between the map box and the card. The map stays
+     visible at all times now, so the old tap-to-collapse interaction is gone. */
   .trq-sheet-handle {
     display: block;
     width: 42px;
@@ -1399,7 +1423,7 @@ svg { display: block; }
     background: rgba(255,255,255,0.28);
     margin: 9px auto 12px;
     flex-shrink: 0;
-    cursor: pointer;
+    pointer-events: none;
   }
   /* The fee/meta/route scroll; the action footer stays pinned within reach. */
   .trq-scroll {

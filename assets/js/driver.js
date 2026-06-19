@@ -585,10 +585,19 @@ function setDispatchState(state) {
   if (!screen) return;
   const incoming = state === 'incoming';
   const active = state === 'active';
+  const changed = screen.classList.contains('disp-incoming') !== incoming
+               || screen.classList.contains('disp-active') !== active;
   screen.classList.toggle('disp-incoming', incoming);
   screen.classList.toggle('disp-active', active);
   // Always reveal full details when leaving a trip or a fresh offer lands.
   if (!active && !incoming) screen.classList.remove('sheet-collapsed');
+  // The map switches between full-bleed and a boxed top panel as the state
+  // changes; let the layout settle, then tell Leaflet to re-measure so tiles
+  // fill the new container size (the ResizeObserver also catches this, this is
+  // a belt-and-braces nudge for the transition).
+  if (changed && currentMap) {
+    [60, 360].forEach(ms => setTimeout(() => currentMap.invalidateSize({ animate: false }), ms));
+  }
 }
 
 // Tap the sheet handle to collapse the dispatch sheet to a peek (fee + actions)
