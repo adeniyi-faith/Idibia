@@ -1389,12 +1389,13 @@ function renderWeeklyChart(dailyBreakdown, maxVal) {
   const chartContainer = document.getElementById('weekly-bar-chart');
   if (!chartContainer || !dailyBreakdown || !dailyBreakdown.length) return;
 
-  const chartHeight = 80;
+  // Reserve space for the label (≈13px) and gap (6px) so the tallest bar never overflows the 80px container.
+  const maxBarPx = 61;
   const max = maxVal || Math.max(...dailyBreakdown.map(d => d.total), 1);
   const todayStr = new Date().toISOString().slice(0, 10);
 
   chartContainer.innerHTML = dailyBreakdown.map(day => {
-    const heightPx = day.total > 0 ? Math.max(Math.round((day.total / max) * chartHeight), 4) : 0;
+    const heightPx = day.total > 0 ? Math.max(Math.round((day.total / max) * maxBarPx), 4) : 0;
     const isToday = day.date === todayStr;
     return `
       <div class="week-bar-wrap" title="${formatCurrency(day.total)}">
