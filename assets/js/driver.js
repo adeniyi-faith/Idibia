@@ -1573,10 +1573,7 @@ async function loadWalletData() {
         if (weekTrips) weekTrips.textContent = e.week_trips;
 
         const ratingText = document.getElementById('earnings-rating-text');
-        if (ratingText) ratingText.textContent = parseFloat(e.rating).toFixed(1);
-
-        const ratingStars = document.getElementById('earnings-rating-stars');
-        if (ratingStars) ratingStars.innerHTML = renderStars(e.rating);
+        if (ratingText) ratingText.innerHTML = parseFloat(e.rating).toFixed(1) + '<span style="color:var(--gold);font-size:14px;margin-left:2px;">★</span>';
 
         // Weekly bar chart
         const chart = document.getElementById('weekly-bar-chart');

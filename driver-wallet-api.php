@@ -30,36 +30,40 @@ if ($action === 'get_wallet') {
         $driver_id
     ), ARRAY_A);
 
-    // Earnings summary: week starts on Monday
+    // Earnings summary: week starts on Monday — read from trips for consistency with home screen
     $week_start = gmdate('Y-m-d', strtotime('monday this week'));
     $week_end   = gmdate('Y-m-d', strtotime('sunday this week'));
     $today      = gmdate('Y-m-d');
 
-    $week_earnings = (float) $wpdb->get_var($wpdb->prepare(
-        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_wallet_ledger`
-         WHERE driver_id = %d AND entry_type IN ('earning','bonus') AND DATE(created_at) BETWEEN %s AND %s",
-        $driver_id, $week_start, $week_end
-    ));
+    $week_start_dt = $week_start . ' 00:00:00';
+    $week_end_dt   = $week_end   . ' 23:59:59';
+    $today_start   = $today . ' 00:00:00';
+    $today_end     = $today . ' 23:59:59';
 
     $today_earnings = (float) $wpdb->get_var($wpdb->prepare(
-        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_wallet_ledger`
-         WHERE driver_id = %d AND entry_type IN ('earning','bonus') AND DATE(created_at) = %s",
-        $driver_id, $today
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(final_fare,0), fare, 0)), 0)
+         FROM `{$wpdb->prefix}sd_trips`
+         WHERE driver_id = %d AND status = 'completed' AND completed_at BETWEEN %s AND %s",
+        $driver_id, $today_start, $today_end
     ));
 
-    $week_trips = (int) $wpdb->get_var($wpdb->prepare(
-        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_wallet_ledger`
-         WHERE driver_id = %d AND entry_type = 'earning' AND DATE(created_at) BETWEEN %s AND %s",
-        $driver_id, $week_start, $week_end
-    ));
+    $week_row = $wpdb->get_row($wpdb->prepare(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(final_fare,0), fare, 0)), 0) AS week_total, COUNT(*) AS week_trips
+         FROM `{$wpdb->prefix}sd_trips`
+         WHERE driver_id = %d AND status = 'completed' AND completed_at BETWEEN %s AND %s",
+        $driver_id, $week_start_dt, $week_end_dt
+    ), ARRAY_A);
+
+    $week_earnings = (float) ($week_row['week_total'] ?? 0);
+    $week_trips    = (int)   ($week_row['week_trips'] ?? 0);
 
     // Daily breakdown for the current week (Mon–Sun)
     $daily_rows = $wpdb->get_results($wpdb->prepare(
-        "SELECT DATE(created_at) AS day, COALESCE(SUM(amount), 0) AS total
-         FROM `{$wpdb->prefix}sd_wallet_ledger`
-         WHERE driver_id = %d AND entry_type IN ('earning','bonus') AND DATE(created_at) BETWEEN %s AND %s
-         GROUP BY DATE(created_at)",
-        $driver_id, $week_start, $week_end
+        "SELECT DATE(completed_at) AS day, COALESCE(SUM(COALESCE(NULLIF(final_fare,0), fare, 0)), 0) AS total
+         FROM `{$wpdb->prefix}sd_trips`
+         WHERE driver_id = %d AND status = 'completed' AND completed_at BETWEEN %s AND %s
+         GROUP BY DATE(completed_at)",
+        $driver_id, $week_start_dt, $week_end_dt
     ), ARRAY_A);
 
     $daily_map = [];
