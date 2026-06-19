@@ -69,8 +69,8 @@ if ( $action === 'accept_offer' ) {
     $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->prefix}sd_dispatch_offers` SET status = 'expired' WHERE trip_id = %d AND id <> %d AND status = 'pending'", (int) $offer['trip_id'], $offer_id ) );
     idibia_pusher_broadcast_driver_offers( array_merge( [ $driver_id ], array_map( 'intval', $pending_driver_ids ?: [] ) ), 'offer_accepted', [ 'trip_id' => (int) $offer['trip_id'] ] );
     idibia_log_event( (int) $offer['trip_id'], 'offer_accepted', [ 'driver_id' => $driver_id ] );
-    idibia_notify_trip_participants( (int) $offer['trip_id'], 'offer_accepted' );
     idibia_transaction_commit();
+    idibia_notify_trip_participants( (int) $offer['trip_id'], 'offer_accepted' );
     wp_send_json_success( [ 'message' => 'Trip accepted.', 'active_trip' => idibia_get_driver_active_trip( $driver_id ) ] );
 }
 
@@ -106,9 +106,9 @@ if ( $action === 'complete' ) {
 
 $wpdb->update( $wpdb->prefix . 'sd_trips', $data, [ 'id' => $trip_id ], $formats, [ '%d' ] );
 idibia_log_event( $trip_id, $transition['event'], [ 'driver_id' => $driver_id ] );
-idibia_notify_trip_participants( $trip_id, $transition['event'] );
 if ( $action === 'complete' && $trip['payment_status'] === 'captured' ) {
     idibia_credit_driver_for_trip( $trip_id );
 }
 idibia_transaction_commit();
+idibia_notify_trip_participants( $trip_id, $transition['event'] );
 wp_send_json_success( [ 'message' => 'Trip updated.', 'active_trip' => idibia_get_driver_active_trip( $driver_id ) ] );
