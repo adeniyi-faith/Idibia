@@ -7,6 +7,9 @@ let pickupCoords = null;
 let dropoffCoords = null;
 let pinMap = null;
 let pinField = null;
+let bookingPickupMarker = null;
+let bookingDropoffMarker = null;
+let _homeMapActive = false;
 let _pinReverseTimer = null;
 let _saveAddressInputId = null;
 let _savedAddresses = [];            // client-side cache of the customer's saved addresses
@@ -113,8 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(start).classList.add('active');
   buildDateGrid();
-  initPhotonAutocomplete('pickupInput',  'pickupSuggestions',  c => { pickupCoords  = c; });
-  initPhotonAutocomplete('dropoffInput', 'dropoffSuggestions', c => { dropoffCoords = c; });
+  initPhotonAutocomplete('pickupInput',  'pickupSuggestions',  c => { pickupCoords  = c; updateBookingMapMarkers(); });
+  initPhotonAutocomplete('dropoffInput', 'dropoffSuggestions', c => { dropoffCoords = c; updateBookingMapMarkers(); });
   fetchSavedAddresses(); // load saved places so they're available in the inputs on first paint
   setTimeout(() => initLeafletMap('home-map-container', 6.5244, 3.3792), 500);
   // Auto-resume tracking if the customer has an active trip (handles page refresh mid-trip).
@@ -401,6 +404,7 @@ function _applySavedAddress(input, addr) {
   const coords = (lat && lng) ? { lat, lng } : null;
   if (input.id === 'pickupInput') pickupCoords = coords;
   else if (input.id === 'dropoffInput') dropoffCoords = coords;
+  updateBookingMapMarkers();
 }
 
 async function _fetchPhoton(q, box, input, setCoords) {
@@ -535,6 +539,7 @@ function useMyLocation(field) {
       const { latitude: lat, longitude: lng } = pos.coords;
       if (field === 'pickup') pickupCoords = { lat, lng };
       else dropoffCoords = { lat, lng };
+      updateBookingMapMarkers();
       const address = await _reverseGeocode(lat, lng);
       const input = document.getElementById(field + 'Input');
       if (input) input.value = address;
@@ -608,6 +613,7 @@ function confirmPin() {
   if (input) input.value = address;
   if (pinField === 'pickup') pickupCoords = { lat, lng };
   else dropoffCoords = { lat, lng };
+  updateBookingMapMarkers();
 
   closePinModal();
   showToast('Location pinned');
@@ -708,6 +714,7 @@ function swapLocations() {
   const tempCoords = pickupCoords;
   pickupCoords = dropoffCoords;
   dropoffCoords = tempCoords;
+  updateBookingMapMarkers();
   showToast('Locations swapped');
 }
 
@@ -2072,6 +2079,9 @@ function initLeafletMap(containerId, lat, lng, isTracking = false, _retries = 6)
   if (currentMap) {
     currentMap.remove();
     currentMap = null;
+    _homeMapActive = false;
+    bookingPickupMarker = null;
+    bookingDropoffMarker = null;
   }
 
   const el = document.getElementById(containerId);
@@ -2099,6 +2109,37 @@ function initLeafletMap(containerId, lat, lng, isTracking = false, _retries = 6)
 
   if (isTracking) {
     currentMarker = L.marker([lat, lng], { icon }).addTo(currentMap);
+  }
+
+  if (containerId === 'home-map-container') {
+    _homeMapActive = true;
+    setTimeout(() => updateBookingMapMarkers(), 850);
+  }
+}
+
+function updateBookingMapMarkers() {
+  if (!currentMap || !_homeMapActive) return;
+  if (bookingPickupMarker) { currentMap.removeLayer(bookingPickupMarker); bookingPickupMarker = null; }
+  if (bookingDropoffMarker) { currentMap.removeLayer(bookingDropoffMarker); bookingDropoffMarker = null; }
+  if (pickupCoords) {
+    bookingPickupMarker = L.circleMarker([pickupCoords.lat, pickupCoords.lng], {
+      radius: 9, fillColor: '#4A9EFF', color: '#ffffff', weight: 3, fillOpacity: 1, interactive: false
+    }).addTo(currentMap);
+  }
+  if (dropoffCoords) {
+    bookingDropoffMarker = L.circleMarker([dropoffCoords.lat, dropoffCoords.lng], {
+      radius: 9, fillColor: '#C8952A', color: '#ffffff', weight: 3, fillOpacity: 1, interactive: false
+    }).addTo(currentMap);
+  }
+  if (pickupCoords && dropoffCoords) {
+    currentMap.fitBounds(
+      [[pickupCoords.lat, pickupCoords.lng], [dropoffCoords.lat, dropoffCoords.lng]],
+      { padding: [60, 60], maxZoom: 15 }
+    );
+  } else if (pickupCoords) {
+    currentMap.setView([pickupCoords.lat, pickupCoords.lng], 15);
+  } else if (dropoffCoords) {
+    currentMap.setView([dropoffCoords.lat, dropoffCoords.lng], 15);
   }
 }
 
