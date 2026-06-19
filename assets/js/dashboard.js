@@ -636,8 +636,11 @@ function keepMapSized(map) {
   const el = map.getContainer();
   let raf = null;
   const ro = new ResizeObserver(() => {
+    if (!document.contains(el)) { ro.disconnect(); return; }
     if (raf) cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => map.invalidateSize({ animate: false }));
+    raf = requestAnimationFrame(() => {
+      try { map.invalidateSize({ animate: false }); } catch (_) { ro.disconnect(); }
+    });
   });
   ro.observe(el);
 }
