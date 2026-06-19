@@ -21,7 +21,7 @@
   <div class="tracking-scroll">
     <div class="tracking-card">
       <div class="rider-status">
-        <div class="rider-avatar">AK<div class="rider-online"></div></div>
+        <div class="rider-avatar" id="trackingDriverAvatar"><div class="rider-online"></div></div>
         <div class="rider-info-col">
           <div class="rider-profile-top">
             <div class="rider-name" id="trackingDriverName">Searching for driver</div>
