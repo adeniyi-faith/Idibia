@@ -1470,14 +1470,23 @@ function renderTripHistory(filterStatus = 'all', filterStartDate = null, filterE
         const shortPickup = trip.pickup.length > maxLocLen ? trip.pickup.substring(0, maxLocLen) + '...' : trip.pickup;
         const shortDropoff = trip.dropoff.length > maxLocLen ? trip.dropoff.substring(0, maxLocLen) + '...' : trip.dropoff;
 
+        const hasReceipt = !!trip.receipt_url;
+        const clickAction = hasReceipt
+            ? `window.open(${JSON.stringify(trip.receipt_url)}, '_blank')`
+            : `showToast('No receipt available for this trip')`;
+        const receiptBadge = hasReceipt
+            ? `<div class="trip-receipt-badge">View Receipt</div>`
+            : '';
+
         html += `
-        <div class="trip-history-item" onclick="showToast('Receipt for trip #${trip.trip_ref} opened')">
+        <div class="trip-history-item ${hasReceipt ? 'has-receipt' : ''}" onclick="${clickAction}" style="${hasReceipt ? 'cursor:pointer' : ''}">
             <div class="trip-icon ${iconClass}">
             ${iconSvg}
             </div>
             <div class="trip-details">
             <div class="trip-route">${shortPickup} &rarr; ${shortDropoff}</div>
             <div class="trip-meta">${dateStr} &middot; #${trip.trip_ref}</div>
+            ${receiptBadge}
             </div>
             <div>
             <div class="trip-amount">${formatCurrency(trip.fare || 0)}</div>
