@@ -52,6 +52,8 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     $avg_rating = (float) $wpdb->get_var($wpdb->prepare("SELECT AVG(rating) FROM `{$wpdb->prefix}sd_ratings` WHERE subject_id = %d AND reviewer_type = 'customer'", $driver_id));
     $avg_rating = $avg_rating > 0 ? round($avg_rating, 1) : 0.0;
 
+    $total_completed_trips = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(id) FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed'", $driver_id));
+
     $trips_history = $wpdb->get_results($wpdb->prepare("SELECT id, trip_ref, pickup, dropoff, fare, status, created_at, completed_at FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d ORDER BY created_at DESC LIMIT 100", $driver_id), ARRAY_A);
 
     // Active Campaigns
@@ -106,8 +108,8 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
         'is_online'   => ! empty( $driver_row['is_online'] ),
         'email_verified' => $email_verified,
         'vehicle_type' => $driver_row['vehicle_type'] ?? '',
-        'rating'      => $driver_row['rating'] ?? '0.00',
-        'total_trips' => $driver_row['total_trips'] ?? 0,
+        'rating'      => $avg_rating,
+        'total_trips' => $total_completed_trips,
         'bank_name'   => $driver_row['bank_name'] ?? '',
         'account_holder_name' => $driver_row['account_holder_name'] ?? '',
         'account_number' => $driver_row['account_number'] ?? '',

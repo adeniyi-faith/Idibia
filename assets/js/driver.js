@@ -908,7 +908,14 @@ function renderDriverProfile() {
             dashHomeAvatar.style.display = 'block';
             dashHomeAvatar.onerror = function() {
                 this.style.display = 'none';
-                if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'flex';
+                if (dashHomeAvatarInitials) {
+                    const p = (ctx.full_name || '').trim().split(' ');
+                    let ini = '';
+                    if (p.length > 0 && p[0]) ini += p[0][0];
+                    if (p.length > 1 && p[p.length - 1]) ini += p[p.length - 1][0];
+                    dashHomeAvatarInitials.textContent = ini.toUpperCase() || '?';
+                    dashHomeAvatarInitials.style.display = 'flex';
+                }
             };
         }
         if (dashHomeAvatarInitials) dashHomeAvatarInitials.style.display = 'none';
