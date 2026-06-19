@@ -1171,6 +1171,15 @@ function stopKycPolling() {
   if (_kycPollTimer) { clearInterval(_kycPollTimer); _kycPollTimer = null; }
 }
 
+// ═══════════ LEAFLET MAP INTEGRATION ═══════════
+// Declared here (before the logged_in block) to avoid TDZ errors when
+// startLocationWatch / ensureDriverMap are called synchronously below.
+let currentMap = null;
+let currentMarker = null;
+let driverWatchId = null;
+let latestDriverCoords = null;
+let _lastLocationPingTs = 0;
+
 if (driverInitialContext.logged_in) {
   driverAuthenticated = true;
   if (!driverInitialContext.is_approved) {
@@ -1212,14 +1221,6 @@ function showToast(msg) {
 
 updateDriver();
 renderDriverProfile();
-
-// ═══════════ LEAFLET MAP INTEGRATION ═══════════
-let currentMap = null;
-let currentMarker = null;
-
-let driverWatchId = null;
-let latestDriverCoords = null;
-let _lastLocationPingTs = 0;
 
 function startLocationWatch() {
   if (!navigator.geolocation || driverWatchId !== null) return;
