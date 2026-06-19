@@ -1272,7 +1272,7 @@ function updateTrackingUI(trip) {
   if (drvPlate) drvPlate.textContent = drv?.plate || (drv ? 'No plate' : 'Pending');
 
   const drvRating = document.getElementById('trackingDriverRating');
-  if (drvRating) drvRating.textContent = drv ? `${drv.rating || '5.0'} · ${Number(drv.total_trips || 0).toLocaleString()} trips · ${drv.masked_phone || 'masked'}` : 'Waiting for assignment';
+  if (drvRating) drvRating.textContent = drv ? `${drv.rating != null ? drv.rating : '—'} · ${Number(drv.total_trips || 0).toLocaleString()} trips · ${drv.masked_phone || 'masked'}` : 'Waiting for assignment';
 
   const callBtn = document.getElementById('trackingCallButton');
   if (callBtn) {
@@ -1294,8 +1294,8 @@ function updateTrackingUI(trip) {
       }
   }
 
-  const drvAvatar = document.querySelector('.rider-avatar');
-  if (drvAvatar) drvAvatar.innerHTML = drv ? `${escapeHtml(initials)}<div class="rider-online"></div>` : '…';
+  const drvAvatar = document.getElementById('trackingDriverAvatar') || document.querySelector('.rider-avatar');
+  if (drvAvatar) drvAvatar.innerHTML = drv ? `${escapeHtml(initials)}<div class="rider-online"></div>` : '<span style="font-size:18px;opacity:.5;">?</span><div class="rider-online"></div>';
 
   const eta = trip.eta || {};
   const etaChip = document.getElementById('trackingEtaLabel');

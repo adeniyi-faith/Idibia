@@ -103,18 +103,22 @@ function idibia_build_trip_feed_payload( int $trip_id, string $payment_viewer_ty
     $driver_info = null;
     $driver_location = null;
     if ( ! empty( $trip['driver_id'] ) ) {
-        $driver = $wpdb->get_row( $wpdb->prepare( "SELECT full_name, phone, vehicle_type, vehicle_plate, rating, total_trips FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $trip['driver_id'] ), ARRAY_A );
+        $driver = $wpdb->get_row( $wpdb->prepare( "SELECT full_name, phone, vehicle_type, vehicle_plate FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $trip['driver_id'] ), ARRAY_A );
         $loc = $wpdb->get_row( $wpdb->prepare( "SELECT lat, lng, heading, updated_at FROM `{$wpdb->prefix}sd_driver_locations` WHERE driver_id = %d LIMIT 1", $trip['driver_id'] ), ARRAY_A );
         $driver_location = $loc ?: null;
 
         if ( $driver ) {
+            $raw_rating  = $wpdb->get_var( $wpdb->prepare( "SELECT AVG(rating) FROM `{$wpdb->prefix}sd_ratings` WHERE subject_id = %d AND reviewer_type = 'customer'", $trip['driver_id'] ) );
+            $live_rating = $raw_rating !== null ? round( (float) $raw_rating, 1 ) : null;
+            $live_trips  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(id) FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d AND status = 'completed'", $trip['driver_id'] ) );
+
             $driver_info = [
-                'first_name'   => $driver['first_name'] ?: strtok( $driver['full_name'], ' ' ),
+                'first_name'   => strtok( $driver['full_name'], ' ' ),
                 'full_name'    => $driver['full_name'],
                 'vehicle'      => $driver['vehicle_type'],
                 'plate'        => $driver['vehicle_plate'],
-                'rating'       => $driver['rating'] !== null ? (float) $driver['rating'] : null,
-                'total_trips'  => (int) $driver['total_trips'],
+                'rating'       => $live_rating,
+                'total_trips'  => $live_trips,
                 'masked_phone' => idibia_mask_phone( $driver['phone'] ?? '' ),
                 'phone'        => $driver['phone'] ?: '08000000000',
                 'contact'      => 'masked_relay',
