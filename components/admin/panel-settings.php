@@ -102,6 +102,15 @@
     </div>
 
     <button class="btn-primary" onclick="savePaymentSettings()">Save Changes</button>
+
+    <div class="settings-section">
+      <div class="scard-header">
+        <h4 style="border:0;margin:0;padding:0">Geographic Zones</h4>
+        <button class="scard-action" onclick="openZoneModal(null)">+ Add Zone</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px">Define service zones. When at least one zone is active, only pickups within a zone will be accepted.</p>
+      <div id="zonesList"><div class="list-item"><div class="item-info"><div class="item-name" style="color:var(--text-muted)">Loading zones…</div></div></div></div>
+    </div>
   </div>
 
 <script>
@@ -165,7 +174,10 @@
     });
   };
 
-  document.addEventListener('DOMContentLoaded',loadZones);
-  document.getElementById('zoneModal').addEventListener('click',function(e){if(e.target===this)closeZoneModal();});
+  document.addEventListener('DOMContentLoaded',function(){
+    loadZones();
+    var zm=document.getElementById('zoneModal');
+    if(zm) zm.addEventListener('click',function(e){if(e.target===this)closeZoneModal();});
+  });
 })();
 </script>
