@@ -76,6 +76,9 @@ let currentDisputeId = 0;
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 }
+function emptyState(icon, title, subtitle){
+  return `<div style="text-align:center;padding:48px 24px;color:#6b7280"><div style="font-size:2.5rem;margin-bottom:12px">${icon}</div><div style="font-weight:600;font-size:1rem;margin-bottom:6px">${escapeHtml(title)}</div><div style="font-size:.875rem">${escapeHtml(subtitle)}</div></div>`;
+}
 function skeletonRows(count=5){
   const row='<div class="list-item"><div class="sk-circle"></div><div class="item-info"><div class="sk-line" style="width:55%;margin-bottom:6px"></div><div class="sk-line" style="width:38%"></div></div><div style="margin-left:auto;display:flex;gap:6px"><div class="sk-line" style="width:52px;height:28px;border-radius:8px"></div></div></div>';
   return Array(count).fill(row).join('');

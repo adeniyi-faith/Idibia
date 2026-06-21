@@ -229,6 +229,7 @@ try {
 }
 
 
+if ( ! function_exists( 'idibia_admin_audit_log' ) ) :
 function idibia_admin_audit_log( string $action, string $entity_type, int $entity_id, array $metadata = [] ): void {
     global $wpdb;
     $table = $wpdb->prefix . 'sd_admin_audit_logs';
@@ -258,6 +259,7 @@ function idibia_admin_audit_log( string $action, string $entity_type, int $entit
         'created_at'  => gmdate( 'Y-m-d H:i:s' ),
     ], [ '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%s' ] );
 }
+endif;
 
 function idibia_admin_dashboard_stats(): void {
     global $wpdb;
