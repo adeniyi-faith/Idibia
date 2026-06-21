@@ -258,7 +258,8 @@ async function loadPaymentSettings(){
       }
     });
   } catch (e) {
-    toast('Could not load settings');
+    console.error('loadPaymentSettings error:', e);
+    toast('Could not load settings: ' + (e.message || 'Unknown error'));
   }
 }
 
@@ -447,8 +448,6 @@ if (document.getElementById('app')) {
   loadTrips();
   loadPayouts();
   loadDisputes();
-  loadPaymentSettings();
-  loadManualPayments();
 }
 
 
