@@ -123,8 +123,12 @@ async function driverLogin() {
       } else if (driverInitialContext.kyc_status === 'under_review') {
         driverStep = 5;
         updateDriver();
+      } else if (driverInitialContext.kyc_status === 'rejected') {
+        driverStep = 2;
+        showKycRejectionNotice(driverInitialContext.kyc_notes, driverInitialContext.kyc_rejection_history);
+        updateDriver();
       } else {
-        driverStep = 2; // Move to identity verification
+        driverStep = 2;
         updateDriver();
       }
       return true;
@@ -468,7 +472,14 @@ function markDone(el, filename = '', file = null) {
 
 function goToDashboard() {
   if (!driverInitialContext.is_approved) {
-    driverStep = driverInitialContext.kyc_status === 'under_review' ? 5 : 1;
+    if (driverInitialContext.kyc_status === 'under_review') {
+      driverStep = 5;
+    } else if (driverInitialContext.kyc_status === 'rejected' && driverAuthenticated) {
+      driverStep = 2;
+      showKycRejectionNotice(driverInitialContext.kyc_notes, driverInitialContext.kyc_rejection_history);
+    } else {
+      driverStep = 1;
+    }
     document.getElementById('screen-driver-dash').classList.remove('active');
     document.getElementById('screen-driver').classList.add('active');
     updateDriver();
@@ -1237,8 +1248,10 @@ function startKycPolling() {
         fetchDriverOffers();
         setInterval(fetchDriverOffers, IDIBIA_PUSHER_CONFIG?.enabled ? 30000 : 15000);
       } else if (kyc_status === 'rejected') {
+        driverInitialContext.kyc_notes = kyc_notes || '';
         showToast('Your application was not approved. ' + (kyc_notes || 'Please check your documents and reapply.'));
-        driverStep = 1;
+        driverStep = 2;
+        showKycRejectionNotice(kyc_notes, driverInitialContext.kyc_rejection_history);
         updateDriver();
       }
     } catch (_) {}
@@ -1264,6 +1277,9 @@ if (driverInitialContext.logged_in) {
     if (driverInitialContext.kyc_status === 'under_review') {
       driverStep = 5;
       startKycPolling();
+    } else if (driverInitialContext.kyc_status === 'rejected') {
+      driverStep = 2;
+      showKycRejectionNotice(driverInitialContext.kyc_notes, driverInitialContext.kyc_rejection_history);
     } else if (driverInitialContext.kyc_status === 'pending') {
       driverStep = 2;
     }
@@ -1282,6 +1298,24 @@ if (document.getElementById('onlineToggle')) {
   _toggle.classList.toggle('offline', !isOnline);
   _toggle.setAttribute('aria-checked', isOnline ? 'true' : 'false');
   document.getElementById('onlineLabel').textContent = isOnline ? 'Online' : 'Offline';
+}
+
+function showKycRejectionNotice(notes, history) {
+  const banner = document.getElementById('kycRejectionBanner');
+  if(!banner) return;
+  const esc = v => String(v||'').replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  let html = `<div style="font-weight:700;margin-bottom:6px;color:#c0392b">⚠ Application Rejected</div>`;
+  if(notes) html += `<div style="margin-bottom:8px">${esc(notes)}</div>`;
+  let historyArr = [];
+  if(history){ try{ historyArr = JSON.parse(history); }catch(_){} }
+  if(historyArr.length > 1){
+    html += `<details style="margin-top:6px"><summary style="font-size:12px;cursor:pointer;opacity:0.75">View ${historyArr.length} previous rejection(s)</summary>`;
+    historyArr.forEach(h => { html += `<div style="margin-top:6px;font-size:12px;opacity:0.8">${esc(h.reason||'')}${h.rejected_at?' ('+new Date(h.rejected_at+'Z').toLocaleDateString()+')':''}</div>`; });
+    html += `</details>`;
+  }
+  html += `<div style="margin-top:10px;font-size:12px;opacity:0.8">Please fix the issues above, re-upload your documents, and resubmit.</div>`;
+  banner.innerHTML = html;
+  banner.style.display = 'block';
 }
 
 // Toast

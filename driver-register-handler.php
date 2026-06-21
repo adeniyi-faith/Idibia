@@ -50,6 +50,10 @@ if ( $errors ) wp_send_json_error( [ 'message' => implode( ' ', $errors ) ] );
 if ( username_exists( $phone ) ) wp_send_json_error( [ 'message' => 'Phone already registered. Try logging in.' ] );
 if ( email_exists( $email ) ) wp_send_json_error( [ 'message' => 'Email already in use. Try logging in.' ] );
 
+if ( function_exists( 'idibia_is_blacklisted' ) && idibia_is_blacklisted( $email, $phone ) ) {
+    wp_send_json_error( [ 'message' => 'This account is not eligible to register with Idibia. Contact support.' ] );
+}
+
 [ $first_name, $last_name ] = idibia_split_full_name( $full_name );
 $user_id = wp_insert_user( [
     'user_login'   => $phone,

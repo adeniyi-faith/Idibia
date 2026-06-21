@@ -49,10 +49,10 @@ function nav(name,btn){
   if(name === 'ops') loadLiveOps();
   if(name === 'trips') loadTrips();
   if(name === 'payouts') { loadPayouts(); loadManualPaymentsPayouts(); }
-  if(name === 'drivers') loadDrivers();
+  if(name === 'drivers') { driverPanelTab('drivers', document.getElementById('driverTabDrivers')); loadDrivers(); }
   if(name === 'customers') loadCustomers();
   if(name === 'disputes') loadDisputes();
-  if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
+  if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); loadKycPolicy(); }
   if(name === 'reconciliation') loadReconciliation();
   if(name === 'revenue') loadRevenue();
   if(name === 'admin-users') loadAdminUsers();
@@ -69,6 +69,7 @@ let currentKycId = 0;
 let currentKycTab = 'under_review';
 let currentKycFilter = 'all';
 let kycDrivers = [];
+let kycUploadBaseUrl = '';
 const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:'', status:''}, customers:{page:1, per_page:10, search:''}, reconciliation:{page:1, per_page:10, search:'', status:'all', start_date:'', end_date:''} };
 let searchTimers = {};
 let currentDisputeId = 0;
@@ -182,9 +183,11 @@ function renderKycQueue(){
   }
   queue.innerHTML = visible.map(driver => {
     const canReview = driver.kyc_status === 'under_review';
+    const isResubmit = canReview && driver.kyc_rejection_history && driver.kyc_rejection_history !== '';
     const applied = formatApplied(driver.created_at);
     const state = driver.emergency_address || driver.vehicle_plate || 'Submitted KYC';
-    return `<div class="kyc-item-wrap" data-driver-id="${Number(driver.id)}" data-type="${escapeHtml(driver.vehicle_type)}"><div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name || 'Unnamed driver')}</div><div class="item-meta">${vehicleIcon(driver.vehicle_type)} ${escapeHtml(vehicleLabel(driver.vehicle_type))} · ${escapeHtml(state)} · Applied ${escapeHtml(applied)}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetailById(${Number(driver.id)})">View</button>${canReview ? `<button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button>` : `<span class="badge ${driver.kyc_status === 'approved' ? 'badge-success' : 'badge-danger'}">${escapeHtml(driver.kyc_status)}</span>`}</div></div></div>`;
+    const resubBadge = isResubmit ? `<span class="badge" style="background:rgba(245,160,0,0.15);color:var(--gold-dark);font-size:10px;margin-left:4px">Resubmission</span>` : '';
+    return `<div class="kyc-item-wrap" data-driver-id="${Number(driver.id)}" data-type="${escapeHtml(driver.vehicle_type)}"><div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name || 'Unnamed driver')}${resubBadge}</div><div class="item-meta">${vehicleIcon(driver.vehicle_type)} ${escapeHtml(vehicleLabel(driver.vehicle_type))} · ${escapeHtml(state)} · Applied ${escapeHtml(applied)}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openKycDetailById(${Number(driver.id)})">View</button>${canReview ? `<button class="btn-sm btn-reject" onclick="kycAction(this,'rejected')">Reject</button><button class="btn-sm btn-approve" onclick="kycAction(this,'approved')">Approve</button>` : `<span class="badge ${driver.kyc_status === 'approved' ? 'badge-success' : 'badge-danger'}">${escapeHtml(driver.kyc_status)}</span>`}</div></div></div>`;
   }).join('');
 }
 async function loadKycQueue(status = currentKycTab){
@@ -192,11 +195,18 @@ async function loadKycQueue(status = currentKycTab){
   const queue = document.getElementById('kycQueue');
   queue.innerHTML = skeletonRows(4);
   try {
-    const data = await adminApiAllPages('get_drivers', { kyc_status: status });
+    const isResubmit = (status === 'resubmission');
+    const params = isResubmit ? { kyc_status: 'under_review', is_resubmission: '1' } : { kyc_status: status };
+    const data = await adminApiAllPages('get_drivers', params);
     kycDrivers = data.drivers || [];
+    kycUploadBaseUrl = (data.upload_base_url || '').replace(/\/$/, '');
     if(status === 'under_review') {
       kycCount = Number(data.total || kycDrivers.length || 0);
       updateKycBadge();
+    }
+    if(isResubmit) {
+      const countEl = document.getElementById('kyc-resubmit-count');
+      if(countEl) countEl.textContent = kycDrivers.length ? '('+kycDrivers.length+')' : '';
     }
     renderKycQueue();
   } catch (e) {
@@ -423,6 +433,49 @@ function openKycDetailById(driverId){
   const rejectReason = document.getElementById('kycRejectReasonGroup');
   if(reviewActions) reviewActions.style.display = canReview ? 'flex' : 'none';
   if(rejectReason) rejectReason.style.display = canReview ? 'block' : 'none';
+
+  // Rejection history
+  const historyPanel = document.getElementById('kycRejectionHistoryPanel');
+  if(historyPanel){
+    let history = [];
+    if(driver.kyc_rejection_history){ try{ history = JSON.parse(driver.kyc_rejection_history); }catch(_){} }
+    if(history.length){
+      historyPanel.innerHTML = `<div style="margin:12px 0;padding:12px 14px;background:rgba(239,68,68,0.07);border:1px solid rgba(239,68,68,0.2);border-radius:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--danger);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Previous Rejection${history.length>1?'s':''}</div>
+        ${history.map((h,i)=>`<div style="${i<history.length-1?'margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(239,68,68,0.15)':''}">
+          <div style="font-size:11px;color:var(--text-muted)">${h.rejected_at ? formatApplied(h.rejected_at) : 'Earlier'}</div>
+          <div style="font-size:13px;margin-top:2px">${escapeHtml(h.reason||'No reason recorded')}</div>
+        </div>`).join('')}
+      </div>`;
+    } else {
+      historyPanel.innerHTML = '';
+    }
+  }
+
+  // Document links
+  const docLinksPanel = document.getElementById('kycDocLinks');
+  if(docLinksPanel && kycUploadBaseUrl){
+    const docFields = [
+      {field:'id_front_path', label:'ID Front'},
+      {field:'id_back_path', label:'ID Back'},
+      {field:'selfie_path', label:'Selfie'},
+      {field:'vehicle_license_doc_path', label:'Vehicle License'},
+      {field:'insurance_doc_path', label:'Inspection Doc'},
+      {field:'vehicle_photo_path', label:'Exterior'},
+      {field:'vehicle_interior_photo_path', label:'Interior'},
+      {field:'vehicle_front_photo_path', label:'Front'},
+      {field:'vehicle_rear_photo_path', label:'Rear'},
+    ];
+    const available = docFields.filter(d => driver[d.field]);
+    if(available.length){
+      docLinksPanel.innerHTML = `<div style="margin:12px 0"><div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Documents</div><div style="display:flex;flex-wrap:wrap;gap:6px">${available.map(d=>`<button onclick="viewProofImage('${escapeHtml(kycUploadBaseUrl+'/'+driver[d.field])}','${escapeHtml(d.label+' – '+currentKycName)}')" class="btn-sm btn-view" style="font-size:11px">${escapeHtml(d.label)}</button>`).join('')}</div></div>`;
+    } else {
+      docLinksPanel.innerHTML = '';
+    }
+  } else if(docLinksPanel){
+    docLinksPanel.innerHTML = '';
+  }
+
   document.getElementById('kycDetail').classList.add('open');
 }
 function openKycDetail(name,vehicle,state,time,docs){
@@ -1653,4 +1706,143 @@ async function adminSetTicketPriority(priority) {
     await adminApi('set_ticket_priority', { ticket_id: _currentAdminTicketId, priority }, 'POST');
     toast('Priority set to: ' + priority + '.');
   } catch(e) { toast(e.message || 'Could not set priority.'); }
+}
+
+// ─── KYC DOCUMENT POLICY ───────────────────────────────────────────────────
+
+async function loadKycPolicy(){
+  const container = document.getElementById('kycPolicySection');
+  if(!container) return;
+  container.innerHTML = skeletonRows(4);
+  try {
+    const data = await adminApi('get_kyc_policy');
+    const policies = data.policies || [];
+    const docTypes = [
+      { key:'government_id',        label:'Government ID' },
+      { key:'drivers_license',      label:"Driver's License" },
+      { key:'vehicle_insurance',    label:'Vehicle Insurance' },
+      { key:'vehicle_registration', label:'Vehicle Registration' },
+      { key:'proof_of_ownership',   label:'Proof of Ownership' },
+    ];
+    const vtypes = ['bike','car','van','keke'];
+    const vlabels = { bike:'Motorbike', car:'Car', van:'Van', keke:'Tricycle' };
+    const byType = {};
+    policies.forEach(p => { byType[p.vehicle_type] = p; });
+    let html = '';
+    vtypes.forEach(vt => {
+      const p = byType[vt] || { required_documents: '[]', selfie_required: 1, min_age: 18 };
+      let reqDocs = [];
+      try { reqDocs = JSON.parse(p.required_documents || '[]'); } catch(_) {}
+      html += `<div style="margin-bottom:16px;background:var(--surface);border-radius:10px;padding:14px 16px">`;
+      html += `<div style="font-weight:700;font-size:13px;margin-bottom:12px">${vehicleIcon(vt)} ${escapeHtml(vlabels[vt])}</div>`;
+      html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:12px">`;
+      docTypes.forEach(dt => {
+        html += `<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" data-kyc-vehicle="${escapeHtml(vt)}" data-kyc-doc="${escapeHtml(dt.key)}" ${reqDocs.includes(dt.key)?'checked':''} style="width:14px;height:14px;cursor:pointer"> ${escapeHtml(dt.label)}</label>`;
+      });
+      html += `</div><div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">`;
+      html += `<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" data-kyc-vehicle="${escapeHtml(vt)}" data-kyc-selfie="1" ${p.selfie_required?'checked':''} style="width:14px;height:14px;cursor:pointer"> Selfie required</label>`;
+      html += `<label style="display:flex;align-items:center;gap:8px;font-size:12px">Min. age: <input type="number" data-kyc-vehicle="${escapeHtml(vt)}" data-kyc-age="1" value="${Number(p.min_age||18)}" min="16" max="70" style="width:52px;padding:4px 8px;border-radius:6px;border:1px solid var(--surface-2);background:var(--bg);color:var(--text);font-size:12px"></label>`;
+      html += `</div></div>`;
+    });
+    container.innerHTML = html || emptyState('📋','No policy data','KYC document policy will appear here.');
+  } catch(e) {
+    container.innerHTML = emptyState('⚠️','Could not load KYC policy',escapeHtml(e.message));
+  }
+}
+
+async function saveKycPolicy(){
+  const container = document.getElementById('kycPolicySection');
+  if(!container){ toast('Policy panel not loaded.'); return; }
+  const vtypes = ['bike','car','van','keke'];
+  const docKeys = ['government_id','drivers_license','vehicle_insurance','vehicle_registration','proof_of_ownership'];
+  const policies = vtypes.map(vt => ({
+    vehicle_type: vt,
+    required_documents: docKeys.filter(dk => container.querySelector(`[data-kyc-vehicle="${vt}"][data-kyc-doc="${dk}"]`)?.checked),
+    selfie_required: container.querySelector(`[data-kyc-vehicle="${vt}"][data-kyc-selfie]`)?.checked ? 1 : 0,
+    min_age: Number(container.querySelector(`[data-kyc-vehicle="${vt}"][data-kyc-age]`)?.value || 18),
+  }));
+  try {
+    const data = await adminApi('save_kyc_policy', { policies: JSON.stringify(policies) }, 'POST');
+    toast(data.message || 'KYC document policy saved');
+  } catch(e) {
+    toast(e.message || 'Could not save KYC policy');
+  }
+}
+
+// ─── BLACKLIST ──────────────────────────────────────────────────────────────
+
+function driverPanelTab(tab, btn){
+  document.querySelectorAll('#panel-drivers .tabs .tab').forEach(t => t.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const mainSection = document.getElementById('driverMainSection');
+  const blSection = document.getElementById('blacklistSection');
+  if(tab === 'blacklist'){
+    if(mainSection) mainSection.style.display = 'none';
+    if(blSection) blSection.style.display = 'block';
+    loadBlacklist();
+  } else {
+    if(mainSection) mainSection.style.display = 'block';
+    if(blSection) blSection.style.display = 'none';
+  }
+}
+
+async function loadBlacklist(){
+  const list = document.getElementById('blacklistDirectory');
+  if(!list) return;
+  list.innerHTML = skeletonRows(3);
+  try {
+    const data = await adminApi('get_blacklist');
+    const entries = data.entries || [];
+    if(!entries.length){
+      list.innerHTML = emptyState('✅','No blacklisted identifiers','Add phone numbers, emails, or device IDs to permanently ban accounts.');
+      return;
+    }
+    list.innerHTML = entries.map(e => `
+      <div class="list-item">
+        <div class="avatar" style="background:rgba(239,68,68,0.1);color:var(--danger);font-size:18px">⛔</div>
+        <div class="item-info">
+          <div class="item-name">${escapeHtml(e.identifier_value)} <span class="badge badge-danger" style="font-size:10px">${escapeHtml(e.identifier_type)}</span></div>
+          <div class="item-meta">${escapeHtml(e.reason||'No reason provided')} · Banned by ${escapeHtml(e.admin_name||'Admin')} · ${dateLabel(e.created_at)}</div>
+        </div>
+        <div class="item-actions">
+          <button class="btn-sm btn-reject" onclick="removeFromBlacklist(${Number(e.id)})">Remove</button>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = emptyState('⚠️','Could not load blacklist',escapeHtml(e.message));
+  }
+}
+
+async function addToBlacklist(){
+  const type  = document.getElementById('blacklistType')?.value;
+  const value = (document.getElementById('blacklistValue')?.value || '').trim();
+  const reason = (document.getElementById('blacklistReason')?.value || '').trim();
+  if(!value || !reason){ toast('Enter the identifier value and reason.'); return; }
+  try {
+    const data = await adminApi('add_to_blacklist', { identifier_type: type, identifier_value: value, reason }, 'POST');
+    toast(data.message || 'Added to blacklist');
+    if(document.getElementById('blacklistValue'))  document.getElementById('blacklistValue').value  = '';
+    if(document.getElementById('blacklistReason')) document.getElementById('blacklistReason').value = '';
+    loadBlacklist();
+  } catch(e) {
+    toast(e.message || 'Could not add to blacklist');
+  }
+}
+
+async function removeFromBlacklist(id){
+  const confirmed = await showConfirmDialog({
+    title: 'Remove from Blacklist',
+    desc: 'Remove this identifier? The associated account will be able to register and log in again.',
+    confirmLabel: 'Remove',
+    confirmClass: 'danger',
+    reasonRequired: false,
+  });
+  if(confirmed === null) return;
+  try {
+    const data = await adminApi('remove_from_blacklist', { blacklist_id: id }, 'POST');
+    toast(data.message || 'Removed from blacklist');
+    loadBlacklist();
+  } catch(e) {
+    toast(e.message || 'Could not remove from blacklist');
+  }
 }
