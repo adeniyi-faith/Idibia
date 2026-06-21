@@ -150,7 +150,7 @@ async function adminApi(action, params = {}, method = 'GET'){
   const rawText = await response.text();
   let data;
   try { data = JSON.parse(rawText); } catch (e) { console.error('Raw admin API response:', rawText); throw new Error('Invalid server response'); }
-  if(!data.success) throw new Error(data.data?.message || 'Admin request failed.');
+  if(!data.success){ console.error('Admin API failure [' + action + ']:', rawText); throw new Error(data.data?.message || 'Admin request failed.'); }
   return data.data;
 }
 async function adminApiAllPages(action, params = {}){
