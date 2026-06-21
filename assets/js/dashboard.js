@@ -2619,3 +2619,94 @@ async function openPreferencesModal() {
     // silently fail
   }
 }
+
+// ── WALLET PANEL ────────────────────────────────────────────────────────────
+
+async function openWalletPanel() {
+  const panel = document.getElementById('walletPanel');
+  if (!panel) return;
+  panel.style.display = 'block';
+  loadWalletData();
+}
+
+function closeWalletPanel() {
+  const panel = document.getElementById('walletPanel');
+  if (panel) panel.style.display = 'none';
+}
+
+async function loadWalletData() {
+  const listEl = document.getElementById('walletLedgerList');
+  const balEl  = document.getElementById('walletBalanceDisplay');
+  if (!listEl) return;
+  listEl.textContent = 'Loading…';
+  try {
+    const resp = await fetch('/wallet-topup-api.php?action=get_wallet');
+    const json = await resp.json();
+    if (!json.success) { listEl.textContent = 'Could not load wallet.'; return; }
+    if (balEl) balEl.textContent = '₦' + Number(json.data.balance).toLocaleString('en-NG', {minimumFractionDigits:2});
+    const ledger = json.data.ledger || [];
+    if (!ledger.length) { listEl.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:12px 0">No transactions yet.</div>'; return; }
+    const typeLabel = {topup:'Top-Up', refund:'Refund', credit:'Credit', debit:'Debit', referral_bonus:'Referral Bonus'};
+    listEl.innerHTML = ledger.map(row => {
+      const isIn  = ['topup','refund','credit','referral_bonus'].includes(row.entry_type);
+      const color = isIn ? 'var(--success)' : 'var(--danger,#e53)';
+      const sign  = isIn ? '+' : '-';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">${typeLabel[row.entry_type]||row.entry_type}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${row.description||''} · ${new Date(row.created_at).toLocaleDateString()}</div>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:${color}">${sign}₦${Number(row.amount).toLocaleString('en-NG',{minimumFractionDigits:2})}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    if (listEl) listEl.textContent = 'Could not load transactions.';
+  }
+}
+
+// ── TOP-UP MODAL ─────────────────────────────────────────────────────────────
+
+function openTopUpModal() {
+  const m = document.getElementById('topUpModal');
+  if (m) { m.style.display = 'flex'; }
+}
+
+function closeTopUpModal() {
+  const m = document.getElementById('topUpModal');
+  if (m) m.style.display = 'none';
+}
+
+function setTopUpAmount(amount) {
+  const inp = document.getElementById('topUpAmount');
+  if (inp) inp.value = amount;
+  document.querySelectorAll('.preset-amount-btn').forEach(b => {
+    b.style.borderColor = Number(b.dataset.amount) === amount ? 'var(--primary)' : 'var(--border)';
+    b.style.color       = Number(b.dataset.amount) === amount ? 'var(--primary)' : 'var(--text-primary)';
+  });
+}
+
+async function submitTopUp() {
+  const amount   = Number(document.getElementById('topUpAmount')?.value || 0);
+  const provider = document.getElementById('topUpProvider')?.value || 'paystack';
+  const btn      = document.getElementById('topUpSubmitBtn');
+
+  if (amount < 100) { showToast('Minimum top-up is ₦100.'); return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Please wait…'; }
+
+  try {
+    const fd = new FormData();
+    fd.append('action', 'init_topup');
+    fd.append('amount', amount);
+    fd.append('provider', provider);
+    const resp = await fetch('/wallet-topup-api.php', { method:'POST', body: fd });
+    const json = await resp.json();
+    if (!json.success) { showToast(json.data?.message || 'Could not start payment.'); return; }
+    // Redirect to the payment provider's checkout page
+    window.location.href = json.data.payment_url;
+  } catch(e) {
+    showToast('Network error. Please try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Continue to Payment'; }
+  }
+}
