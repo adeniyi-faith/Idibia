@@ -26,8 +26,8 @@ loginForm.addEventListener('submit', async (event) => {
 
 /* Admin App Script */
 
-const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',settings:'Settings'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration'};
+const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',settings:'Settings','admin-users':'Admin Users'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -55,6 +55,7 @@ function nav(name,btn){
   if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); }
   if(name === 'reconciliation') loadReconciliation();
   if(name === 'revenue') loadRevenue();
+  if(name === 'admin-users') loadAdminUsers();
 
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
