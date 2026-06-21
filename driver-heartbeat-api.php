@@ -16,7 +16,7 @@ require_once __DIR__ . '/auth-helper.php';
 
 global $wpdb;
 $driver_id = (int) $GLOBALS['auth_driver_id'];
-$driver = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ) );
+$driver = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ) );
 if ( ! $driver || $driver->kyc_status !== 'approved' || $driver->status !== 'active' ) {
     http_response_code( 403 );
     wp_send_json_error( [ 'message' => 'Driver account is not approved.' ] );
@@ -43,8 +43,12 @@ if ( $lat !== null && $lng !== null ) {
     ) );
 }
 
+$is_online = (int) $driver->is_online;
 if ( isset( $_POST['online'] ) ) {
-    $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'is_online' => ! empty( $_POST['online'] ) ? 1 : 0 ], [ 'id' => $driver_id ], [ '%d' ], [ '%d' ] );
+    $is_online = ! empty( $_POST['online'] ) ? 1 : 0;
+    $wpdb->update( $wpdb->prefix . 'sd_drivers', [ 'is_online' => $is_online, 'updated_at' => idibia_dispatch_now() ], [ 'id' => $driver_id ], [ '%d', '%s' ], [ '%d' ] );
+} else {
+    $wpdb->query( $wpdb->prepare( "UPDATE `{$wpdb->prefix}sd_drivers` SET updated_at = %s WHERE id = %d", idibia_dispatch_now(), $driver_id ) );
 }
 
 $active_trip = idibia_get_driver_active_trip( $driver_id );
@@ -53,6 +57,7 @@ if ( $active_trip && $lat !== null && $lng !== null ) {
 }
 
 wp_send_json_success( [
+    'is_online'   => $is_online,
     'offers'      => idibia_get_driver_offers( $driver_id ),
     'active_trip' => $active_trip,
 ] );
