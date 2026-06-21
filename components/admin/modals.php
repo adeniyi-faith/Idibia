@@ -31,6 +31,7 @@
     </div>
     <div class="modal-footer">
       <button onclick="closeTripModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Close</button>
+      <button id="tripPodBtn" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--info);background:none;font-size:13px;font-weight:700;color:var(--info);display:none" onclick="adminViewTripPod()">View POD</button>
       <button class="btn-primary disabled-action" aria-disabled="true" onclick="showUnavailableFeature('Receipt email', 'Receipt email delivery needs a receipt generation endpoint before messages can be sent.')">Email Receipt</button>
     </div>
   </div>
@@ -147,6 +148,61 @@
     <div class="modal-footer">
       <button onclick="_confirmReject()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Cancel</button>
       <button id="confirmActionSubmit" onclick="_confirmResolve()" style="padding:9px 18px;border-radius:9px;font-size:13px;font-weight:700;background:var(--danger);color:#fff;border:none;cursor:pointer">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUPPORT TICKET DETAIL MODAL -->
+<div class="modal-overlay" id="ticketDetailModal" onclick="if(event.target===this)closeTicketDetailModal()">
+  <div class="modal" style="max-width:640px;display:flex;flex-direction:column;max-height:90vh">
+    <div class="modal-header" style="flex-shrink:0">
+      <div>
+        <h3 style="font-size:15px;margin:0" id="ticketDetailTitle">Support Ticket</h3>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px" id="ticketDetailMeta"></div>
+      </div>
+      <button aria-label="Close modal" onclick="closeTicketDetailModal()" style="background:none;border:none;font-size:18px;color:var(--text-muted)">×</button>
+    </div>
+
+    <!-- Ticket controls: assign, priority, status -->
+    <div style="flex-shrink:0;padding:12px 20px;border-bottom:1px solid var(--surface-2);display:flex;gap:10px;flex-wrap:wrap;align-items:center" id="ticketDetailControls">
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--text-muted);font-weight:700">ASSIGN</label>
+        <select class="form-input" id="ticketAssignSelect" style="font-size:12px;padding:5px 8px;height:auto" onchange="adminAssignTicket(this.value)">
+          <option value="0">Unassigned</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--text-muted);font-weight:700">PRIORITY</label>
+        <select class="form-input" id="ticketPrioritySelect" style="font-size:12px;padding:5px 8px;height:auto" onchange="adminSetTicketPriority(this.value)">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <label style="font-size:11px;color:var(--text-muted);font-weight:700">STATUS</label>
+        <select class="form-input" id="ticketStatusSelect" style="font-size:12px;padding:5px 8px;height:auto" onchange="adminUpdateTicketStatus(this.value)">
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Message thread -->
+    <div style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:10px" id="ticketAdminThread">
+      <div style="text-align:center;padding:30px 0;color:var(--text-muted)">Loading…</div>
+    </div>
+
+    <!-- Reply box -->
+    <div style="flex-shrink:0;padding:14px 20px;border-top:1px solid var(--surface-2)" id="ticketAdminReplyBox">
+      <textarea id="ticketAdminReplyInput" class="form-input" rows="3" placeholder="Type your reply to the customer…" style="resize:none;width:100%;margin-bottom:10px"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button onclick="closeTicketDetailModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Close</button>
+        <button class="btn-primary" onclick="adminReplyToTicket()" id="ticketAdminReplyBtn">Send Reply</button>
+      </div>
     </div>
   </div>
 </div>

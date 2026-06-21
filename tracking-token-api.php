@@ -60,4 +60,5 @@ if ( ! $inserted ) {
     wp_send_json_error( [ 'message' => 'Failed to generate token.' ] );
 }
 
-wp_send_json_success( [ 'token' => $token ] );
+$share_url = '/public-tracking.php?token=' . $token;
+wp_send_json_success( [ 'token' => $token, 'share_url' => $share_url ] );

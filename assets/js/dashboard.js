@@ -1385,9 +1385,17 @@ async function shareTrackingLink() {
   try {
       const json = await idibiaPost('tracking-token-api.php', body);
       if (json.success) {
-          const url = `${window.location.origin}/index.php?track=${encodeURIComponent(json.data.token)}`;
-          if (navigator.clipboard) navigator.clipboard.writeText(url).catch(() => {});
-          showToast('Trip tracking link copied.');
+          const shareUrl = json.data.share_url
+              ? `${window.location.origin}${json.data.share_url}`
+              : `${window.location.origin}/public-tracking.php?token=${encodeURIComponent(json.data.token)}`;
+          if (navigator.share) {
+              navigator.share({ title: 'Track my delivery', url: shareUrl }).catch(() => {});
+          } else if (navigator.clipboard) {
+              navigator.clipboard.writeText(shareUrl).catch(() => {});
+              showToast('Tracking link copied! Share it with anyone.');
+          } else {
+              prompt('Copy this tracking link:', shareUrl);
+          }
       } else {
           showToast('Could not generate tracking link.');
       }
@@ -1693,6 +1701,14 @@ async function showTripDetails(tripId) {
   } catch (err) {
     showToast('Connection error fetching trip details');
   }
+}
+
+function viewDeliveryPhoto(encodedUrl) {
+  const url = decodeURIComponent(encodedUrl);
+  if (!url) return;
+  // Show in a simple lightbox or new tab
+  const win = window.open(url, '_blank', 'noopener,width=800,height=600');
+  if (!win) { showToast('Open pop-ups to view the delivery photo.'); }
 }
 
 function reorderTrip(pickup, dropoff, category) {
@@ -2040,8 +2056,11 @@ function _buildTripCard(trip) {
   const date = new Date(trip.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   const pickup = trip.pickup_address || trip.pickup || 'Pickup location';
   const dropoff = trip.dropoff_address || trip.dropoff || 'Drop-off location';
+  const podBtn = (filterStatus === 'delivered' && trip.proof_of_delivery_url)
+    ? `<button class="trip-action-btn" onclick="event.stopPropagation();viewDeliveryPhoto('${encodeURIComponent(trip.proof_of_delivery_url)}')" style="margin-left:4px">📷 POD</button>`
+    : '';
   const actionBtn = isTerm
-    ? `<button class="trip-action-btn primary" onclick="event.stopPropagation();showTripDetails(${trip.id})">Details</button>`
+    ? `<button class="trip-action-btn primary" onclick="event.stopPropagation();showTripDetails(${trip.id})">Details</button>${podBtn}`
     : `<button class="trip-action-btn primary" onclick="event.stopPropagation();startLiveTracking(${trip.id})">Track</button>`;
 
   return `

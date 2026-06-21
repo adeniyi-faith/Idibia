@@ -518,7 +518,7 @@ async function loadTrips(page=pageState.trips.page){
   try{ const data=await adminApi('get_trips', st); list.innerHTML=(data.trips||[]).length?(data.trips||[]).map(renderTripListItem).join(''):'<div class="empty-state">No deliveries match your filters.</div>'; renderPagination('tripPagination', st, data.total, 'loadTrips'); }
   catch(e){ list.innerHTML='<div class="empty-state">Could not load deliveries: '+escapeHtml(e.message)+'</div>'; }
 }
-function openTripDetailFromData(trip){ openTripDetail(trip.trip_ref||('#'+trip.id), trip.service_category||trip.category||'Delivery', trip.pickup_address||trip.pickup||'', trip.dropoff_address||trip.dropoff||'', formatMoney(trip.fare_amount??trip.final_fare??trip.fare_estimate??trip.fare), trip.driver_name||'Unassigned', formatStatusLabel(trip.dispatch_status||trip.status)); }
+function openTripDetailFromData(trip){ openTripDetail(trip.trip_ref||('#'+trip.id), trip.service_category||trip.category||'Delivery', trip.pickup_address||trip.pickup||'', trip.dropoff_address||trip.dropoff||'', formatMoney(trip.fare_amount??trip.final_fare??trip.fare_estimate??trip.fare), trip.driver_name||'Unassigned', formatStatusLabel(trip.dispatch_status||trip.status), trip.id); }
 let _reassignTripId = 0;
 async function openReassignModal(tripId, tripRef){
   _reassignTripId = tripId;
@@ -943,12 +943,29 @@ function closePaymentModal() {
 }
 
 
-function openTripDetail(id,cat,from,to,fare,driver,status){
+let _currentAdminTripId = 0;
+function openTripDetail(id,cat,from,to,fare,driver,status,tripId){
+  _currentAdminTripId = tripId || 0;
   document.getElementById('tripModalTitle').textContent='Trip '+id;
   document.getElementById('tripModalBody').innerHTML=`<div class="metrics-grid" style="margin-bottom:16px"><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">CATEGORY</div><div style="font-size:13px;font-weight:600">${cat}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">STATUS</div><div style="font-size:13px;font-weight:600">${status}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">PICKUP</div><div style="font-size:13px;font-weight:600">${from}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">DROP-OFF</div><div style="font-size:13px;font-weight:600">${to}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">FARE</div><div style="font-size:13px;font-weight:600">${fare}</div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">DRIVER</div><div style="font-size:13px;font-weight:600">${driver}</div></div></div><div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:6px">PAYMENT BREAKDOWN</div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>Base fare</span><span>${fare}</span></div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:var(--success)"><span>Platform comm.</span><span>-20%</span></div><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:600;margin-top:6px;padding-top:6px;border-top:1px solid var(--surface-2)"><span>Driver payout</span><span style="color:var(--success)">80%</span></div></div>`;
+  const podBtn = document.getElementById('tripPodBtn');
+  if (podBtn) podBtn.style.display = (status === 'completed' || status === 'Completed' || status === 'Delivered') && tripId ? '' : 'none';
   document.getElementById('tripModal').classList.add('open');
 }
 function closeTripModal(){document.getElementById('tripModal').classList.remove('open');}
+async function adminViewTripPod(){
+  if (!_currentAdminTripId) return;
+  try {
+    const data = await adminApi('get_trip_pod', { trip_id: _currentAdminTripId });
+    if (data.proof_url) {
+      viewProofImage(data.proof_url, 'Proof of Delivery');
+    } else {
+      toast('No proof of delivery image found for this trip.');
+    }
+  } catch(e) {
+    toast(e.message || 'Could not load proof of delivery.');
+  }
+}
 function openDisputeModal(title, disputeId=0, status='open', description=''){
   currentDisputeId=Number(disputeId||0);
   document.getElementById('modalDesc').textContent=title;
@@ -1449,4 +1466,191 @@ async function toggleAdminUserStatus(id, currentStatus) {
     } catch(err) {
         alert('Network error.');
     }
+}
+
+// ══════════════════════════════════════════════════════════
+// SUPPORT TICKETS — Admin Panel
+// ══════════════════════════════════════════════════════════
+
+let _currentAdminTicketId = 0;
+const ticketPageState = { page: 1, per_page: 10, search: '', status: '', filter: 'all' };
+const searchTimersTickets = {};
+
+function switchDisputeTab(tab, btn) {
+  document.querySelectorAll('#panel-disputes > .filter-row:first-of-type .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('sub-disputes').style.display = tab === 'disputes' ? '' : 'none';
+  document.getElementById('sub-tickets').style.display = tab === 'tickets' ? '' : 'none';
+  if (tab === 'tickets') loadAdminTickets(1);
+}
+
+async function loadAdminTickets(page) {
+  if (page) ticketPageState.page = page;
+  const list = document.getElementById('ticketList');
+  if (!list) return;
+  list.innerHTML = skeletonRows();
+  try {
+    const params = { ...ticketPageState };
+    const data = await adminApi('get_support_tickets', params);
+    const rows = data.tickets || [];
+    document.getElementById('ticketTotalCount').textContent = Number(data.total || 0).toLocaleString();
+    document.getElementById('ticketOpenCount').textContent = Number(data.open_count || 0).toLocaleString();
+    const badge = document.getElementById('ticketOpenBadge');
+    if (badge) { badge.textContent = data.open_count || 0; badge.style.display = data.open_count > 0 ? '' : 'none'; }
+    list.innerHTML = rows.length ? rows.map(renderAdminTicketItem).join('') : '<div class="empty-state">No tickets match your filters.</div>';
+    renderPagination('ticketPagination', ticketPageState, data.total, 'loadAdminTickets');
+  } catch(e) {
+    list.innerHTML = '<div class="empty-state">Could not load tickets: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function renderAdminTicketItem(t) {
+  const priorityColors = { low: 'var(--text-muted)', medium: 'var(--info)', high: 'var(--warn)', urgent: 'var(--danger)' };
+  const priorityColor = priorityColors[t.priority || 'medium'] || 'var(--info)';
+  const statusLabels = { open: 'Open', in_progress: 'In Progress', escalated: 'Escalated', resolved: 'Resolved', closed: 'Closed' };
+  const catLabels = { general: 'General', trip_issue: 'Trip Issue', billing: 'Billing', account: 'Account', emergency_safety: 'Safety' };
+  const title = '#T-' + String(t.id).padStart(4, '0') + ' · ' + (catLabels[t.category] || t.category || 'Support');
+  const assignee = t.assignee_name ? `Assigned: ${t.assignee_name}` : 'Unassigned';
+  const preview = t.last_message ? escapeHtml(t.last_message).substring(0, 80) + (t.last_message.length > 80 ? '…' : '') : 'No messages yet';
+  const date = dateLabel(t.updated_at || t.created_at);
+  return `<div class="list-item">
+    <div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info);font-size:11px">${t.status === 'resolved' ? '✓' : (t.status === 'escalated' ? '🔴' : '?')}</div>
+    <div class="item-info" style="flex:1">
+      <div class="item-name">${escapeHtml(title)}</div>
+      <div class="item-meta">${escapeHtml(t.creator_name || 'Unknown')} · ${escapeHtml(assignee)} · ${date}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${preview}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+      <span class="badge" style="background:${priorityColor};color:#fff;font-size:10px;padding:2px 7px;border-radius:6px;text-transform:uppercase">${t.priority || 'medium'}</span>
+      <span class="badge ${t.status === 'resolved' ? 'badge-success' : (t.status === 'escalated' ? 'badge-danger' : 'badge-warn')}" style="font-size:10px">${statusLabels[t.status] || t.status}</span>
+      <button class="btn-sm btn-view" onclick="openAdminTicketDetail(${Number(t.id)})">View</button>
+    </div>
+  </div>`;
+}
+
+function filterTickets(filter, btn) {
+  ticketPageState.filter = filter;
+  document.querySelectorAll('#sub-tickets .filter-row .filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const label = { all: 'All', unassigned: 'Unassigned', mine: 'Mine', escalated: 'Escalated', resolved: 'Resolved' };
+  const activeFilterEl = document.getElementById('ticketActiveFilter');
+  if (activeFilterEl) activeFilterEl.textContent = label[filter] || filter;
+  loadAdminTickets(1);
+}
+
+function setTicketStatusFilter(v) { ticketPageState.status = v; loadAdminTickets(1); }
+function queueTicketSearch(v) {
+  clearTimeout(searchTimersTickets.tickets);
+  searchTimersTickets.tickets = setTimeout(() => { ticketPageState.search = v; loadAdminTickets(1); }, 300);
+}
+
+async function openAdminTicketDetail(ticketId) {
+  _currentAdminTicketId = ticketId;
+  const modal = document.getElementById('ticketDetailModal');
+  if (!modal) return;
+  document.getElementById('ticketDetailTitle').textContent = 'Ticket #' + String(ticketId).padStart(4, '0');
+  document.getElementById('ticketDetailMeta').innerHTML = '';
+  document.getElementById('ticketAdminThread').innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted)">Loading…</div>';
+  modal.classList.add('open');
+  try {
+    const data = await adminApi('get_ticket_messages', { ticket_id: ticketId });
+    const { ticket, messages, admins } = data;
+
+    // Fill assignee dropdown
+    const sel = document.getElementById('ticketAssignSelect');
+    sel.innerHTML = '<option value="0">Unassigned</option>' + (admins || []).map(a => `<option value="${a.id}" ${Number(a.id) === Number(ticket.assigned_to) ? 'selected' : ''}>${escapeHtml(a.full_name)}</option>`).join('');
+
+    // Fill priority
+    document.getElementById('ticketPrioritySelect').value = ticket.priority || 'medium';
+
+    // Fill status
+    document.getElementById('ticketStatusSelect').value = ticket.status || 'open';
+
+    // Fill meta
+    const catLabels = { general: 'General', trip_issue: 'Trip Issue', billing: 'Billing', account: 'Account', emergency_safety: 'Safety' };
+    const statusColors = { open: 'var(--warn)', in_progress: 'var(--info)', escalated: 'var(--danger)', resolved: 'var(--success)', closed: 'var(--text-muted)' };
+    document.getElementById('ticketDetailMeta').innerHTML =
+      `<span style="font-size:11px;padding:2px 8px;border-radius:6px;background:${statusColors[ticket.status] || 'var(--info)'};color:#fff;font-weight:700">${ticket.status}</span>` +
+      `<span style="font-size:11px;color:var(--text-muted)">${catLabels[ticket.category] || ticket.category}</span>` +
+      `<span style="font-size:11px;color:var(--text-muted)">From: ${escapeHtml(ticket.customer_name || ticket.driver_name || 'Unknown')}</span>`;
+
+    // Render messages
+    if (!messages.length) {
+      document.getElementById('ticketAdminThread').innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted)">No messages yet.</div>';
+    } else {
+      document.getElementById('ticketAdminThread').innerHTML = messages.map(m => {
+        const isAdmin = m.sender_type === 'admin';
+        const senderLabel = isAdmin ? ('Admin: ' + escapeHtml(m.sender_name || 'Support')) : escapeHtml(m.sender_name || m.sender_type);
+        const time = new Date(m.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        const text = escapeHtml(m.message).replace(/\n/g, '<br>');
+        return `<div style="display:flex;flex-direction:column;align-items:${isAdmin ? 'flex-end' : 'flex-start'}">
+          <div style="max-width:80%;background:${isAdmin ? 'var(--info)' : 'var(--surface-2)'};color:${isAdmin ? '#fff' : 'var(--text-primary)'};border-radius:12px;padding:10px 14px;font-size:13px">${text}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${senderLabel} · ${time}</div>
+        </div>`;
+      }).join('');
+      const thread = document.getElementById('ticketAdminThread');
+      thread.scrollTop = thread.scrollHeight;
+    }
+
+    // Show/hide reply box
+    const replyBox = document.getElementById('ticketAdminReplyBox');
+    if (replyBox) replyBox.style.display = ['resolved', 'closed'].includes(ticket.status) ? 'none' : '';
+
+  } catch(e) {
+    document.getElementById('ticketAdminThread').innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--text-muted)">Could not load ticket: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+function closeTicketDetailModal() {
+  const modal = document.getElementById('ticketDetailModal');
+  if (modal) modal.classList.remove('open');
+  _currentAdminTicketId = 0;
+  loadAdminTickets();
+}
+
+async function adminReplyToTicket() {
+  if (!_currentAdminTicketId) return;
+  const input = document.getElementById('ticketAdminReplyInput');
+  const message = input?.value?.trim();
+  if (!message) { toast('Write a message first.'); return; }
+  const btn = document.getElementById('ticketAdminReplyBtn');
+  const oldText = btn.textContent;
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+  try {
+    await adminApi('admin_reply_ticket', { ticket_id: _currentAdminTicketId, message }, 'POST');
+    input.value = '';
+    await openAdminTicketDetail(_currentAdminTicketId);
+  } catch(e) {
+    toast(e.message || 'Could not send reply.');
+  } finally {
+    btn.textContent = oldText;
+    btn.disabled = false;
+  }
+}
+
+async function adminAssignTicket(assigned_to) {
+  if (!_currentAdminTicketId) return;
+  try {
+    await adminApi('assign_ticket', { ticket_id: _currentAdminTicketId, assigned_to }, 'POST');
+    toast('Ticket assigned.');
+  } catch(e) { toast(e.message || 'Could not assign ticket.'); }
+}
+
+async function adminUpdateTicketStatus(status) {
+  if (!_currentAdminTicketId) return;
+  try {
+    await adminApi('update_ticket_status', { ticket_id: _currentAdminTicketId, status }, 'POST');
+    toast('Status updated to: ' + status.replace('_', ' ') + '.');
+    const replyBox = document.getElementById('ticketAdminReplyBox');
+    if (replyBox) replyBox.style.display = ['resolved', 'closed'].includes(status) ? 'none' : '';
+  } catch(e) { toast(e.message || 'Could not update status.'); }
+}
+
+async function adminSetTicketPriority(priority) {
+  if (!_currentAdminTicketId) return;
+  try {
+    await adminApi('set_ticket_priority', { ticket_id: _currentAdminTicketId, priority }, 'POST');
+    toast('Priority set to: ' + priority + '.');
+  } catch(e) { toast(e.message || 'Could not set priority.'); }
 }

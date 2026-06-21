@@ -19,7 +19,8 @@ $customer_id = (int) $GLOBALS['auth_customer_id'];
 
 $trips = $wpdb->get_results( $wpdb->prepare(
     "SELECT id, trip_ref, pickup_address, dropoff_address, category, service_category, vehicle_type,
-            status, dispatch_status, fare, fare_estimate, created_at, accepted_at, completed_at
+            status, dispatch_status, fare, fare_estimate, created_at, accepted_at, completed_at,
+            proof_of_delivery_path
      FROM `{$wpdb->prefix}sd_trips`
      WHERE customer_id = %d
      ORDER BY created_at DESC
@@ -32,6 +33,8 @@ foreach ( $trips as &$trip ) {
     $trip['fare'] = $trip['fare'] ?: $trip['fare_estimate'];
     $trip['pickup'] = $trip['pickup_address'] ?: $trip['pickup'];
     $trip['dropoff'] = $trip['dropoff_address'] ?: $trip['dropoff'];
+    $trip['proof_of_delivery_url'] = $trip['proof_of_delivery_path'] ?: null;
+    unset( $trip['proof_of_delivery_path'] );
 }
 unset( $trip );
 
