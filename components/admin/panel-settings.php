@@ -103,3 +103,69 @@
 
     <button class="btn-primary" onclick="savePaymentSettings()">Save Changes</button>
   </div>
+
+<script>
+(function(){
+  function loadZones(){
+    fetch('/admin/api.php?action=get_zones').then(r=>r.json()).then(d=>{
+      var el=document.getElementById('zonesList');
+      if(!d.success||!d.data.zones.length){el.innerHTML='<div class="list-item"><div class="item-info"><div class="item-name" style="color:var(--text-muted)">No zones defined — geofence check is disabled.</div></div></div>';return;}
+      el.innerHTML=d.data.zones.map(function(z){
+        return '<div class="list-item" style="display:flex;align-items:center;justify-content:space-between">'+
+          '<div class="item-info">'+
+            '<div class="item-name">'+z.name+'</div>'+
+            '<div class="item-sub" style="font-size:11px;color:var(--text-muted)">'+z.center_lat+', '+z.center_lng+' &bull; '+z.radius_km+' km &bull; '+(z.is_active?'<span style="color:#4caf50">Active</span>':'<span style="color:var(--text-muted)">Inactive</span>')+'</div>'+
+          '</div>'+
+          '<div style="display:flex;gap:8px">'+
+            '<button class="scard-action" onclick=\'openZoneModal('+JSON.stringify(z)+')\'>Edit</button>'+
+            '<button class="scard-action" style="color:#f44" onclick="deleteZone('+z.id+')">Delete</button>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+    });
+  }
+
+  window.openZoneModal=function(z){
+    document.getElementById('zoneModalTitle').textContent=z?'Edit Zone':'Add Zone';
+    document.getElementById('zoneId').value=z?z.id:'';
+    document.getElementById('zoneName').value=z?z.name:'';
+    document.getElementById('zoneLat').value=z?z.center_lat:'';
+    document.getElementById('zoneLng').value=z?z.center_lng:'';
+    document.getElementById('zoneRadius').value=z?z.radius_km:'';
+    var btn=document.getElementById('zoneActive');
+    btn.className='toggle'+((!z||z.is_active)?' on':'');
+    var modal=document.getElementById('zoneModal');
+    modal.style.display='flex';
+  };
+
+  window.closeZoneModal=function(){document.getElementById('zoneModal').style.display='none';};
+
+  window.saveZone=function(){
+    var id=document.getElementById('zoneId').value;
+    var body=new FormData();
+    body.append('action',id?'update_zone':'create_zone');
+    if(id) body.append('zone_id',id);
+    body.append('name',document.getElementById('zoneName').value);
+    body.append('center_lat',document.getElementById('zoneLat').value);
+    body.append('center_lng',document.getElementById('zoneLng').value);
+    body.append('radius_km',document.getElementById('zoneRadius').value);
+    body.append('is_active',document.getElementById('zoneActive').classList.contains('on')?'1':'0');
+    fetch('/admin/api.php',{method:'POST',body:body}).then(r=>r.json()).then(function(d){
+      if(d.success){closeZoneModal();loadZones();}else{alert(d.data&&d.data.message?d.data.message:'Save failed.');}
+    });
+  };
+
+  window.deleteZone=function(id){
+    if(!confirm('Delete this zone?')) return;
+    var body=new FormData();
+    body.append('action','delete_zone');
+    body.append('zone_id',id);
+    fetch('/admin/api.php',{method:'POST',body:body}).then(r=>r.json()).then(function(d){
+      if(d.success) loadZones(); else alert(d.data&&d.data.message?d.data.message:'Delete failed.');
+    });
+  };
+
+  document.addEventListener('DOMContentLoaded',loadZones);
+  document.getElementById('zoneModal').addEventListener('click',function(e){if(e.target===this)closeZoneModal();});
+})();
+</script>
