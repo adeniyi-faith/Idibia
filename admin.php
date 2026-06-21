@@ -115,11 +115,11 @@ if ( ! $custom_admin_id && ( ! is_user_logged_in() || ! current_user_can( 'manag
 <title>Idibia — Admin Login</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/admin.css">
+<link rel="stylesheet" href="assets/css/admin.css?v=<?php echo filemtime( __DIR__ . '/assets/css/admin.css' ); ?>">
 </head>
 <body class="admin-login-body">
   <?php require_once __DIR__ . '/components/admin/login.php'; ?>
-<script src="assets/js/admin.js"></script>
+<script src="assets/js/admin.js?v=<?php echo filemtime( __DIR__ . '/assets/js/admin.js' ); ?>"></script>
 </body>
 </html>
     <?php    exit;
@@ -135,7 +135,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <title>Idibia — Admin Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/admin.css">
+<link rel="stylesheet" href="assets/css/admin.css?v=<?php echo filemtime( __DIR__ . '/assets/css/admin.css' ); ?>">
 </head>
 <body>
 <div id="app">
@@ -167,6 +167,6 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <script>
 let ADMIN_API_URL = "/admin/api.php";
 </script>
-<script src="assets/js/admin.js"></script>
+<script src="assets/js/admin.js?v=<?php echo filemtime( __DIR__ . '/assets/js/admin.js' ); ?>"></script>
 </body>
 </html>
