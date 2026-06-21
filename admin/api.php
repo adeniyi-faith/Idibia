@@ -98,6 +98,24 @@ try {
             idibia_admin_paginated_customers();
             break;
 
+        case 'get_customer':
+            idibia_require_method( 'GET' );
+            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            idibia_admin_get_customer();
+            break;
+
+        case 'suspend_customer':
+            idibia_require_method( 'POST' );
+            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            idibia_admin_suspend_customer();
+            break;
+
+        case 'reinstate_customer':
+            idibia_require_method( 'POST' );
+            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            idibia_admin_reinstate_customer();
+            break;
+
         case 'get_trips':
             idibia_require_method( 'GET' );
             if(!idibia_admin_has_permission('view_trips')){ wp_send_json_error(['message'=>'Denied.'],403); }
@@ -173,6 +191,30 @@ try {
             idibia_require_method( 'GET' );
             if(!idibia_admin_has_permission('view_trips')){ wp_send_json_error(['message'=>'Denied.'],403); }
             idibia_admin_get_trip_pod();
+            break;
+
+        case 'get_customer':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_customers' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_customer_detail();
+            break;
+
+        case 'issue_refund':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'issue_refunds' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_issue_refund();
+            break;
+
+        case 'issue_driver_adjustment':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'execute_payouts' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_issue_driver_adjustment();
+            break;
+
+        case 'admin_credit_customer_wallet':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'issue_refunds' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_credit_customer_wallet();
             break;
 
         case 'get_settings':
@@ -726,6 +768,57 @@ function idibia_admin_paginated_customers(): void {
     $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_customers` WHERE $sql_where", $args ) );
     $rows = $wpdb->get_results( idibia_sql( "SELECT id, full_name, email, phone, email_verified, status, created_at FROM `{$wpdb->prefix}sd_customers` WHERE $sql_where ORDER BY created_at DESC LIMIT %d OFFSET %d", array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
     wp_send_json_success( [ 'customers' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+}
+
+function idibia_admin_get_customer(): void {
+    global $wpdb;
+    $customer_id = absint( $_GET['customer_id'] ?? 0 );
+    if ( ! $customer_id ) { wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 ); }
+    $c = $wpdb->get_row( $wpdb->prepare(
+        "SELECT c.*,
+            COUNT(DISTINCT t.id) AS total_trips,
+            COALESCE(SUM(CASE WHEN t.status='completed' THEN COALESCE(NULLIF(t.final_fare,0),NULLIF(t.fare_estimate,0),t.fare,0) ELSE 0 END),0) AS total_spent,
+            MAX(t.created_at) AS last_trip_at
+        FROM `{$wpdb->prefix}sd_customers` c
+        LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.customer_id = c.id
+        WHERE c.id = %d
+        GROUP BY c.id
+        LIMIT 1",
+        $customer_id
+    ), ARRAY_A );
+    if ( ! $c ) { wp_send_json_error( [ 'message' => 'Customer not found.' ] ); }
+    $ratings_table = $wpdb->prefix . 'sd_ratings';
+    $table_exists  = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $ratings_table ) );
+    if ( $table_exists ) {
+        $c['avg_rating'] = $wpdb->get_var( $wpdb->prepare(
+            "SELECT AVG(rating) FROM `$ratings_table` WHERE subject_id = %d AND subject_type = 'customer'",
+            $customer_id
+        ) );
+    } else {
+        $c['avg_rating'] = null;
+    }
+    wp_send_json_success( [ 'customer' => $c ] );
+}
+
+function idibia_admin_suspend_customer(): void {
+    global $wpdb;
+    $customer_id = absint( $_POST['customer_id'] ?? 0 );
+    $reason      = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
+    if ( ! $customer_id ) { wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 ); }
+    $updated = $wpdb->update( $wpdb->prefix . 'sd_customers', [ 'status' => 'suspended' ], [ 'id' => $customer_id ], [ '%s' ], [ '%d' ] );
+    if ( false === $updated ) { wp_send_json_error( [ 'message' => 'Could not suspend customer.' ] ); }
+    idibia_admin_audit_log( 'suspend_customer', 'customer', $customer_id, [ 'reason' => $reason ] );
+    wp_send_json_success( [ 'message' => 'Customer suspended.' ] );
+}
+
+function idibia_admin_reinstate_customer(): void {
+    global $wpdb;
+    $customer_id = absint( $_POST['customer_id'] ?? 0 );
+    if ( ! $customer_id ) { wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 ); }
+    $updated = $wpdb->update( $wpdb->prefix . 'sd_customers', [ 'status' => 'active' ], [ 'id' => $customer_id ], [ '%s' ], [ '%d' ] );
+    if ( false === $updated ) { wp_send_json_error( [ 'message' => 'Could not reinstate customer.' ] ); }
+    idibia_admin_audit_log( 'reinstate_customer', 'customer', $customer_id, [] );
+    wp_send_json_success( [ 'message' => 'Customer reinstated.' ] );
 }
 
 function idibia_admin_paginated_trips(): void {
@@ -1998,6 +2091,12 @@ function idibia_admin_get_trip_pod(): void {
 if ( ! function_exists( 'idibia_admin_get_ratings' ) ) :
 function idibia_admin_get_ratings(): void {
     global $wpdb;
+
+    $ratings_table = $wpdb->prefix . 'sd_ratings';
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $ratings_table ) ) !== $ratings_table ) {
+        wp_send_json_success( [ 'ratings' => [], 'total' => 0, 'page' => 1, 'per_page' => 20 ] );
+    }
+
     $page     = max( 1, absint( $_GET['page'] ?? 1 ) );
     $per_page = 20;
     $offset   = ( $page - 1 ) * $per_page;
@@ -2189,245 +2288,384 @@ function idibia_admin_get_subject_ratings(): void {
 }
 endif;
 
-// ─── Campaign Management ──────────────────────────────────────────────────────
+// -------------------------------------------------------------------------
+// CUSTOMER DETAIL (admin)
+// -------------------------------------------------------------------------
 
-function idibia_admin_get_campaigns(): void {
+function idibia_admin_get_customer_detail(): void {
     global $wpdb;
-    $status   = sanitize_key( $_GET['status'] ?? 'all' );
-    $page     = max( 1, (int) ( $_GET['page'] ?? 1 ) );
-    $per_page = min( 100, max( 1, (int) ( $_GET['per_page'] ?? 20 ) ) );
-    $offset   = ( $page - 1 ) * $per_page;
-
-    $where = '';
-    if ( $status !== 'all' && in_array( $status, [ 'active', 'inactive', 'completed' ], true ) ) {
-        $where = $wpdb->prepare( 'WHERE c.status = %s', $status );
+    $customer_id = absint( $_GET['customer_id'] ?? 0 );
+    if ( ! $customer_id ) {
+        wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 );
     }
 
-    $total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_campaigns` c $where" );
+    $customer = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT id, full_name, email, phone, email_verified, status, wallet_balance, rating, total_trips, created_at
+             FROM `{$wpdb->prefix}sd_customers` WHERE id = %d LIMIT 1",
+            $customer_id
+        ),
+        ARRAY_A
+    );
 
-    $rows = $wpdb->get_results( $wpdb->prepare(
-        "SELECT c.*,
-            COUNT(DISTINCT cp.driver_id) AS enrolled_drivers,
-            COUNT(DISTINCT CASE WHEN cp.id IS NOT NULL THEN cp.driver_id END) AS completed_drivers,
-            COALESCE(SUM(cp.bonus_paid), 0) AS total_bonus_paid
-         FROM `{$wpdb->prefix}sd_campaigns` c
-         LEFT JOIN `{$wpdb->prefix}sd_campaign_payouts` cp ON cp.campaign_id = c.id
-         $where
-         GROUP BY c.id
-         ORDER BY c.created_at DESC
-         LIMIT %d OFFSET %d",
-        $per_page, $offset
-    ), ARRAY_A ) ?: [];
+    if ( ! $customer ) {
+        wp_send_json_error( [ 'message' => 'Customer not found.' ], 404 );
+    }
 
-    wp_send_json_success( [ 'campaigns' => $rows, 'total' => $total, 'page' => $page, 'per_page' => $per_page ] );
+    $ledger = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT amount, entry_type, description, created_at
+             FROM `{$wpdb->prefix}sd_customer_wallet_ledger`
+             WHERE customer_id = %d ORDER BY created_at DESC LIMIT 20",
+            $customer_id
+        ),
+        ARRAY_A
+    );
+
+    wp_send_json_success( [ 'customer' => $customer, 'ledger' => $ledger ?: [] ] );
 }
 
-function idibia_admin_get_campaign(): void {
-    global $wpdb;
-    $campaign_id = (int) ( $_GET['campaign_id'] ?? 0 );
-    if ( $campaign_id <= 0 ) {
-        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
+// -------------------------------------------------------------------------
+// ISSUE REFUND (admin)
+// -------------------------------------------------------------------------
+
+function idibia_admin_issue_refund(): void {
+    global $wpdb, $admin_id;
+
+    $payment_id   = absint( $_POST['payment_id'] ?? 0 );
+    $trip_id      = absint( $_POST['trip_id'] ?? 0 );
+    $amount       = (float) ( $_POST['refund_amount'] ?? 0 );
+    $refund_type  = sanitize_key( $_POST['refund_type'] ?? '' );
+    $reason       = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
+
+    if ( ! in_array( $refund_type, [ 'wallet_credit', 'bank_reversal' ], true ) ) {
+        wp_send_json_error( [ 'message' => 'refund_type must be wallet_credit or bank_reversal.' ], 400 );
+    }
+    if ( $amount <= 0 ) {
+        wp_send_json_error( [ 'message' => 'refund_amount must be greater than zero.' ], 400 );
+    }
+    if ( ! $reason ) {
+        wp_send_json_error( [ 'message' => 'A reason is required for every refund.' ], 400 );
     }
 
-    $campaign = $wpdb->get_row( $wpdb->prepare(
-        "SELECT c.*,
-            COUNT(DISTINCT cp.driver_id) AS enrolled_drivers,
-            COUNT(DISTINCT CASE WHEN cp.id IS NOT NULL THEN cp.driver_id END) AS completed_drivers,
-            COALESCE(SUM(cp.bonus_paid), 0) AS total_bonus_paid
-         FROM `{$wpdb->prefix}sd_campaigns` c
-         LEFT JOIN `{$wpdb->prefix}sd_campaign_payouts` cp ON cp.campaign_id = c.id
-         WHERE c.id = %d
-         GROUP BY c.id",
-        $campaign_id
-    ), ARRAY_A );
-
-    if ( ! $campaign ) {
-        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
+    // Resolve the payment record
+    if ( $payment_id ) {
+        $payment = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_payments` WHERE id = %d LIMIT 1", $payment_id ), ARRAY_A );
+    } elseif ( $trip_id ) {
+        $payment = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_payments` WHERE trip_id = %d ORDER BY id DESC LIMIT 1", $trip_id ), ARRAY_A );
+    } else {
+        wp_send_json_error( [ 'message' => 'Either payment_id or trip_id is required.' ], 400 );
     }
 
-    wp_send_json_success( [ 'campaign' => $campaign ] );
+    if ( ! $payment ) {
+        wp_send_json_error( [ 'message' => 'Payment not found.' ], 404 );
+    }
+
+    $customer_id = (int) $payment['customer_id'];
+    $payment_id  = (int) $payment['id'];
+
+    if ( $refund_type === 'wallet_credit' ) {
+        idibia_transaction_start();
+
+        // Bump the customer's wallet balance
+        $updated = $wpdb->query(
+            $wpdb->prepare(
+                "UPDATE `{$wpdb->prefix}sd_customers` SET wallet_balance = wallet_balance + %f WHERE id = %d",
+                $amount,
+                $customer_id
+            )
+        );
+
+        if ( false === $updated ) {
+            idibia_transaction_rollback();
+            wp_send_json_error( [ 'message' => 'Could not update customer wallet.' ] );
+        }
+
+        // Write ledger entry
+        $wpdb->insert(
+            $wpdb->prefix . 'sd_customer_wallet_ledger',
+            [
+                'customer_id'  => $customer_id,
+                'amount'       => $amount,
+                'entry_type'   => 'refund',
+                'reference_id' => $payment_id,
+                'description'  => $reason,
+            ],
+            [ '%d', '%f', '%s', '%d', '%s' ]
+        );
+
+        // Mark payment as refunded
+        $wpdb->update(
+            $wpdb->prefix . 'sd_payments',
+            [ 'status' => 'refunded', 'admin_notes' => $reason, 'reviewed_by' => $admin_id, 'reviewed_at' => gmdate( 'Y-m-d H:i:s' ) ],
+            [ 'id' => $payment_id ],
+            [ '%s', '%s', '%d', '%s' ],
+            [ '%d' ]
+        );
+
+        idibia_transaction_commit();
+
+        // Notify the customer
+        idibia_notify_user( $customer_id, 'customer', 'Refund Processed', "A refund of ₦" . number_format( $amount, 2 ) . " has been added to your wallet. Reason: $reason" );
+
+        idibia_admin_audit_log( 'issue_refund', 'payment', $payment_id, [
+            'refund_type'  => 'wallet_credit',
+            'amount'       => $amount,
+            'customer_id'  => $customer_id,
+            'reason'       => $reason,
+        ] );
+
+        wp_send_json_success( [ 'message' => "Refund of ₦" . number_format( $amount, 2 ) . " added to customer wallet." ] );
+
+    } else {
+        // bank_reversal — call the payment provider's refund API
+        $provider     = $payment['provider'] ?? 'manual_transfer';
+        $provider_ref = $payment['provider_ref'] ?? '';
+
+        if ( ! $provider_ref || $provider === 'manual_transfer' ) {
+            wp_send_json_error( [ 'message' => 'Bank reversal is only available for online payments (Paystack / Flutterwave). This payment has no provider reference.' ], 400 );
+        }
+
+        $settings = idibia_payment_settings();
+        $api_result = null;
+        $error_msg  = '';
+
+        if ( $provider === 'paystack' ) {
+            $secret = idibia_get_setting( 'paystack_secret_key', '' );
+            if ( ! $secret ) {
+                wp_send_json_error( [ 'message' => 'Paystack secret key is not configured.' ] );
+            }
+            $response = wp_remote_post( 'https://api.paystack.co/refund', [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $secret,
+                    'Content-Type'  => 'application/json',
+                ],
+                'body'    => wp_json_encode( [ 'transaction' => $provider_ref, 'amount' => (int) ( $amount * 100 ) ] ),
+                'timeout' => 20,
+            ] );
+            if ( is_wp_error( $response ) ) {
+                $error_msg = $response->get_error_message();
+            } else {
+                $api_result = json_decode( wp_remote_retrieve_body( $response ), true );
+                if ( empty( $api_result['status'] ) ) {
+                    $error_msg = $api_result['message'] ?? 'Paystack refund failed.';
+                }
+            }
+        } elseif ( $provider === 'flutterwave' ) {
+            $secret = idibia_get_setting( 'flutterwave_secret_key', '' );
+            if ( ! $secret ) {
+                wp_send_json_error( [ 'message' => 'Flutterwave secret key is not configured.' ] );
+            }
+            $response = wp_remote_post( "https://api.flutterwave.com/v3/transactions/{$provider_ref}/refund", [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $secret,
+                    'Content-Type'  => 'application/json',
+                ],
+                'body'    => wp_json_encode( [ 'amount' => $amount ] ),
+                'timeout' => 20,
+            ] );
+            if ( is_wp_error( $response ) ) {
+                $error_msg = $response->get_error_message();
+            } else {
+                $api_result = json_decode( wp_remote_retrieve_body( $response ), true );
+                if ( ( $api_result['status'] ?? '' ) !== 'success' ) {
+                    $error_msg = $api_result['message'] ?? 'Flutterwave refund failed.';
+                }
+            }
+        } else {
+            wp_send_json_error( [ 'message' => "Unknown payment provider: $provider" ], 400 );
+        }
+
+        if ( $error_msg ) {
+            wp_send_json_error( [ 'message' => "Provider refund error: $error_msg" ] );
+        }
+
+        // Mark payment as refunded
+        $wpdb->update(
+            $wpdb->prefix . 'sd_payments',
+            [ 'status' => 'refunded', 'admin_notes' => $reason, 'reviewed_by' => $admin_id, 'reviewed_at' => gmdate( 'Y-m-d H:i:s' ) ],
+            [ 'id' => $payment_id ],
+            [ '%s', '%s', '%d', '%s' ],
+            [ '%d' ]
+        );
+
+        idibia_notify_user( $customer_id, 'customer', 'Refund Initiated', "A bank refund of ₦" . number_format( $amount, 2 ) . " has been initiated. Reason: $reason. Please allow 3–7 business days." );
+
+        idibia_admin_audit_log( 'issue_refund', 'payment', $payment_id, [
+            'refund_type'  => 'bank_reversal',
+            'provider'     => $provider,
+            'provider_ref' => $provider_ref,
+            'amount'       => $amount,
+            'customer_id'  => $customer_id,
+            'reason'       => $reason,
+        ] );
+
+        wp_send_json_success( [ 'message' => "Bank reversal of ₦" . number_format( $amount, 2 ) . " initiated via $provider." ] );
+    }
 }
 
-function idibia_admin_create_campaign(): void {
-    global $wpdb;
+// -------------------------------------------------------------------------
+// DRIVER PENALTY / BONUS (admin)
+// -------------------------------------------------------------------------
 
-    $title       = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
-    $description = sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) );
-    $target      = (int) ( $_POST['target_trips'] ?? 0 );
-    $bonus       = (float) ( $_POST['bonus_amount'] ?? 0 );
-    $start       = sanitize_text_field( wp_unslash( $_POST['start_time'] ?? '' ) );
-    $end         = sanitize_text_field( wp_unslash( $_POST['end_time'] ?? '' ) );
-    $vehicle_raw = sanitize_text_field( wp_unslash( $_POST['eligible_vehicle_types'] ?? 'all' ) );
+function idibia_admin_issue_driver_adjustment(): void {
+    global $wpdb, $admin_id;
 
-    if ( ! $title || $target <= 0 || $bonus <= 0 || ! $start || ! $end ) {
-        wp_send_json_error( [ 'message' => 'title, target_trips, bonus_amount, start_time, and end_time are required.' ], 400 );
+    $driver_id       = absint( $_POST['driver_id'] ?? 0 );
+    $amount          = (float) ( $_POST['amount'] ?? 0 );
+    $adjustment_type = sanitize_key( $_POST['adjustment_type'] ?? '' );
+    $reason          = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
+
+    if ( ! $driver_id ) {
+        wp_send_json_error( [ 'message' => 'driver_id required.' ], 400 );
     }
-    if ( strtotime( $end ) <= strtotime( $start ) ) {
-        wp_send_json_error( [ 'message' => 'end_time must be after start_time.' ], 400 );
+    if ( $amount <= 0 ) {
+        wp_send_json_error( [ 'message' => 'amount must be greater than zero.' ], 400 );
+    }
+    if ( ! in_array( $adjustment_type, [ 'penalty', 'bonus' ], true ) ) {
+        wp_send_json_error( [ 'message' => 'adjustment_type must be penalty or bonus.' ], 400 );
+    }
+    if ( ! $reason ) {
+        wp_send_json_error( [ 'message' => 'A reason is required.' ], 400 );
     }
 
-    $eligible = ( $vehicle_raw === 'all' ) ? null : $vehicle_raw;
+    $driver = $wpdb->get_row( $wpdb->prepare( "SELECT id, full_name, wallet_balance FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+    if ( ! $driver ) {
+        wp_send_json_error( [ 'message' => 'Driver not found.' ], 404 );
+    }
+
+    if ( $adjustment_type === 'penalty' ) {
+        $current_balance = (float) $driver['wallet_balance'];
+        if ( $amount > $current_balance ) {
+            wp_send_json_error( [ 'message' => "Cannot deduct ₦" . number_format( $amount, 2 ) . " — driver wallet only has ₦" . number_format( $current_balance, 2 ) . "." ] );
+        }
+    }
+
+    idibia_transaction_start();
+
+    if ( $adjustment_type === 'bonus' ) {
+        $balance_sql = "wallet_balance = wallet_balance + %f";
+    } else {
+        $balance_sql = "wallet_balance = GREATEST(0, wallet_balance - %f)";
+    }
+
+    $updated = $wpdb->query(
+        $wpdb->prepare(
+            "UPDATE `{$wpdb->prefix}sd_drivers` SET $balance_sql WHERE id = %d",
+            $amount,
+            $driver_id
+        )
+    );
+
+    if ( false === $updated ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Could not update driver wallet.' ] );
+    }
 
     $wpdb->insert(
-        $wpdb->prefix . 'sd_campaigns',
+        $wpdb->prefix . 'sd_wallet_ledger',
         [
-            'title'                  => $title,
-            'description'            => $description,
-            'target_trips'           => $target,
-            'bonus_amount'           => $bonus,
-            'start_time'             => gmdate( 'Y-m-d H:i:s', strtotime( $start ) ),
-            'end_time'               => gmdate( 'Y-m-d H:i:s', strtotime( $end ) ),
-            'status'                 => 'active',
-            'eligible_vehicle_types' => $eligible,
-            'created_at'             => gmdate( 'Y-m-d H:i:s' ),
+            'driver_id'    => $driver_id,
+            'amount'       => $adjustment_type === 'penalty' ? -$amount : $amount,
+            'entry_type'   => $adjustment_type,
+            'reference_id' => 0,
+            'description'  => $reason,
         ],
-        [ '%s', '%s', '%d', '%f', '%s', '%s', '%s', '%s', '%s' ]
+        [ '%d', '%f', '%s', '%d', '%s' ]
     );
 
-    $campaign_id = (int) $wpdb->insert_id;
-    idibia_admin_audit_log( 'create_campaign', 'campaign', $campaign_id, [ 'title' => $title ] );
-    wp_send_json_success( [ 'message' => 'Campaign created.', 'campaign_id' => $campaign_id ] );
+    idibia_transaction_commit();
+
+    $label = $adjustment_type === 'bonus' ? 'Bonus Received' : 'Penalty Applied';
+    $msg   = $adjustment_type === 'bonus'
+        ? "A bonus of ₦" . number_format( $amount, 2 ) . " has been added to your wallet. Reason: $reason"
+        : "A penalty of ₦" . number_format( $amount, 2 ) . " has been deducted from your wallet. Reason: $reason";
+
+    idibia_notify_user( $driver_id, 'driver', $label, $msg );
+
+    idibia_admin_audit_log( 'issue_driver_adjustment', 'driver', $driver_id, [
+        'adjustment_type' => $adjustment_type,
+        'amount'          => $amount,
+        'reason'          => $reason,
+    ] );
+
+    $new_balance = (float) $wpdb->get_var( $wpdb->prepare( "SELECT wallet_balance FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d", $driver_id ) );
+
+    wp_send_json_success( [
+        'message'     => ucfirst( $adjustment_type ) . " of ₦" . number_format( $amount, 2 ) . " applied.",
+        'new_balance' => $new_balance,
+    ] );
 }
 
-function idibia_admin_update_campaign(): void {
-    global $wpdb;
+// -------------------------------------------------------------------------
+// ADMIN MANUAL CUSTOMER WALLET CREDIT
+// -------------------------------------------------------------------------
 
-    $campaign_id = (int) ( $_POST['campaign_id'] ?? 0 );
-    if ( $campaign_id <= 0 ) {
-        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
-    }
+function idibia_admin_credit_customer_wallet(): void {
+    global $wpdb, $admin_id;
 
-    $campaign = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, status, start_time FROM `{$wpdb->prefix}sd_campaigns` WHERE id = %d LIMIT 1",
-        $campaign_id
-    ), ARRAY_A );
+    $customer_id = absint( $_POST['customer_id'] ?? 0 );
+    $amount      = (float) ( $_POST['amount'] ?? 0 );
+    $reason      = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
 
-    if ( ! $campaign ) {
-        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
+    if ( ! $customer_id ) {
+        wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 );
     }
-
-    if ( $campaign['status'] === 'active' && strtotime( $campaign['start_time'] ) <= time() ) {
-        wp_send_json_error( [ 'message' => 'Cannot edit an active campaign that has already started. Deactivate it first.' ], 409 );
+    if ( $amount <= 0 ) {
+        wp_send_json_error( [ 'message' => 'amount must be greater than zero.' ], 400 );
     }
-
-    $data    = [];
-    $formats = [];
-
-    if ( isset( $_POST['title'] ) ) {
-        $data['title'] = sanitize_text_field( wp_unslash( $_POST['title'] ) );
-        $formats[]     = '%s';
-    }
-    if ( isset( $_POST['description'] ) ) {
-        $data['description'] = sanitize_textarea_field( wp_unslash( $_POST['description'] ) );
-        $formats[]           = '%s';
-    }
-    if ( isset( $_POST['target_trips'] ) ) {
-        $data['target_trips'] = max( 1, (int) $_POST['target_trips'] );
-        $formats[]            = '%d';
-    }
-    if ( isset( $_POST['bonus_amount'] ) ) {
-        $data['bonus_amount'] = (float) $_POST['bonus_amount'];
-        $formats[]            = '%f';
-    }
-    if ( isset( $_POST['start_time'] ) ) {
-        $data['start_time'] = gmdate( 'Y-m-d H:i:s', strtotime( sanitize_text_field( wp_unslash( $_POST['start_time'] ) ) ) );
-        $formats[]          = '%s';
-    }
-    if ( isset( $_POST['end_time'] ) ) {
-        $data['end_time'] = gmdate( 'Y-m-d H:i:s', strtotime( sanitize_text_field( wp_unslash( $_POST['end_time'] ) ) ) );
-        $formats[]        = '%s';
-    }
-    if ( isset( $_POST['eligible_vehicle_types'] ) ) {
-        $raw                           = sanitize_text_field( wp_unslash( $_POST['eligible_vehicle_types'] ) );
-        $data['eligible_vehicle_types'] = ( $raw === 'all' ) ? null : $raw;
-        $formats[]                     = '%s';
-    }
-    if ( isset( $_POST['status'] ) && in_array( $_POST['status'], [ 'active', 'inactive', 'completed' ], true ) ) {
-        $data['status'] = $_POST['status'];
-        $formats[]      = '%s';
+    if ( ! $reason ) {
+        wp_send_json_error( [ 'message' => 'A reason is required.' ], 400 );
     }
 
-    if ( empty( $data ) ) {
-        wp_send_json_error( [ 'message' => 'No fields to update.' ], 400 );
+    $customer = $wpdb->get_row( $wpdb->prepare( "SELECT id, full_name FROM `{$wpdb->prefix}sd_customers` WHERE id = %d LIMIT 1", $customer_id ), ARRAY_A );
+    if ( ! $customer ) {
+        wp_send_json_error( [ 'message' => 'Customer not found.' ], 404 );
     }
 
-    $wpdb->update( $wpdb->prefix . 'sd_campaigns', $data, [ 'id' => $campaign_id ], $formats, [ '%d' ] );
-    idibia_admin_audit_log( 'update_campaign', 'campaign', $campaign_id, $data );
-    wp_send_json_success( [ 'message' => 'Campaign updated.' ] );
-}
+    // Ensure wallet_balance column exists (guard for environments where the migration hasn't run)
+    $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers` ADD COLUMN IF NOT EXISTS `wallet_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00" );
 
-function idibia_admin_deactivate_campaign(): void {
-    global $wpdb;
+    idibia_transaction_start();
 
-    $campaign_id = (int) ( $_POST['campaign_id'] ?? 0 );
-    if ( $campaign_id <= 0 ) {
-        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
-    }
-
-    $exists = $wpdb->get_var( $wpdb->prepare(
-        "SELECT id FROM `{$wpdb->prefix}sd_campaigns` WHERE id = %d LIMIT 1",
-        $campaign_id
-    ) );
-
-    if ( ! $exists ) {
-        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
-    }
-
-    $wpdb->update(
-        $wpdb->prefix . 'sd_campaigns',
-        [ 'status' => 'inactive' ],
-        [ 'id'     => $campaign_id ],
-        [ '%s' ],
-        [ '%d' ]
+    $updated = $wpdb->query(
+        $wpdb->prepare(
+            "UPDATE `{$wpdb->prefix}sd_customers` SET wallet_balance = wallet_balance + %f WHERE id = %d",
+            $amount,
+            $customer_id
+        )
     );
 
-    idibia_admin_audit_log( 'deactivate_campaign', 'campaign', $campaign_id );
-    wp_send_json_success( [ 'message' => 'Campaign deactivated.' ] );
-}
-
-function idibia_admin_get_campaign_leaderboard(): void {
-    global $wpdb;
-
-    $campaign_id = (int) ( $_GET['campaign_id'] ?? 0 );
-    if ( $campaign_id <= 0 ) {
-        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
+    if ( false === $updated ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Could not update customer wallet.' ] );
     }
 
-    $campaign = $wpdb->get_row( $wpdb->prepare(
-        "SELECT id, title, target_trips, start_time, end_time FROM `{$wpdb->prefix}sd_campaigns` WHERE id = %d LIMIT 1",
-        $campaign_id
-    ), ARRAY_A );
+    $wpdb->insert(
+        $wpdb->prefix . 'sd_customer_wallet_ledger',
+        [
+            'customer_id'  => $customer_id,
+            'amount'       => $amount,
+            'entry_type'   => 'credit',
+            'reference_id' => 0,
+            'description'  => $reason,
+        ],
+        [ '%d', '%f', '%s', '%d', '%s' ]
+    );
 
-    if ( ! $campaign ) {
-        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
-    }
+    idibia_transaction_commit();
 
-    $rows = $wpdb->get_results( $wpdb->prepare(
-        "SELECT d.id AS driver_id, d.full_name, d.vehicle_type, d.vehicle_plate,
-            COUNT(t.id) AS trips_completed,
-            cp.bonus_paid,
-            cp.paid_at
-         FROM `{$wpdb->prefix}sd_trips` t
-         INNER JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id
-         LEFT JOIN `{$wpdb->prefix}sd_campaign_payouts` cp ON cp.campaign_id = %d AND cp.driver_id = t.driver_id
-         WHERE t.status = 'completed'
-           AND t.completed_at >= %s
-           AND t.completed_at <= %s
-         GROUP BY d.id
-         ORDER BY trips_completed DESC
-         LIMIT 100",
-        $campaign_id,
-        $campaign['start_time'],
-        $campaign['end_time']
-    ), ARRAY_A ) ?: [];
+    idibia_notify_user( $customer_id, 'customer', 'Wallet Credited', "₦" . number_format( $amount, 2 ) . " has been added to your wallet. Reason: $reason" );
 
-    foreach ( $rows as &$row ) {
-        $row['trips_completed'] = (int) $row['trips_completed'];
-        $row['target_trips']    = (int) $campaign['target_trips'];
-        $row['progress_pct']    = min( 100, round( ( $row['trips_completed'] / max( 1, $campaign['target_trips'] ) ) * 100 ) );
-        $row['bonus_earned']    = $row['bonus_paid'] !== null;
-    }
-    unset( $row );
+    idibia_admin_audit_log( 'admin_credit_customer_wallet', 'customer', $customer_id, [
+        'amount' => $amount,
+        'reason' => $reason,
+    ] );
 
-    wp_send_json_success( [ 'campaign' => $campaign, 'leaderboard' => $rows ] );
+    $new_balance = (float) $wpdb->get_var( $wpdb->prepare( "SELECT wallet_balance FROM `{$wpdb->prefix}sd_customers` WHERE id = %d", $customer_id ) );
+
+    wp_send_json_success( [
+        'message'     => "₦" . number_format( $amount, 2 ) . " credited to customer wallet.",
+        'new_balance' => $new_balance,
+    ] );
 }
