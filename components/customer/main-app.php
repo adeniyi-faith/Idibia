@@ -313,11 +313,64 @@
             <div class="stat-value"><?php echo esc_html($customer_rating); ?></div>
             <div class="stat-label">Rating</div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card" onclick="openWalletPanel()" style="cursor:pointer">
             <div class="stat-value">₦<?php echo esc_html($customer_wallet_balance); ?></div>
             <div class="stat-label">Wallet</div>
           </div>
         </div>
+
+        <!-- Wallet Panel (shown when user taps the wallet stat) -->
+        <div id="walletPanel" style="display:none;margin:0 16px 16px">
+          <div class="account-card">
+            <div class="account-card-title" style="display:flex;justify-content:space-between;align-items:center">
+              <span>My Wallet</span>
+              <button onclick="closeWalletPanel()" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:18px;line-height:1">×</button>
+            </div>
+            <div style="text-align:center;padding:12px 0 8px">
+              <div style="font-size:10px;color:var(--text-muted);letter-spacing:.6px;text-transform:uppercase">Balance</div>
+              <div id="walletBalanceDisplay" style="font-size:28px;font-weight:700;color:var(--primary)">₦<?php echo esc_html(number_format((float)$customer_wallet_balance, 2)); ?></div>
+            </div>
+            <button onclick="openTopUpModal()" class="btn-primary" style="width:100%;margin:8px 0 4px;padding:12px;border-radius:10px;font-size:14px;font-weight:600">
+              + Top Up Wallet
+            </button>
+            <div id="walletLedger" style="margin-top:12px">
+              <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px">RECENT TRANSACTIONS</div>
+              <div id="walletLedgerList" style="font-size:13px;color:var(--text-secondary)">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top-Up Modal -->
+        <div class="modal-overlay" id="topUpModal" onclick="if(event.target===this)closeTopUpModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-end;justify-content:center">
+          <div style="background:var(--white);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;max-height:85vh;overflow-y:auto">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+              <h3 style="font-size:16px;font-weight:700;margin:0">Top Up Wallet</h3>
+              <button onclick="closeTopUpModal()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text-secondary);line-height:1">×</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Choose an amount to add to your wallet. You can use it to pay for trips instantly.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+              <?php foreach([500,1000,2000,5000] as $preset): ?>
+              <button onclick="setTopUpAmount(<?php echo $preset; ?>)" class="preset-amount-btn" data-amount="<?php echo $preset; ?>" style="padding:12px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:14px;font-weight:600;cursor:pointer;color:var(--text-primary)">₦<?php echo number_format($preset); ?></button>
+              <?php endforeach; ?>
+            </div>
+            <div style="margin-bottom:16px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px">CUSTOM AMOUNT</label>
+              <input id="topUpAmount" type="number" min="100" step="50" placeholder="e.g. 3000" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;box-sizing:border-box;background:var(--surface)">
+            </div>
+            <div style="margin-bottom:20px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px">PAY WITH</label>
+              <select id="topUpProvider" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--surface)">
+                <option value="paystack">Paystack (Card / Bank Transfer)</option>
+                <option value="flutterwave">Flutterwave (Card / USSD)</option>
+              </select>
+            </div>
+            <button onclick="submitTopUp()" id="topUpSubmitBtn" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">
+              Continue to Payment
+            </button>
+            <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">Funds appear in your wallet instantly after payment.</p>
+          </div>
+        </div>
+
         <div class="account-body">
           <!-- Referral -->
           <div class="referral-banner">

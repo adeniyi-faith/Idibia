@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 16;
+    $target_version = 17;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -514,6 +514,18 @@ function idibia_maybe_create_tables() {
 
         update_option( 'idibia_db_version', 16 );
         $current_version = 16;
+    }
+
+    if ( $current_version < 17 ) {
+        global $wpdb;
+
+        // Extend customer wallet ledger enum to support topup and refund entry types.
+        // The table was created at v12 with only referral_bonus/credit/debit.
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customer_wallet_ledger`
+            MODIFY COLUMN `entry_type` ENUM('referral_bonus','credit','debit','topup','refund') NOT NULL" );
+
+        update_option( 'idibia_db_version', 17 );
+        $current_version = 17;
     }
 }
 
