@@ -72,5 +72,28 @@
         <div class="form-group"><label class="form-label">Software License URL</label><input class="form-input" data-setting="legal_license_url" placeholder="https://..."></div>
       </div>
     </div>
+    <div class="settings-section">
+      <h4>Operational Settings</h4>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">Controls automated dispatch timing, offer retry behaviour, and the no-driver cancellation timeout.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Dispatch retry limit</label>
+          <input class="form-input" type="number" data-setting="dispatch_retry_limit" value="3" min="1" max="20" placeholder="3">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Max dispatch rounds before marking a trip as no-driver (default: 3)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Trip timeout (minutes)</label>
+          <input class="form-input" type="number" data-setting="trip_timeout_minutes" value="10" min="1" max="120" placeholder="10">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Minutes to wait before auto-cancelling a trip with no driver (default: 10)</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scheduled dispatch advance (minutes)</label>
+          <input class="form-input" type="number" data-setting="scheduled_dispatch_advance_minutes" value="10" min="1" max="60" placeholder="10">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">How many minutes before scheduled_time to begin dispatching (default: 10)</div>
+        </div>
+      </div>
+      <button class="btn-primary" style="font-size:12px;padding:8px 14px;width:auto" onclick="savePaymentSettings()">Save operational settings</button>
+    </div>
+
     <button class="btn-primary" onclick="savePaymentSettings()">Save Changes</button>
   </div>

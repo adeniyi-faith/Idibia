@@ -907,6 +907,12 @@ function idibia_admin_save_settings(): void {
                 }
             }
 
+            if ( in_array( $sanitized_key, ['dispatch_retry_limit', 'trip_timeout_minutes', 'scheduled_dispatch_advance_minutes'] ) ) {
+                if ( ! ctype_digit( $sanitized_value ) || (int) $sanitized_value < 1 ) {
+                    wp_send_json_error( [ 'message' => "Invalid value for {$sanitized_key}. Must be a positive integer." ] );
+                }
+            }
+
             // Do not overwrite secrets if they are blank or masked
             if ( in_array( $sanitized_key, ['paystack_secret_key', 'flutterwave_secret_key', 'pusher_secret'] ) ) {
                 if ( $sanitized_value === '' || $sanitized_value === '********' ) {
