@@ -1,3 +1,27 @@
+<!-- ZONE MODAL -->
+<div class="modal-overlay" id="zoneModal" style="display:none">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 style="font-size:15px" id="zoneModalTitle">Add Zone</h3>
+      <button aria-label="Close" onclick="closeZoneModal()" style="background:none;border:none;font-size:18px;color:var(--text-muted)">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="zoneId">
+      <div class="form-group"><label class="form-label">Zone name</label><input class="form-input" id="zoneName" placeholder="e.g. Lagos Island"></div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Center latitude</label><input class="form-input" id="zoneLat" type="number" step="any" placeholder="6.4541"></div>
+        <div class="form-group"><label class="form-label">Center longitude</label><input class="form-input" id="zoneLng" type="number" step="any" placeholder="3.3947"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Radius (km)</label><input class="form-input" id="zoneRadius" type="number" step="0.1" min="0.1" placeholder="10"></div>
+      <div class="toggle-row"><div><div class="toggle-label">Active</div><div class="toggle-sub">Enable this zone immediately</div></div><button class="toggle on" id="zoneActive"></button></div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeZoneModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Cancel</button>
+      <button class="btn-primary" onclick="saveZone()">Save Zone</button>
+    </div>
+  </div>
+</div>
+
 <!-- DISPUTE MODAL -->
 <div class="modal-overlay" id="disputeModal" onclick="if(event.target===this)closeModal()">
   <div class="modal" style="max-width: 600px;">

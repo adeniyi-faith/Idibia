@@ -2043,6 +2043,12 @@ function idibia_admin_get_trip_pod(): void {
 if ( ! function_exists( 'idibia_admin_get_ratings' ) ) :
 function idibia_admin_get_ratings(): void {
     global $wpdb;
+
+    $ratings_table = $wpdb->prefix . 'sd_ratings';
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $ratings_table ) ) !== $ratings_table ) {
+        wp_send_json_success( [ 'ratings' => [], 'total' => 0, 'page' => 1, 'per_page' => 20 ] );
+    }
+
     $page     = max( 1, absint( $_GET['page'] ?? 1 ) );
     $per_page = 20;
     $offset   = ( $page - 1 ) * $per_page;
@@ -2568,6 +2574,9 @@ function idibia_admin_credit_customer_wallet(): void {
     if ( ! $customer ) {
         wp_send_json_error( [ 'message' => 'Customer not found.' ], 404 );
     }
+
+    // Ensure wallet_balance column exists (guard for environments where the migration hasn't run)
+    $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers` ADD COLUMN IF NOT EXISTS `wallet_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00" );
 
     idibia_transaction_start();
 
