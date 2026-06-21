@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 13;
+    $target_version = 14;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -449,6 +449,28 @@ function idibia_maybe_create_tables() {
 
         update_option( 'idibia_db_version', 13 );
         $current_version = 13;
+    }
+
+    if ( $current_version < 14 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_operational_zones` (
+            `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `name`       VARCHAR(120)    NOT NULL,
+            `center_lat` DECIMAL(10,8)   NOT NULL,
+            `center_lng` DECIMAL(11,8)   NOT NULL,
+            `radius_km`  DECIMAL(8,3)    NOT NULL,
+            `is_active`  TINYINT(1)      NOT NULL DEFAULT 1,
+            `created_at` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `is_active` (`is_active`)
+        ) $charset;" );
+
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers` ADD COLUMN IF NOT EXISTS `saved_preferences` TEXT NULL AFTER `notification_preferences`" );
+
+        update_option( 'idibia_db_version', 14 );
+        $current_version = 14;
     }
 }
 

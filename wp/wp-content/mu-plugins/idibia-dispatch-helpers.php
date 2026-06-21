@@ -131,22 +131,8 @@ function idibia_get_driver_active_trip( int $driver_id ): ?array {
     ];
 }
 
-function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
-    global $wpdb;
-    idibia_expire_dispatch_offers();
-
-    $trip = $wpdb->get_row( $wpdb->prepare(
-        "SELECT * FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1",
-        $trip_id
-    ), ARRAY_A );
-
-    if ( ! $trip || ! in_array( $trip['dispatch_status'], [ 'searching', 'no_driver' ], true ) || ! empty( $trip['driver_id'] ) ) {
-        return [ 'created' => 0, 'message' => 'Trip is not dispatchable.' ];
-    }
-
-    $vehicle = $trip['vehicle_type'] ?: $trip['category'];
-    $now = idibia_dispatch_now();
-    $drivers = $wpdb->get_results( $wpdb->prepare(
+function idibia_query_candidate_drivers( $wpdb, array $trip, int $trip_id, string $vehicle, int $limit ): array {
+    return $wpdb->get_results( $wpdb->prepare(
         "SELECT d.id, dl.lat, dl.lng,
                 CASE WHEN dl.lat IS NULL OR %f = 0 THEN NULL ELSE
                     (6371 * 2 * ASIN(SQRT(POWER(SIN(RADIANS(%f - dl.lat) / 2), 2) + COS(RADIANS(dl.lat)) * COS(RADIANS(%f)) * POWER(SIN(RADIANS(%f - dl.lng) / 2), 2))))
@@ -175,7 +161,41 @@ function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
         $vehicle,
         $trip_id,
         $limit
+    ), ARRAY_A ) ?: [];
+}
+
+function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
+    global $wpdb;
+    idibia_expire_dispatch_offers();
+
+    $trip = $wpdb->get_row( $wpdb->prepare(
+        "SELECT * FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1",
+        $trip_id
     ), ARRAY_A );
+
+    if ( ! $trip || ! in_array( $trip['dispatch_status'], [ 'searching', 'no_driver' ], true ) || ! empty( $trip['driver_id'] ) ) {
+        return [ 'created' => 0, 'message' => 'Trip is not dispatchable.' ];
+    }
+
+    $vehicle = $trip['vehicle_type'] ?: $trip['category'];
+
+    $customer_prefs = $wpdb->get_var( $wpdb->prepare(
+        "SELECT saved_preferences FROM `{$wpdb->prefix}sd_customers` WHERE id = %d LIMIT 1",
+        (int) $trip['customer_id']
+    ) );
+    $preferred_vehicle = null;
+    if ( $customer_prefs ) {
+        $prefs = json_decode( $customer_prefs, true );
+        if ( is_array( $prefs ) && ! empty( $prefs['preferred_vehicle_type'] ) ) {
+            $preferred_vehicle = $prefs['preferred_vehicle_type'];
+        }
+    }
+
+    $drivers = idibia_query_candidate_drivers( $wpdb, $trip, $trip_id, $preferred_vehicle ?: $vehicle, $limit );
+
+    if ( empty( $drivers ) && $preferred_vehicle !== null ) {
+        $drivers = idibia_query_candidate_drivers( $wpdb, $trip, $trip_id, $vehicle, $limit );
+    }
 
     $created = 0;
     $offered_driver_ids = [];
