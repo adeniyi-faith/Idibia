@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 14;
+    $target_version = 16;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -461,6 +461,57 @@ function idibia_maybe_create_tables() {
 
         update_option( 'idibia_db_version', 14 );
         $current_version = 14;
+    }
+
+    if ( $current_version < 15 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        // KYC resubmission history column
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_drivers` ADD COLUMN IF NOT EXISTS `kyc_rejection_history` LONGTEXT NULL" );
+
+        // Per-vehicle-type KYC policy table
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_kyc_policy` (
+            `id`                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `vehicle_type`        ENUM('bike','car','van','keke') NOT NULL,
+            `required_documents`  LONGTEXT NOT NULL DEFAULT '[]',
+            `selfie_required`     TINYINT(1) NOT NULL DEFAULT 1,
+            `min_age`             INT NOT NULL DEFAULT 18,
+            `created_at`          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `vehicle_type` (`vehicle_type`)
+        ) $charset;" );
+
+        // Default policies
+        $wpdb->query( "INSERT IGNORE INTO `{$wpdb->prefix}sd_kyc_policy` (`vehicle_type`, `required_documents`, `selfie_required`, `min_age`) VALUES
+            ('bike',  '[\"government_id\",\"drivers_license\",\"vehicle_registration\"]', 1, 18),
+            ('car',   '[\"government_id\",\"drivers_license\",\"vehicle_insurance\",\"vehicle_registration\"]', 1, 21),
+            ('van',   '[\"government_id\",\"drivers_license\",\"vehicle_insurance\",\"vehicle_registration\",\"proof_of_ownership\"]', 1, 21),
+            ('keke',  '[\"government_id\",\"drivers_license\",\"vehicle_registration\"]', 1, 18);" );
+
+        update_option( 'idibia_db_version', 15 );
+        $current_version = 15;
+    }
+
+    if ( $current_version < 16 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_blacklist` (
+            `id`                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `identifier_type`     ENUM('phone','email','device_id') NOT NULL,
+            `identifier_value`    VARCHAR(255) NOT NULL,
+            `reason`              TEXT NOT NULL,
+            `banned_by_admin_id`  BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at`          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `identifier` (`identifier_type`, `identifier_value`(191)),
+            KEY `identifier_value` (`identifier_value`(191))
+        ) $charset;" );
+
+        update_option( 'idibia_db_version', 16 );
+        $current_version = 16;
     }
 }
 

@@ -144,6 +144,7 @@
 
       <!-- Step 2: Identity Verification -->
       <div class="driver-step" id="dstep-2">
+        <div id="kycRejectionBanner" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.5"></div>
         <h3 class="step-title">Identity verification</h3>
         <p class="step-sub">Your documents are encrypted and stored securely. This step is confidential.</p>
         <div class="info-note">

@@ -61,6 +61,14 @@ if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' )
     wp_send_json_error( [ 'message' => 'Your account is not active. Contact support.' ] );
 }
 
+// Blacklist check
+$bl_email = $user->user_email ?? '';
+$bl_phone = (string) get_user_meta( $user->ID, 'idibia_phone', true );
+if ( function_exists( 'idibia_is_blacklisted' ) && idibia_is_blacklisted( $bl_email, $bl_phone ) ) {
+    wp_logout();
+    wp_send_json_error( [ 'message' => 'This account is not eligible to use Idibia. Contact support.' ] );
+}
+
 idibia_finish_wordpress_login( $user );
 idibia_find_or_create_profile_row( $user->ID, 'customer' );
 

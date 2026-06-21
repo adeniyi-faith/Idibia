@@ -904,3 +904,30 @@ function idibia_admin_audit_log( string $action, string $entity_type, int $entit
         [ '%d', '%s', '%s', '%d', '%s', '%s', '%s', '%s' ]
     );
 }
+
+/**
+ * Check whether a phone or email is on the blacklist.
+ * Returns true if blacklisted; false if not found or table absent.
+ */
+function idibia_is_blacklisted( string $email = '', string $phone = '' ): bool {
+    global $wpdb;
+    $table = $wpdb->prefix . 'sd_blacklist';
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '$table'" ) !== $table ) {
+        return false;
+    }
+    if ( $email ) {
+        $hit = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM `$table` WHERE identifier_type = 'email' AND identifier_value = %s LIMIT 1",
+            $email
+        ) );
+        if ( $hit ) return true;
+    }
+    if ( $phone ) {
+        $hit = $wpdb->get_var( $wpdb->prepare(
+            "SELECT id FROM `$table` WHERE identifier_type = 'phone' AND identifier_value = %s LIMIT 1",
+            $phone
+        ) );
+        if ( $hit ) return true;
+    }
+    return false;
+}
