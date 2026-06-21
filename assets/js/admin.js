@@ -694,7 +694,7 @@ function renderCustomerDirectoryItem(customer){
   const verified = Number(customer.email_verified)===1 ? 'Email verified' : 'Email pending';
   const meta = [customer.email||'No email', customer.phone||'No phone', verified, dateLabel(customer.created_at)].map(escapeHtml).join(' · ');
   const safeCustomerName = escapeHtml(customer.full_name || 'Customer').replace(/'/g,'&#39;');
-  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openSubjectRatings('customer',${Number(customer.id)},'${safeCustomerName}')">Ratings</button></div></div>`;
+  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadCustomerDetail(${Number(customer.id)})">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendCustomerFromDirectory(${Number(customer.id)},'${safeCustomerName}')">Suspend</button>`}</div></div>`;
 }
 function queueCustomerSearch(v){ clearTimeout(searchTimers.customers); searchTimers.customers=setTimeout(()=>{pageState.customers.search=v; loadCustomers(1);},300); }
 
@@ -965,6 +965,84 @@ async function loadDriverDetail(driverId) {
 }
 function closeDriverModal() {
   document.getElementById('driverModal').classList.remove('open');
+}
+
+async function loadCustomerDetail(customerId) {
+  try {
+    const data = await adminApi('get_customer', { customer_id: customerId });
+    const c = data.customer;
+
+    document.getElementById('customerModalTitle').textContent = c.full_name || 'Customer Details';
+
+    const verified = Number(c.email_verified) === 1;
+    const statusClass = c.status === 'suspended' ? 'badge-danger' : 'badge-success';
+
+    let html = `<div style="display:flex;gap:16px;margin-bottom:16px;">`;
+    html += `<div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark);width:64px;height:64px;font-size:24px;">${escapeHtml(initials(c.full_name))}</div>`;
+    html += `<div>`;
+    html += `<div style="font-weight:600;font-size:16px;">${escapeHtml(c.full_name || 'Unnamed customer')}</div>`;
+    html += `<div style="color:var(--text-secondary);font-size:13px;margin-top:4px;">${escapeHtml(c.email || 'No email')} · ${escapeHtml(c.phone || 'No phone')}</div>`;
+    html += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">`;
+    html += `<span class="badge ${statusClass}">${escapeHtml(formatStatusLabel(c.status || 'active'))}</span>`;
+    html += `<span class="badge ${verified ? 'badge-success' : 'badge-warning'}">${verified ? 'Email verified' : 'Email pending'}</span>`;
+    html += `</div></div></div>`;
+
+    html += `<div class="metrics-grid" style="margin-bottom:16px">`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">TRIPS</div><div style="font-size:13px;font-weight:600">${Number(c.total_trips || 0).toLocaleString()}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">TOTAL SPENT</div><div style="font-size:13px;font-weight:600">${formatMoney(c.total_spent || 0)}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">RATING</div><div style="font-size:13px;font-weight:600">${c.avg_rating ? Number(c.avg_rating).toFixed(1)+'★' : '--'}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">JOINED</div><div style="font-size:13px;font-weight:600">${dateLabel(c.created_at)}</div></div>`;
+    html += `</div>`;
+
+    if (c.last_trip_at) {
+      html += `<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">LAST TRIP</div><div style="font-size:13px;font-weight:600">${dateLabel(c.last_trip_at)}</div></div>`;
+    }
+
+    const safeName = escapeHtml(c.full_name || 'Customer').replace(/'/g,'&#39;');
+    html += `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">`;
+    html += `<button class="btn-sm btn-view" onclick="openSubjectRatings('customer',${Number(c.id)},'${safeName}')">View Ratings</button>`;
+    if (c.status !== 'suspended') {
+      html += `<button class="btn-sm btn-suspend" onclick="closeCustomerModal();suspendCustomerFromDirectory(${Number(c.id)},'${safeName}')">Suspend Customer</button>`;
+    } else {
+      html += `<button class="btn-sm" style="background:var(--success);color:#fff" onclick="reinstateCustomer(${Number(c.id)},'${safeName}')">Reinstate Customer</button>`;
+    }
+    html += `</div>`;
+
+    document.getElementById('customerModalBody').innerHTML = html;
+    document.getElementById('customerModal').classList.add('open');
+  } catch(e) {
+    toast('Could not load customer: ' + e.message);
+  }
+}
+
+function closeCustomerModal() {
+  document.getElementById('customerModal').classList.remove('open');
+}
+
+async function suspendCustomerFromDirectory(customerId, customerName) {
+  const reason = await showConfirmDialog({
+    title: `Suspend ${customerName}?`,
+    desc: 'The customer will be blocked from booking new trips.',
+    reasonLabel: 'Reason (optional)',
+    reasonRequired: false,
+    confirmLabel: 'Suspend',
+    confirmClass: 'danger',
+  });
+  if (reason === null) return;
+  try {
+    await adminApi('suspend_customer', { customer_id: customerId, reason }, 'POST');
+    toast(`${customerName} suspended.`);
+    loadCustomers();
+  } catch(e) { toast(e.message || 'Could not suspend customer.'); }
+}
+
+async function reinstateCustomer(customerId, customerName) {
+  try {
+    await adminApi('reinstate_customer', { customer_id: customerId }, 'POST');
+    toast(`${customerName} reinstated.`);
+    closeCustomerModal();
+    loadCustomers();
+  } catch(e) { toast(e.message || 'Could not reinstate customer.'); }
 }
 
 async function loadPaymentDetail(paymentId) {

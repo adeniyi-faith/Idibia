@@ -98,6 +98,24 @@ try {
             idibia_admin_paginated_customers();
             break;
 
+        case 'get_customer':
+            idibia_require_method( 'GET' );
+            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            idibia_admin_get_customer();
+            break;
+
+        case 'suspend_customer':
+            idibia_require_method( 'POST' );
+            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            idibia_admin_suspend_customer();
+            break;
+
+        case 'reinstate_customer':
+            idibia_require_method( 'POST' );
+            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            idibia_admin_reinstate_customer();
+            break;
+
         case 'get_trips':
             idibia_require_method( 'GET' );
             if(!idibia_admin_has_permission('view_trips')){ wp_send_json_error(['message'=>'Denied.'],403); }
@@ -678,6 +696,57 @@ function idibia_admin_paginated_customers(): void {
     $total = (int) $wpdb->get_var( idibia_sql( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_customers` WHERE $sql_where", $args ) );
     $rows = $wpdb->get_results( idibia_sql( "SELECT id, full_name, email, phone, email_verified, status, created_at FROM `{$wpdb->prefix}sd_customers` WHERE $sql_where ORDER BY created_at DESC LIMIT %d OFFSET %d", array_merge( $args, [ $per_page, $offset ] ) ), ARRAY_A );
     wp_send_json_success( [ 'customers' => $rows, 'page' => $page, 'per_page' => $per_page, 'total' => $total ] );
+}
+
+function idibia_admin_get_customer(): void {
+    global $wpdb;
+    $customer_id = absint( $_GET['customer_id'] ?? 0 );
+    if ( ! $customer_id ) { wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 ); }
+    $c = $wpdb->get_row( $wpdb->prepare(
+        "SELECT c.*,
+            COUNT(DISTINCT t.id) AS total_trips,
+            COALESCE(SUM(CASE WHEN t.status='completed' THEN COALESCE(NULLIF(t.final_fare,0),NULLIF(t.fare_estimate,0),t.fare,0) ELSE 0 END),0) AS total_spent,
+            MAX(t.created_at) AS last_trip_at
+        FROM `{$wpdb->prefix}sd_customers` c
+        LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.customer_id = c.id
+        WHERE c.id = %d
+        GROUP BY c.id
+        LIMIT 1",
+        $customer_id
+    ), ARRAY_A );
+    if ( ! $c ) { wp_send_json_error( [ 'message' => 'Customer not found.' ] ); }
+    $ratings_table = $wpdb->prefix . 'sd_ratings';
+    $table_exists  = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $ratings_table ) );
+    if ( $table_exists ) {
+        $c['avg_rating'] = $wpdb->get_var( $wpdb->prepare(
+            "SELECT AVG(rating) FROM `$ratings_table` WHERE subject_id = %d AND subject_type = 'customer'",
+            $customer_id
+        ) );
+    } else {
+        $c['avg_rating'] = null;
+    }
+    wp_send_json_success( [ 'customer' => $c ] );
+}
+
+function idibia_admin_suspend_customer(): void {
+    global $wpdb;
+    $customer_id = absint( $_POST['customer_id'] ?? 0 );
+    $reason      = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
+    if ( ! $customer_id ) { wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 ); }
+    $updated = $wpdb->update( $wpdb->prefix . 'sd_customers', [ 'status' => 'suspended' ], [ 'id' => $customer_id ], [ '%s' ], [ '%d' ] );
+    if ( false === $updated ) { wp_send_json_error( [ 'message' => 'Could not suspend customer.' ] ); }
+    idibia_admin_audit_log( 'suspend_customer', 'customer', $customer_id, [ 'reason' => $reason ] );
+    wp_send_json_success( [ 'message' => 'Customer suspended.' ] );
+}
+
+function idibia_admin_reinstate_customer(): void {
+    global $wpdb;
+    $customer_id = absint( $_POST['customer_id'] ?? 0 );
+    if ( ! $customer_id ) { wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 ); }
+    $updated = $wpdb->update( $wpdb->prefix . 'sd_customers', [ 'status' => 'active' ], [ 'id' => $customer_id ], [ '%s' ], [ '%d' ] );
+    if ( false === $updated ) { wp_send_json_error( [ 'message' => 'Could not reinstate customer.' ] ); }
+    idibia_admin_audit_log( 'reinstate_customer', 'customer', $customer_id, [] );
+    wp_send_json_success( [ 'message' => 'Customer reinstated.' ] );
 }
 
 function idibia_admin_paginated_trips(): void {
