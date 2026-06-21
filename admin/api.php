@@ -391,6 +391,54 @@ try {
             idibia_admin_get_subject_ratings();
             break;
 
+        case 'get_campaigns':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_get_campaigns();
+            break;
+
+        case 'get_campaign':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_get_campaign();
+            break;
+
+        case 'create_campaign':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_pricing_commission' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_create_campaign();
+            break;
+
+        case 'update_campaign':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_pricing_commission' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_update_campaign();
+            break;
+
+        case 'deactivate_campaign':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_pricing_commission' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_deactivate_campaign();
+            break;
+
+        case 'get_campaign_leaderboard':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_get_campaign_leaderboard();
+            break;
+
         default:
             wp_send_json_error( [ 'message' => 'Unknown action.' ] );
     }

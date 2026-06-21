@@ -109,6 +109,9 @@ idibia_log_event( $trip_id, $transition['event'], [ 'driver_id' => $driver_id ] 
 if ( $action === 'complete' && $trip['payment_status'] === 'captured' ) {
     idibia_credit_driver_for_trip( $trip_id );
 }
+if ( $action === 'complete' ) {
+    idibia_check_campaign_bonuses( $driver_id, $trip_id );
+}
 idibia_transaction_commit();
 idibia_notify_trip_participants( $trip_id, $transition['event'] );
 wp_send_json_success( [ 'message' => 'Trip updated.', 'active_trip' => idibia_get_driver_active_trip( $driver_id ) ] );
