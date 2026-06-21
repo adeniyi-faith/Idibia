@@ -453,21 +453,11 @@ function idibia_maybe_create_tables() {
 
     if ( $current_version < 14 ) {
         global $wpdb;
-        $charset = $wpdb->get_charset_collate();
 
-        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_operational_zones` (
-            `id`         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            `name`       VARCHAR(120)    NOT NULL,
-            `center_lat` DECIMAL(10,8)   NOT NULL,
-            `center_lng` DECIMAL(11,8)   NOT NULL,
-            `radius_km`  DECIMAL(8,3)    NOT NULL,
-            `is_active`  TINYINT(1)      NOT NULL DEFAULT 1,
-            `created_at` DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (`id`),
-            KEY `is_active` (`is_active`)
-        ) $charset;" );
-
-        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers` ADD COLUMN IF NOT EXISTS `saved_preferences` TEXT NULL AFTER `notification_preferences`" );
+        $wpdb->query( "INSERT IGNORE INTO `{$wpdb->prefix}sd_settings` (`setting_key`, `setting_value`) VALUES
+            ('dispatch_retry_limit', '3'),
+            ('trip_timeout_minutes', '10'),
+            ('scheduled_dispatch_advance_minutes', '10');" );
 
         update_option( 'idibia_db_version', 14 );
         $current_version = 14;

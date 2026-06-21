@@ -241,3 +241,160 @@ function idibia_dispatch_trip( int $trip_id, int $limit = 5 ): array {
 
     return [ 'created' => $created ];
 }
+
+/**
+ * Dispatches scheduled trips whose scheduled_time is within the configured advance window.
+ * Called by WP cron every 2 minutes and by the external cron runner.
+ */
+function idibia_cron_scheduled_dispatch(): void {
+    global $wpdb;
+    $advance = max( 1, (int) idibia_get_setting( 'scheduled_dispatch_advance_minutes', 10 ) );
+
+    $trips = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id FROM `{$wpdb->prefix}sd_trips`
+         WHERE scheduled_time IS NOT NULL
+           AND scheduled_time BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL %d MINUTE)
+           AND dispatch_status IN ('searching', 'no_driver')
+           AND driver_id IS NULL
+           AND status NOT IN ('cancelled', 'completed')",
+        $advance
+    ), ARRAY_A );
+
+    foreach ( $trips as $trip ) {
+        $trip_id = (int) $trip['id'];
+
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE `{$wpdb->prefix}sd_trips`
+             SET dispatch_status = 'searching',
+                 searching_at = COALESCE(searching_at, NOW())
+             WHERE id = %d",
+            $trip_id
+        ) );
+
+        idibia_log_event( $trip_id, 'scheduled_dispatch_triggered', [ 'advance_minutes' => $advance ] );
+        idibia_dispatch_trip( $trip_id );
+    }
+}
+
+/**
+ * Expires stale dispatch offers and re-dispatches eligible trips, enforcing the retry limit.
+ * Called by WP cron every minute and by the external cron runner.
+ */
+function idibia_cron_offer_expiry(): void {
+    global $wpdb;
+    $retry_limit = max( 1, (int) idibia_get_setting( 'dispatch_retry_limit', 3 ) );
+
+    idibia_expire_dispatch_offers();
+
+    // Trips that need re-dispatch: no pending offers, not yet assigned, past or immediate (not future-scheduled)
+    $trips = $wpdb->get_results(
+        "SELECT id FROM `{$wpdb->prefix}sd_trips`
+         WHERE dispatch_status IN ('searching', 'offered', 'no_driver')
+           AND driver_id IS NULL
+           AND status NOT IN ('cancelled', 'completed')
+           AND (scheduled_time IS NULL OR scheduled_time <= NOW())
+           AND NOT EXISTS (
+               SELECT 1 FROM `{$wpdb->prefix}sd_dispatch_offers` o
+               WHERE o.trip_id = id AND o.status = 'pending'
+           )",
+        ARRAY_A
+    );
+
+    foreach ( $trips as $trip ) {
+        $trip_id = (int) $trip['id'];
+
+        $rounds = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trip_events`
+             WHERE trip_id = %d AND event_type IN ('dispatch_offers_created', 'dispatch_no_driver')",
+            $trip_id
+        ) );
+
+        if ( $rounds >= $retry_limit ) {
+            $wpdb->update(
+                $wpdb->prefix . 'sd_trips',
+                [ 'dispatch_status' => 'no_driver' ],
+                [ 'id' => $trip_id ],
+                [ '%s' ], [ '%d' ]
+            );
+            idibia_log_event( $trip_id, 'dispatch_retry_limit_reached', [
+                'rounds'      => $rounds,
+                'retry_limit' => $retry_limit,
+            ] );
+        } else {
+            $wpdb->query( $wpdb->prepare(
+                "UPDATE `{$wpdb->prefix}sd_trips`
+                 SET dispatch_status = 'searching',
+                     searching_at = COALESCE(searching_at, NOW())
+                 WHERE id = %d",
+                $trip_id
+            ) );
+            idibia_dispatch_trip( $trip_id );
+        }
+    }
+}
+
+/**
+ * Auto-cancels trips stuck without a driver for longer than the configured timeout.
+ * Notifies the customer and initiates a refund if payment was already captured.
+ * Called by WP cron every 2 minutes and by the external cron runner.
+ */
+function idibia_cron_trip_timeout(): void {
+    global $wpdb;
+    $timeout = max( 1, (int) idibia_get_setting( 'trip_timeout_minutes', 10 ) );
+
+    $trips = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, payment_status FROM `{$wpdb->prefix}sd_trips`
+         WHERE dispatch_status IN ('searching', 'no_driver')
+           AND driver_id IS NULL
+           AND status NOT IN ('cancelled', 'completed')
+           AND (scheduled_time IS NULL OR scheduled_time <= NOW())
+           AND searching_at IS NOT NULL
+           AND searching_at < DATE_SUB(NOW(), INTERVAL %d MINUTE)",
+        $timeout
+    ), ARRAY_A );
+
+    foreach ( $trips as $trip ) {
+        $trip_id       = (int) $trip['id'];
+        $payment_status = $trip['payment_status'];
+
+        $wpdb->update(
+            $wpdb->prefix . 'sd_trips',
+            [
+                'status'              => 'cancelled',
+                'dispatch_status'     => 'no_driver',
+                'cancellation_reason' => 'no_driver_available',
+            ],
+            [ 'id' => $trip_id ],
+            [ '%s', '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        idibia_log_event( $trip_id, 'trip_auto_cancelled', [
+            'reason'          => 'no_driver_available',
+            'timeout_minutes' => $timeout,
+        ] );
+
+        idibia_notify_trip_participants( $trip_id, 'trip_cancelled', [
+            'body' => 'Your trip was automatically cancelled because no driver was available within the allowed time. We apologize for the inconvenience.',
+        ] );
+
+        if ( in_array( $payment_status, [ 'captured', 'approved' ], true ) ) {
+            $wpdb->update(
+                $wpdb->prefix . 'sd_trips',
+                [ 'payment_status' => 'refunded' ],
+                [ 'id' => $trip_id ],
+                [ '%s' ], [ '%d' ]
+            );
+            $wpdb->query( $wpdb->prepare(
+                "UPDATE `{$wpdb->prefix}sd_payments`
+                 SET status = 'refunded', updated_at = NOW()
+                 WHERE trip_id = %d AND status IN ('captured', 'approved')",
+                $trip_id
+            ) );
+            idibia_log_event( $trip_id, 'payment_refund_initiated', [
+                'reason' => 'auto_cancel_no_driver',
+            ] );
+            idibia_notify_trip_participants( $trip_id, 'payment_refunded' );
+        }
+    }
+}

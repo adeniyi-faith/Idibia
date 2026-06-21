@@ -72,34 +72,27 @@
         <div class="form-group"><label class="form-label">Software License URL</label><input class="form-input" data-setting="legal_license_url" placeholder="https://..."></div>
       </div>
     </div>
-    <div class="settings-section" id="zones-section">
-      <div class="scard-header">
-        <h4 style="border:0;margin:0;padding:0">Operational Zones</h4>
-        <button class="scard-action" onclick="openZoneModal(null)">+ Add Zone</button>
-      </div>
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Drivers outside all active zones cannot go online. If no zones are defined the check is skipped.</div>
-      <div id="zonesList"><div class="list-item"><div class="item-info"><div class="item-name">Loading zones…</div></div></div></div>
-    </div>
-
-    <div id="zoneModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center">
-      <div style="background:var(--bg-card,#1e2030);border-radius:10px;padding:28px;width:420px;max-width:95vw">
-        <h4 style="margin:0 0 18px" id="zoneModalTitle">Add Zone</h4>
-        <input type="hidden" id="zoneId">
-        <div class="form-group" style="margin-bottom:12px"><label class="form-label">Zone name</label><input class="form-input" id="zoneName" placeholder="e.g. Lagos Island"></div>
-        <div class="form-row" style="gap:10px">
-          <div class="form-group" style="flex:1"><label class="form-label">Centre latitude</label><input class="form-input" id="zoneLat" type="number" step="any" placeholder="6.4550"></div>
-          <div class="form-group" style="flex:1"><label class="form-label">Centre longitude</label><input class="form-input" id="zoneLng" type="number" step="any" placeholder="3.3841"></div>
+    <div class="settings-section">
+      <h4>Operational Settings</h4>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">Controls automated dispatch timing, offer retry behaviour, and the no-driver cancellation timeout.</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Dispatch retry limit</label>
+          <input class="form-input" type="number" data-setting="dispatch_retry_limit" value="3" min="1" max="20" placeholder="3">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Max dispatch rounds before marking a trip as no-driver (default: 3)</div>
         </div>
-        <div class="form-group" style="margin-bottom:12px"><label class="form-label">Radius (km)</label><input class="form-input" id="zoneRadius" type="number" min="0.1" step="0.1" placeholder="20"></div>
-        <div class="toggle-row" style="margin-bottom:18px">
-          <div><div class="toggle-label">Active</div></div>
-          <button class="toggle on" id="zoneActive" onclick="this.classList.toggle(\'on\')"></button>
+        <div class="form-group">
+          <label class="form-label">Trip timeout (minutes)</label>
+          <input class="form-input" type="number" data-setting="trip_timeout_minutes" value="10" min="1" max="120" placeholder="10">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Minutes to wait before auto-cancelling a trip with no driver (default: 10)</div>
         </div>
-        <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button class="btn-secondary" onclick="closeZoneModal()">Cancel</button>
-          <button class="btn-primary" onclick="saveZone()">Save Zone</button>
+        <div class="form-group">
+          <label class="form-label">Scheduled dispatch advance (minutes)</label>
+          <input class="form-input" type="number" data-setting="scheduled_dispatch_advance_minutes" value="10" min="1" max="60" placeholder="10">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">How many minutes before scheduled_time to begin dispatching (default: 10)</div>
         </div>
       </div>
+      <button class="btn-primary" style="font-size:12px;padding:8px 14px;width:auto" onclick="savePaymentSettings()">Save operational settings</button>
     </div>
 
     <button class="btn-primary" onclick="savePaymentSettings()">Save Changes</button>

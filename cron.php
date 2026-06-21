@@ -13,31 +13,18 @@ if ( php_sapi_name() !== 'cli' ) {
     }
 }
 
+// 1. Expire stale offers and re-dispatch eligible trips (with retry limit)
+idibia_cron_offer_expiry();
+
+// 2. Dispatch scheduled trips whose time is approaching
+idibia_cron_scheduled_dispatch();
+
+// 3. Auto-cancel trips that have been searching too long with no driver
+idibia_cron_trip_timeout();
+
+// 4. Take stale drivers offline (location not updated in 15 minutes)
 global $wpdb;
-
-// 1. Expire dispatch offers
-idibia_expire_dispatch_offers();
-
-// 2. Automatically redispatch `no_driver` trips or trips with expired offers
-$trips_to_redispatch = $wpdb->get_results(
-    "SELECT id FROM `{$wpdb->prefix}sd_trips` WHERE dispatch_status IN ('no_driver', 'searching', 'offered') AND status = 'pending'", ARRAY_A
-);
-
-foreach ($trips_to_redispatch as $trip) {
-    // Only redispatch if there are no pending offers for this trip
-    $pending_offers = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_dispatch_offers` WHERE trip_id = %d AND status = 'pending'",
-        $trip['id']
-    ) );
-
-    if ($pending_offers === 0) {
-        // Try to dispatch again
-        idibia_dispatch_trip((int)$trip['id']);
-    }
-}
-
-// 3. Stale driver locations (Drivers who haven't updated location in 15 mins)
-$stale_threshold = gmdate('Y-m-d H:i:s', time() - 900); // 15 minutes ago
+$stale_threshold = gmdate('Y-m-d H:i:s', time() - 900);
 $wpdb->query( $wpdb->prepare(
     "UPDATE `{$wpdb->prefix}sd_drivers` d
      INNER JOIN `{$wpdb->prefix}sd_driver_locations` dl ON dl.driver_id = d.id
