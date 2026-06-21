@@ -1062,7 +1062,7 @@ let rolePermissionsMap = {};
 let currentUserOverrides = {};
 
 async function loadAdminUsers() {
-    const search = document.getElementById('adminUserSearch').value;
+    const search = document.getElementById('adminUserSearch')?.value || '';
     const tbody = document.getElementById('adminUsersTbody');
     if (!tbody) return;
     tbody.innerHTML = skeletonTableRows(5,5);
@@ -1076,24 +1076,47 @@ async function loadAdminUsers() {
             return;
         }
 
-        const users = json.data;
-        if ( users.length === 0 ) {
-            tbody.innerHTML = `<tr><td colspan="5">${emptyState('👥','No admin users found','Add the first admin user using the button above.')}</td></tr>`;
+        const allUsers = json.data;
+
+        // Update stat counters
+        const active = allUsers.filter(u => u.status === 'active').length;
+        const suspended = allUsers.filter(u => u.status !== 'active').length;
+        const roles = [...new Set(allUsers.map(u => u.role_name))].length;
+        const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setEl('staffStatTotal', allUsers.length);
+        setEl('staffStatActive', active);
+        setEl('staffStatSuspended', suspended);
+        setEl('staffStatRoles', roles);
+
+        // Filter
+        const filtered = search
+            ? allUsers.filter(u => u.full_name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()))
+            : allUsers;
+
+        const countEl = document.getElementById('staffUserCount');
+        if (countEl) countEl.textContent = filtered.length + ' user' + (filtered.length !== 1 ? 's' : '');
+
+        if ( allUsers.length === 0 ) {
+            tbody.innerHTML = `<tr><td colspan="5">${emptyState('👥','No admin users yet','Create the first staff account using the button above.')}</td></tr>`;
+            return;
+        }
+
+        if ( filtered.length === 0 ) {
+            tbody.innerHTML = `<tr><td colspan="5">${emptyState('🔍','No matches','Try a different search term.')}</td></tr>`;
             return;
         }
 
         let html = '';
-        users.forEach( u => {
-            if ( search && !u.full_name.toLowerCase().includes(search.toLowerCase()) && !u.email.toLowerCase().includes(search.toLowerCase()) ) {
-                return;
-            }
-            const avatar = u.avatar_path ? `<img src="${u.avatar_path}" class="avatar">` : `<div class="avatar placeholder"></div>`;
-            const statusClass = u.status === 'active' ? 'success' : 'danger';
-
-            let overridesCount = 0;
-            if (u.overrides) {
-                 overridesCount = Object.keys(u.overrides).length;
-            }
+        filtered.forEach( u => {
+            const initials = u.full_name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+            const avatar = u.avatar_path
+                ? `<img src="${u.avatar_path}" class="avatar" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">`
+                : `<div class="avatar" style="width:36px;height:36px;border-radius:50%;background:var(--navy-light);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--gold);flex-shrink:0;">${initials}</div>`;
+            const statusClass = u.status === 'active' ? 'success' : (u.status === 'suspended' ? 'danger' : 'warn');
+            const statusLabel = u.status.charAt(0).toUpperCase() + u.status.slice(1);
+            const overridesCount = u.overrides ? Object.keys(u.overrides).length : 0;
+            const lastLogin = u.last_login ? new Date(u.last_login).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '<span style="color:var(--text-muted);font-style:italic;font-size:11px;">Never</span>';
+            const isSuperAdmin = u.role_name === 'Super Admin';
 
             html += `
             <tr>
@@ -1101,46 +1124,55 @@ async function loadAdminUsers() {
                     <div class="user-cell">
                         ${avatar}
                         <div>
-                            <div class="strong">${u.full_name}</div>
-                            <div class="sub-text">${u.email}</div>
+                            <div class="strong">${escapeHtml(u.full_name)}</div>
+                            <div class="sub-text">${escapeHtml(u.email)}</div>
                         </div>
                     </div>
                 </td>
-                <td><span class="badge neutral">${u.role_name}</span> ${overridesCount > 0 ? `<span style="font-size:10px;color:var(--text-light)">(+${overridesCount} overrides)</span>` : ''}</td>
-                <td><span class="status-dot ${statusClass}"></span>${u.status}</td>
-                <td>${u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}</td>
                 <td>
-                    <button class="btn-secondary" style="padding:4px 8px; font-size:12px" onclick='editAdminUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Edit</button>
-                    ${u.role_name !== 'Super Admin' ? `<button class="btn-secondary" style="padding:4px 8px; font-size:12px; color:var(--danger); border-color:var(--danger)" onclick="toggleAdminUserStatus(${u.id}, '${u.status}')">${u.status === 'active' ? 'Suspend' : 'Activate'}</button>` : ''}
+                    <span class="badge ${isSuperAdmin ? 'badge-warn' : 'neutral'}">${escapeHtml(u.role_name)}</span>
+                    ${overridesCount > 0 ? `<div style="font-size:10px;color:var(--info);margin-top:3px;">${overridesCount} override${overridesCount!==1?'s':''}</div>` : ''}
+                </td>
+                <td><span class="badge badge-${statusClass}" style="text-transform:capitalize;">${statusLabel}</span></td>
+                <td style="font-size:12px;color:var(--text-secondary);">${lastLogin}</td>
+                <td>
+                    <div class="td-actions">
+                        <button class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick='editAdminUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Edit</button>
+                        ${!isSuperAdmin ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--${u.status==='active'?'danger':'success'});border-color:var(--${u.status==='active'?'danger':'success'});" onclick="toggleAdminUserStatus(${u.id}, '${u.status}')">${u.status === 'active' ? 'Suspend' : 'Activate'}</button>` : ''}
+                    </div>
                 </td>
             </tr>`;
         });
 
-        tbody.innerHTML = html || `<tr><td colspan="5">${emptyState('🔍','No matches found','Try a different search term.')}</td></tr>`;
+        tbody.innerHTML = html;
 
     } catch(e) {
-        tbody.innerHTML = `<tr><td colspan="5">${emptyState('⚠️','Network error loading users',escapeHtml(e.message))}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5">${emptyState('⚠️','Network error',escapeHtml(e.message))}</td></tr>`;
     }
 }
 
 async function loadRolesForDropdown() {
+    const select = document.getElementById('adminUserRole');
+    if (!select) return;
+    select.innerHTML = '<option value="">Loading roles…</option>';
     try {
         const res = await fetch(ADMIN_API_URL + '?action=get_roles');
         const json = await res.json();
 
-        if ( json.success ) {
+        if ( json.success && json.data.length > 0 ) {
             currentRoles = json.data;
             rolePermissionsMap = {};
-            const select = document.getElementById('adminUserRole');
-            if (!select) return;
-            select.innerHTML = '<option value="">Select a role...</option>';
-
+            select.innerHTML = '<option value="">Select a role…</option>';
             currentRoles.forEach(r => {
                 rolePermissionsMap[r.id] = r.permissions || [];
                 select.innerHTML += `<option value="${r.id}">${r.name}</option>`;
             });
+        } else {
+            select.innerHTML = '<option value="">No roles available</option>';
+            console.warn("get_roles returned empty or error:", json);
         }
     } catch(e) {
+        select.innerHTML = '<option value="">Failed to load roles</option>';
         console.error("Failed to load roles", e);
     }
 }
@@ -1210,47 +1242,76 @@ function iHavePermission(key) {
     return isRoleDefault;
 }
 
+const permissionCategories = [
+    { label: 'Live Operations', keys: ['view_live_map','filter_intervene_trips','force_redispatch','force_cancel_trip'] },
+    { label: 'Trip Management', keys: ['view_trips','admin_cancel_trip','correct_trip_status','export_trips'] },
+    { label: 'KYC', keys: ['view_kyc','approve_reject_kyc','config_kyc_policy'] },
+    { label: 'Customers', keys: ['view_customers','suspend_customer','view_customer_history'] },
+    { label: 'Drivers', keys: ['view_drivers','suspend_reinstate_driver','view_driver_wallet'] },
+    { label: 'Payments & Finance', keys: ['view_payments','approve_reject_payment','execute_payouts','view_export_revenue','issue_refunds'] },
+    { label: 'Disputes', keys: ['view_disputes','assign_resolve_disputes','view_download_evidence'] },
+    { label: 'Notifications', keys: ['view_notifications','send_manual_notifications'] },
+    { label: 'Settings', keys: ['view_settings','edit_pricing_commission','edit_payment_credentials','edit_kyc_notif_policies','edit_legal_docs'] },
+    { label: 'Admin Users', keys: ['view_admin_users','create_admin_users','edit_admin_users','suspend_delete_admin_users'] },
+];
+
 function renderPermissionToggles() {
     const roleId = document.getElementById('adminUserRole')?.value;
     const container = document.getElementById('adminUserPermissionsContainer');
+    const descCard = document.getElementById('adminUserRoleDescCard');
     if (!container) return;
 
     if ( ! roleId ) {
-        container.innerHTML = emptyState('🔒','Select a role to see permissions','Permissions vary by role.');
+        container.innerHTML = `<div style="text-align:center;padding:24px 16px;color:var(--text-muted);font-size:13px;">
+            <div style="font-size:28px;margin-bottom:8px;">🔐</div>
+            Select a role above to view and override permissions.
+        </div>`;
+        if (descCard) { descCard.textContent = ''; descCard.classList.remove('visible'); }
         return;
     }
 
     const role = currentRoles.find(r => r.id == roleId);
-    if ( role ) {
-        document.getElementById('adminUserRoleDesc').innerText = role.description;
+    if (role && descCard) {
+        descCard.textContent = role.description || '';
+        descCard.classList.toggle('visible', !!role.description);
     }
 
     const defaultPerms = rolePermissionsMap[roleId] || [];
+    const permMap = {};
+    allPermissions.forEach(p => { permMap[p.key] = p.label; });
 
-    let html = '<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">';
+    let html = '';
+    permissionCategories.forEach(cat => {
+        const permsInCat = cat.keys.filter(k => permMap[k]);
+        if (!permsInCat.length) return;
 
-    allPermissions.forEach(p => {
-        const isDefault = defaultPerms.includes(p.key);
-        const isGranted = currentUserOverrides[p.key] !== undefined ? currentUserOverrides[p.key] : isDefault;
-        const isOverridden = isGranted !== isDefault;
+        html += `<div class="perm-category">
+            <div class="perm-category-title">${cat.label}</div>
+            <div class="perm-grid">`;
 
-        // Disable toggle if current user doesn't have the permission themselves
-        const canEdit = iHavePermission(p.key);
-        const disabledAttr = !canEdit ? 'disabled' : '';
-        const opacityStyle = !canEdit ? 'opacity:0.5; cursor:not-allowed;' : '';
+        permsInCat.forEach(key => {
+            const label = permMap[key];
+            const isDefault = defaultPerms.includes(key);
+            const isGranted = currentUserOverrides[key] !== undefined ? currentUserOverrides[key] : isDefault;
+            const isOverridden = isGranted !== isDefault;
+            const canEdit = iHavePermission(key);
 
-        html += `
-        <label class="toggle-row" style="margin-bottom:8px; padding:8px; background:var(--bg-secondary); border-radius:8px; border:1px solid ${isOverridden ? 'var(--primary)' : 'transparent'}; ${opacityStyle}" ${!canEdit ? 'title="You lack this permission"' : ''}>
-            <span style="display:flex;align-items:center;">
-                ${p.label}
-                ${isOverridden ? '<span style="display:inline-block;width:6px;height:6px;background:var(--primary);border-radius:50%;margin-left:8px;"></span>' : ''}
-            </span>
-            <input type="checkbox" id="perm_${p.key}" ${isGranted ? 'checked' : ''} ${disabledAttr} onchange="updateOverride('${p.key}', this.checked, ${isDefault})">
-            <span class="toggle-slider"></span>
-        </label>`;
+            html += `
+            <label class="perm-toggle-row${isOverridden ? ' is-override' : ''}${!canEdit ? ' is-disabled' : ''}" ${!canEdit ? 'title="You do not have this permission"' : ''}>
+                <span class="perm-toggle-label">
+                    ${escapeHtml(label)}
+                    ${isOverridden ? '<span class="perm-override-dot"></span>' : ''}
+                </span>
+                <label class="perm-switch">
+                    <input type="checkbox" id="perm_${key}" ${isGranted ? 'checked' : ''} ${!canEdit ? 'disabled' : ''} onchange="updateOverride('${key}', this.checked, ${isDefault})">
+                    <span class="perm-switch-slider"></span>
+                </label>
+            </label>`;
+        });
+
+        html += '</div></div>';
     });
 
-    html += '</div>';
     container.innerHTML = html;
 }
 
@@ -1270,17 +1331,17 @@ async function openAdminUserPanel() {
     document.getElementById('adminUserEmail').value = '';
     document.getElementById('adminUserPassword').value = '';
     document.getElementById('adminUserRole').value = '';
-    document.getElementById('adminUserRoleDesc').innerText = 'Select a role to see default permissions.';
+    const _rdesc = document.getElementById('adminUserRoleDescCard'); if (_rdesc) { _rdesc.textContent=''; _rdesc.classList.remove('visible'); }
     document.getElementById('adminUserPasswordGroup').style.display = 'block';
 
     currentUserOverrides = {};
     document.getElementById('adminUserPermissionsContainer').innerHTML = '';
 
     document.getElementById('adminUserSlideTitle').innerText = 'Create Admin User';
+    document.getElementById('adminUserSlideSubtitle').innerText = 'Fill in the details below';
 
-    if ( currentRoles.length === 0 ) {
-        loadRolesForDropdown();
-    }
+    // Always re-fetch roles so the dropdown is always populated
+    loadRolesForDropdown();
 
     const panel = document.getElementById('adminUserSlidePanel');
     const overlay = document.getElementById('adminUserSlidePanelOverlay');
@@ -1294,18 +1355,19 @@ async function openAdminUserPanel() {
 
 function editAdminUser(u) {
     openAdminUserPanel();
-    setTimeout(() => {
+    // Wait for roles to load then populate form
+    setTimeout(async () => {
+        if (currentRoles.length === 0) await loadRolesForDropdown();
         document.getElementById('adminUserId').value = u.id;
         document.getElementById('adminUserFullName').value = u.full_name;
         document.getElementById('adminUserEmail').value = u.email;
-        document.getElementById('adminUserPasswordGroup').style.display = 'none'; // Don't show password field on edit
+        document.getElementById('adminUserPasswordGroup').style.display = 'none';
         document.getElementById('adminUserRole').value = u.role_id;
-
         currentUserOverrides = u.overrides || {};
-
         document.getElementById('adminUserSlideTitle').innerText = 'Edit ' + u.full_name;
+        document.getElementById('adminUserSlideSubtitle').innerText = u.email;
         renderPermissionToggles();
-    }, 100); // Small delay to ensure roles are loaded if it's the first time
+    }, 200);
 }
 
 function closeAdminUserPanel() {
