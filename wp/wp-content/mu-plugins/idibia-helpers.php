@@ -521,17 +521,32 @@ function idibia_notify_user( int $user_id, string $user_type, string $title, str
         return false;
     }
 
+    $clean_title = wp_strip_all_tags( $title );
+    $clean_body  = wp_strip_all_tags( $body );
+
     $inserted = $wpdb->insert(
         $wpdb->prefix . 'sd_notifications',
         [
             'user_id'   => $user_id,
             'user_type' => $user_type,
-            'title'     => wp_strip_all_tags( $title ),
-            'body'      => wp_strip_all_tags( $body ),
+            'title'     => $clean_title,
+            'body'      => $clean_body,
             'is_read'   => 0,
         ],
         [ '%d', '%s', '%s', '%s', '%d' ]
     );
+
+    if ( $inserted && $user_type !== 'admin' ) {
+        $channel = $user_type === 'customer'
+            ? idibia_customer_channel( $user_id )
+            : idibia_pusher_driver_channel( $user_id );
+
+        idibia_pusher_trigger( [ $channel ], 'notification.new', [
+            'title'      => $clean_title,
+            'body'       => $clean_body,
+            'created_at' => gmdate( 'c' ),
+        ] );
+    }
 
     return $inserted !== false;
 }
@@ -640,6 +655,10 @@ function idibia_pusher_trip_channel( int $trip_id ): string {
 
 function idibia_pusher_driver_channel( int $driver_id ): string {
     return 'private-driver-' . $driver_id;
+}
+
+function idibia_customer_channel( int $customer_id ): string {
+    return 'private-customer-' . $customer_id;
 }
 
 /**
@@ -768,14 +787,70 @@ function idibia_pusher_broadcast_driver_location( int $trip_id, int $driver_id, 
 
 /**
  * Override WordPress default sender details so emails come from Idibia, not "WordPress".
+ * If SMTP settings are configured, the phpmailer_init hook below overrides From as well.
  */
 add_filter( 'wp_mail_from_name', function( $name ) {
-    return 'Idibia';
+    $custom = (string) idibia_get_setting( 'smtp_from_name', '' );
+    return $custom ?: 'Idibia';
 } );
 add_filter( 'wp_mail_from', function( $email ) {
+    $custom = (string) idibia_get_setting( 'smtp_from_email', '' );
+    if ( $custom ) return $custom;
     $host = parse_url( home_url(), PHP_URL_HOST ) ?: 'idibia.com';
     return 'no-reply@' . $host;
 } );
+
+/**
+ * When SMTP credentials are saved in settings, configure PHPMailer to use them.
+ * This makes every wp_mail() call go through the configured SMTP server.
+ */
+add_action( 'phpmailer_init', function( $phpmailer ) {
+    $host = (string) idibia_get_setting( 'smtp_host', '' );
+    $user = (string) idibia_get_setting( 'smtp_username', '' );
+    $pass = (string) idibia_get_setting( 'smtp_password', '' );
+
+    if ( ! $host || ! $user || ! $pass ) {
+        return;
+    }
+
+    $port      = (int) idibia_get_setting( 'smtp_port', 587 );
+    $from      = (string) idibia_get_setting( 'smtp_from_email', '' );
+    $from_name = (string) idibia_get_setting( 'smtp_from_name', 'Idibia' );
+
+    $phpmailer->isSMTP();
+    $phpmailer->Host       = $host;
+    $phpmailer->SMTPAuth   = true;
+    $phpmailer->Port       = $port;
+    $phpmailer->Username   = $user;
+    $phpmailer->Password   = $pass;
+    $phpmailer->SMTPSecure = $port === 465 ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+
+    if ( $from ) {
+        $phpmailer->From     = $from;
+        $phpmailer->FromName = $from_name ?: 'Idibia';
+    }
+} );
+
+/**
+ * Send an email and log the result to sd_email_log.
+ * Use this instead of wp_mail() everywhere in the app.
+ */
+function idibia_send_mail( string $to, string $subject, string $body, array $headers = [], array $attachments = [] ): bool {
+    global $wpdb;
+    $result = wp_mail( $to, $subject, $body, $headers, $attachments );
+    $wpdb->insert(
+        $wpdb->prefix . 'sd_email_log',
+        [
+            'to_email'      => $to,
+            'subject'       => wp_strip_all_tags( $subject ),
+            'status'        => $result ? 'sent' : 'failed',
+            'error_message' => $result ? null : 'wp_mail() returned false',
+            'sent_at'       => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%s', '%s', '%s', '%s', '%s' ]
+    );
+    return $result;
+}
 
 /**
  * Builds and returns a professional HTML OTP verification email.

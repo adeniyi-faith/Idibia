@@ -40,7 +40,7 @@ if ( false === $updated ) wp_send_json_error( [ 'message' => 'Could not generate
 $first_name = idibia_split_full_name( $driver->full_name )[0];
 [ 'subject' => $subject, 'body' => $body, 'headers' => $headers ] = idibia_otp_email( $first_name, $new_code, 'driver' );
 
-if ( ! wp_mail( $driver->email, $subject, $body, $headers ) ) {
+if ( ! idibia_send_mail( $driver->email, $subject, $body, $headers ) ) {
     wp_send_json_error( [ 'message' => 'Could not send the email. Check your address and try again.' ] );
 }
 

@@ -60,11 +60,31 @@
               <div class="dash-name" id="dashHomeName"><?php echo esc_html($__full_name); ?></div>
             </div>
           </div>
-          <div class="online-switch-wrap">
-            <span class="online-switch-label" id="onlineLabel"><?php echo $__is_online ? 'Online' : 'Offline'; ?></span>
-            <button type="button" class="online-switch<?php echo $__is_online ? ' online' : ''; ?>" id="onlineToggle" role="switch" aria-checked="<?php echo $__is_online ? 'true' : 'false'; ?>" aria-label="Toggle online status" onclick="toggleOnline()">
-              <span class="online-switch-thumb"></span>
-            </button>
+          <div style="display:flex;align-items:center;gap:10px">
+            <!-- Notification Bell (driver) -->
+            <div style="position:relative">
+              <button id="driverNotifBellBtn" onclick="toggleDriverNotifDropdown()" title="Notifications" style="background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;position:relative">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                <span id="driverNotifBadge" style="display:none;position:absolute;top:2px;right:2px;background:#e53e3e;color:#fff;font-size:10px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span>
+              </button>
+            </div>
+            <div class="online-switch-wrap">
+              <span class="online-switch-label" id="onlineLabel"><?php echo $__is_online ? 'Online' : 'Offline'; ?></span>
+              <button type="button" class="online-switch<?php echo $__is_online ? ' online' : ''; ?>" id="onlineToggle" role="switch" aria-checked="<?php echo $__is_online ? 'true' : 'false'; ?>" aria-label="Toggle online status" onclick="toggleOnline()">
+                <span class="online-switch-thumb"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Driver Notification Dropdown -->
+          <div id="driverNotifDropdown" style="display:none;position:fixed;top:64px;right:16px;width:300px;max-height:400px;background:var(--white,#fff);border:1px solid rgba(0,0,0,0.12);border-radius:8px;z-index:2000;box-shadow:0 8px 24px rgba(0,0,0,0.2);display:none;flex-direction:column;overflow:hidden">
+            <div style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.08);display:flex;justify-content:space-between;align-items:center">
+              <strong style="font-size:14px;color:#1a1a2e">Notifications</strong>
+              <button onclick="markAllDriverNotifRead()" style="font-size:12px;color:#6c63ff;background:none;border:none;cursor:pointer;padding:0">Mark all read</button>
+            </div>
+            <div id="driverNotifList" style="overflow-y:auto;max-height:340px;padding:8px 0">
+              <div style="padding:16px;color:#666;font-size:13px">Loading…</div>
+            </div>
           </div>
         </div>
 
@@ -492,3 +512,88 @@
       </nav>
     </div><!-- end dash-main -->
   </div><!-- end screen-driver-dash -->
+
+<script>
+/* ── Driver Notification Bell ── */
+(function(){
+  var open = false;
+
+  window.toggleDriverNotifDropdown = function(){
+    var dd = document.getElementById('driverNotifDropdown');
+    open = !open;
+    dd.style.display = open ? 'flex' : 'none';
+    if(open) fetchDriverNotifications();
+    document.onclick = open ? function(e){
+      var btn=document.getElementById('driverNotifBellBtn');
+      var drop=document.getElementById('driverNotifDropdown');
+      if(!btn.contains(e.target) && !drop.contains(e.target)){
+        open=false; dd.style.display='none'; document.onclick=null;
+      }
+    } : null;
+  };
+
+  function escD(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  function fmtD(s){ if(!s) return ''; var d=new Date(s.replace(' ','T')); return d.toLocaleString(); }
+
+  function renderDriverList(items){
+    var el=document.getElementById('driverNotifList');
+    if(!items.length){ el.innerHTML='<div style="padding:16px;color:#666;font-size:13px">No notifications yet.</div>'; return; }
+    el.innerHTML=items.map(function(n){
+      return '<div onclick="markDriverNotifRead('+n.id+')" style="padding:12px 16px;border-bottom:1px solid rgba(0,0,0,0.06);cursor:pointer;background:'+(n.is_read?'transparent':'rgba(108,99,255,0.05)')+'">'
+        +'<div style="font-size:13px;font-weight:'+(n.is_read?'400':'600')+';color:#1a1a2e">'+escD(n.title)+'</div>'
+        +'<div style="font-size:12px;color:#666;margin-top:2px">'+escD(n.body)+'</div>'
+        +'<div style="font-size:11px;color:#999;margin-top:4px">'+fmtD(n.created_at)+'</div>'
+      +'</div>';
+    }).join('');
+  }
+
+  function updateDriverBadge(count){
+    var b=document.getElementById('driverNotifBadge');
+    if(count>0){ b.textContent=count>99?'99+':count; b.style.display='inline-block'; }
+    else { b.style.display='none'; }
+  }
+
+  function fetchDriverNotifications(){
+    var fd=new FormData(); fd.append('action','get_notifications');
+    fetch('/notifications-api.php',{method:'POST',body:fd,credentials:'include'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.success){
+          updateDriverBadge(d.data.unread_count);
+          if(open) renderDriverList(d.data.notifications);
+        }
+      }).catch(function(){});
+  }
+
+  window.markDriverNotifRead = function(id){
+    var fd=new FormData(); fd.append('action','mark_read'); fd.append('notification_id',id);
+    fetch('/notifications-api.php',{method:'POST',body:fd,credentials:'include'}).then(function(){ fetchDriverNotifications(); });
+  };
+
+  window.markAllDriverNotifRead = function(){
+    var fd=new FormData(); fd.append('action','mark_read'); fd.append('notification_id','all');
+    fetch('/notifications-api.php',{method:'POST',body:fd,credentials:'include'}).then(function(){ fetchDriverNotifications(); });
+  };
+
+  // Poll every 30 seconds
+  fetchDriverNotifications();
+  setInterval(fetchDriverNotifications, 30000);
+
+  // Pusher real-time: bind notification.new on the existing driver private channel.
+  // Uses initDriverPusher() (from driver.js) to avoid opening a duplicate WebSocket.
+  document.addEventListener('DOMContentLoaded', function(){
+    var driverId = window.CURRENT_DRIVER_ID || 0;
+    if(!driverId) return;
+    function trySubscribe(){
+      var pusher = typeof initDriverPusher === 'function' ? initDriverPusher() : null;
+      if(!pusher){ setTimeout(trySubscribe, 500); return; }
+      var channel = pusher.subscribe('private-driver-' + driverId);
+      channel.bind('notification.new', function(data){
+        fetchDriverNotifications();
+        if(typeof showToast === 'function') showToast(data.title + ': ' + data.body);
+      });
+    }
+    trySubscribe();
+  });
+})();
+</script>

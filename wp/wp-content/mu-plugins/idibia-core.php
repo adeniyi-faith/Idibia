@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 17;
+    $target_version = 18;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -541,6 +541,51 @@ function idibia_maybe_create_tables() {
 
         update_option( 'idibia_db_version', 17 );
         $current_version = 17;
+    }
+
+    if ( $current_version < 18 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_email_log` (
+            `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `to_email`      VARCHAR(255)    NOT NULL,
+            `subject`       VARCHAR(255)    NOT NULL,
+            `status`        ENUM('sent','failed') NOT NULL DEFAULT 'sent',
+            `error_message` TEXT            NULL,
+            `sent_at`       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `to_email` (`to_email`),
+            KEY `sent_at`  (`sent_at`)
+        ) $charset;" );
+
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_broadcasts` (
+            `id`              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `title`           VARCHAR(255)    NOT NULL,
+            `body`            TEXT            NOT NULL,
+            `target_type`     VARCHAR(50)     NOT NULL,
+            `target_value`    VARCHAR(255)    NULL,
+            `send_email`      TINYINT(1)      NOT NULL DEFAULT 0,
+            `recipient_count` INT UNSIGNED    NOT NULL DEFAULT 0,
+            `scheduled_at`    DATETIME        NULL,
+            `sent_at`         DATETIME        NULL,
+            `created_by`      BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            `created_at`      DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `target_type` (`target_type`),
+            KEY `sent_at`     (`sent_at`)
+        ) $charset;" );
+
+        $wpdb->query( "INSERT IGNORE INTO `{$wpdb->prefix}sd_settings` (`setting_key`, `setting_value`) VALUES
+            ('smtp_host',       ''),
+            ('smtp_port',       '587'),
+            ('smtp_username',   ''),
+            ('smtp_password',   ''),
+            ('smtp_from_email', ''),
+            ('smtp_from_name',  'Idibia');" );
+
+        update_option( 'idibia_db_version', 18 );
+        $current_version = 18;
     }
 }
 

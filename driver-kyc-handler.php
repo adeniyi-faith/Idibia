@@ -168,7 +168,7 @@ if ( $admin_email && $driver ) {
     $body = $is_resubmission
         ? "Driver #$driver_id ({$driver->full_name}, {$driver->email}) resubmitted KYC documents for review."
         : "Driver #$driver_id ({$driver->full_name}, {$driver->email}) submitted KYC documents for review.";
-    wp_mail( $admin_email, $subject, $body, [ 'Content-Type: text/plain; charset=UTF-8' ] );
+    idibia_send_mail( $admin_email, $subject, $body, [ 'Content-Type: text/plain; charset=UTF-8' ] );
 }
 
 wp_send_json_success( [

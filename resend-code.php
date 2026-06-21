@@ -94,7 +94,7 @@ $first_name = idibia_split_full_name( $customer->full_name )[0];
 
 [ 'subject' => $subject, 'body' => $body, 'headers' => $headers ] = idibia_otp_email( $first_name, $new_code, 'customer' );
 
-$mail_sent = wp_mail( $customer->email, $subject, $body, $headers );
+$mail_sent = idibia_send_mail( $customer->email, $subject, $body, $headers );
 
 if ( ! $mail_sent ) {
     error_log( "Idibia: resend wp_mail failed for customer_id=$customer_id email={$customer->email}" );

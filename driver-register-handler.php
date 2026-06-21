@@ -95,7 +95,7 @@ if ( false === $verify_updated ) {
 }
 
 [ 'subject' => $otp_subject, 'body' => $otp_body, 'headers' => $otp_headers ] = idibia_otp_email( $first_name, $otp, 'driver' );
-wp_mail( $email, $otp_subject, $otp_body, $otp_headers );
+idibia_send_mail( $email, $otp_subject, $otp_body, $otp_headers );
 
 if ( ! session_id() ) session_start();
 $_SESSION['sd_pending_driver_id'] = $driver_id;

@@ -125,7 +125,7 @@ $wpdb->update(
 );
 
 [ 'subject' => $otp_subject, 'body' => $otp_body, 'headers' => $otp_headers ] = idibia_otp_email( $first_name, $otp, 'customer' );
-wp_mail( $email, $otp_subject, $otp_body, $otp_headers );
+idibia_send_mail( $email, $otp_subject, $otp_body, $otp_headers );
 
 if ( ! session_id() ) session_start();
 $customer_row = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_customers` WHERE email = %s LIMIT 1", $email ) );
