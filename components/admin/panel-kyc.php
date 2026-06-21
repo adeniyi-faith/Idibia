@@ -6,6 +6,7 @@
     </div>
     <div class="tabs">
       <button class="tab active" onclick="kycTab('under_review',this)">Pending <span id="kyc-pending-count">(0)</span></button>
+      <button class="tab" onclick="kycTab('resubmission',this)">Resubmissions <span id="kyc-resubmit-count"></span></button>
       <button class="tab" onclick="kycTab('approved',this)">Approved</button>
       <button class="tab" onclick="kycTab('rejected',this)">Rejected</button>
     </div>
@@ -36,6 +37,8 @@
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">PHOTO REVIEW</div><div style="font-size:12px;font-weight:600" id="detail-photo">Clear portrait ✓</div></div>
             <div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">BANK DETAILS</div><div style="font-size:12px;font-weight:600" id="detail-bank">Bank details pending</div></div>
           </div>
+          <div id="kycRejectionHistoryPanel"></div>
+          <div id="kycDocLinks"></div>
           <div id="kycReviewDetails"></div>
           <select id="reject-reason" style="display:none" aria-hidden="true"></select>
           <div id="kycReviewActions" style="display:flex;gap:10px;flex-wrap:wrap;">

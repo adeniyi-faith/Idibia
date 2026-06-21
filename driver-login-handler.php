@@ -41,10 +41,18 @@ if ( is_wp_error( $user ) ) wp_send_json_error( [ 'message' => 'Invalid login de
 if ( get_user_meta( $user->ID, 'idibia_account_type', true ) !== 'driver' ) { wp_logout(); wp_send_json_error( [ 'message' => 'Use a driver account to sign in here.' ] ); }
 if ( get_user_meta( $user->ID, 'idibia_account_status', true ) === 'suspended' ) { wp_logout(); wp_send_json_error( [ 'message' => 'Your driver account is suspended. Contact support.' ] ); }
 
+// Blacklist check
+$bl_email = $user->user_email ?? '';
+$bl_phone = (string) get_user_meta( $user->ID, 'idibia_phone', true );
+if ( function_exists( 'idibia_is_blacklisted' ) && idibia_is_blacklisted( $bl_email, $bl_phone ) ) {
+    wp_logout();
+    wp_send_json_error( [ 'message' => 'This account is not eligible to use Idibia. Contact support.' ] );
+}
+
 idibia_finish_wordpress_login( $user );
 $driver_id = idibia_find_or_create_profile_row( $user->ID, 'driver' );
 global $wpdb;
-$driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, status, is_online, email_verified, full_name, phone, vehicle_type, rating, total_trips, avatar_path, selfie_path FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+$driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, kyc_notes, kyc_rejection_history, status, is_online, email_verified, full_name, phone, vehicle_type, rating, total_trips, avatar_path, selfie_path FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
 $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
 $status     = $driver_row['status'] ?? ( get_user_meta( $user->ID, 'idibia_account_status', true ) ?: 'pending' );
 $is_approved = $kyc_status === 'approved' && $status === 'active';
@@ -98,7 +106,9 @@ wp_send_json_success( [
     'total_trips' => $driver_row['total_trips'] ?? 0,
     'avatar_path' => $driver_row['avatar_path'] ?? '',
     'selfie_path' => $driver_row['selfie_path'] ?? '',
-    'upload_baseurl' => $upload_baseurl,
+    'kyc_notes'              => $driver_row['kyc_notes'] ?? '',
+    'kyc_rejection_history'  => $driver_row['kyc_rejection_history'] ?? '',
+    'upload_baseurl'         => $upload_baseurl,
     'dashboard_stats' => [
         'today_earnings'  => (float) ( $today_stats['today_earnings'] ?? 0 ),
         'today_trips'     => (int) ( $today_stats['today_trips'] ?? 0 ),

@@ -20,11 +20,26 @@ $table     = $wpdb->prefix . 'sd_drivers';
 
 idibia_ensure_driver_kyc_columns( $table );
 
-$driver_access = $wpdb->get_row( $wpdb->prepare( "SELECT email_verified FROM `$table` WHERE id = %d LIMIT 1", $driver_id ) );
+$driver_access = $wpdb->get_row( $wpdb->prepare(
+    "SELECT email_verified, kyc_status, kyc_notes, kyc_rejection_history FROM `$table` WHERE id = %d LIMIT 1",
+    $driver_id
+) );
+
 if ( ! $driver_access || (int) $driver_access->email_verified !== 1 ) {
     http_response_code( 403 );
     wp_send_json_error( [ 'message' => 'Please verify your email before submitting KYC.' ] );
 }
+
+$current_kyc_status = $driver_access->kyc_status ?? 'pending';
+
+if ( $current_kyc_status === 'under_review' ) {
+    wp_send_json_error( [ 'message' => 'Your application is already under review. Please wait for a decision.' ] );
+}
+if ( $current_kyc_status === 'approved' ) {
+    wp_send_json_error( [ 'message' => 'Your KYC is already approved.' ] );
+}
+
+$is_resubmission = ( $current_kyc_status === 'rejected' );
 
 $vehicle_type = sanitize_text_field( wp_unslash( $_POST['vehicle_type'] ?? '' ) );
 if ( ! in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ) {
@@ -51,7 +66,9 @@ if ( strlen( $account_number ) < 10 ) $errors[] = 'Enter a valid bank account nu
 if ( $bank_name === '' ) $errors[] = 'Select your bank.';
 if ( $emergency_name === '' || $emergency_phone === '' ) $errors[] = 'Enter your emergency contact details.';
 
-$required_files = [ 'selfie', 'id_front', 'id_back', 'vehicle_photo', 'vehicle_license_doc', 'vehicle_interior_photo', 'vehicle_front_photo', 'vehicle_rear_photo' ];
+// Build required file list from KYC policy (with fallback to defaults)
+$required_files = idibia_build_required_kyc_files( $vehicle_type );
+
 foreach ( $required_files as $required_file ) {
     if ( empty( $_FILES[ $required_file ] ) || ! empty( $_FILES[ $required_file ]['error'] ) ) {
         $errors[] = 'Upload all required identity and vehicle documents.';
@@ -61,6 +78,23 @@ foreach ( $required_files as $required_file ) {
 
 if ( $errors ) {
     wp_send_json_error( [ 'message' => implode( ' ', array_unique( $errors ) ) ] );
+}
+
+// When resubmitting, archive the current rejection reason into kyc_rejection_history
+$new_rejection_history = null;
+if ( $is_resubmission && ! empty( $driver_access->kyc_notes ) ) {
+    $existing_history = [];
+    if ( ! empty( $driver_access->kyc_rejection_history ) ) {
+        $decoded = json_decode( $driver_access->kyc_rejection_history, true );
+        if ( is_array( $decoded ) ) {
+            $existing_history = $decoded;
+        }
+    }
+    $existing_history[] = [
+        'reason'      => $driver_access->kyc_notes,
+        'rejected_at' => gmdate( 'Y-m-d H:i:s' ),
+    ];
+    $new_rejection_history = wp_json_encode( $existing_history );
 }
 
 $data = [
@@ -80,9 +114,14 @@ $data = [
     'emergency_phone'        => $emergency_phone,
     'emergency_address'      => $emergency_addr,
     'kyc_status'             => 'under_review',
+    'kyc_notes'              => '',
     'status'                 => 'pending',
     'is_online'              => 0,
 ];
+
+if ( $new_rejection_history !== null ) {
+    $data['kyc_rejection_history'] = $new_rejection_history;
+}
 
 $file_fields = [
     'selfie',
@@ -115,7 +154,7 @@ if ( false === $updated ) {
 update_user_meta( $user_id, 'idibia_kyc_status', 'under_review' );
 update_user_meta( $user_id, 'idibia_account_status', 'pending' );
 foreach ( $data as $key => $value ) {
-    if ( substr( $key, -5 ) !== '_path' && ! in_array( $key, [ 'nin', 'bvn' ], true ) ) {
+    if ( substr( $key, -5 ) !== '_path' && ! in_array( $key, [ 'nin', 'bvn', 'kyc_rejection_history' ], true ) ) {
         update_user_meta( $user_id, 'idibia_driver_' . $key, $value );
     }
 }
@@ -123,19 +162,24 @@ foreach ( $data as $key => $value ) {
 $driver = $wpdb->get_row( $wpdb->prepare( "SELECT full_name, email FROM `$table` WHERE id = %d LIMIT 1", $driver_id ) );
 $admin_email = get_option( 'admin_email' );
 if ( $admin_email && $driver ) {
-    wp_mail(
-        $admin_email,
-        '[Idibia] Driver KYC application submitted',
-        "Driver #$driver_id ({$driver->full_name}, {$driver->email}) submitted KYC documents for review.",
-        [ 'Content-Type: text/plain; charset=UTF-8' ]
-    );
+    $subject = $is_resubmission
+        ? '[Idibia] Driver KYC resubmission received'
+        : '[Idibia] Driver KYC application submitted';
+    $body = $is_resubmission
+        ? "Driver #$driver_id ({$driver->full_name}, {$driver->email}) resubmitted KYC documents for review."
+        : "Driver #$driver_id ({$driver->full_name}, {$driver->email}) submitted KYC documents for review.";
+    wp_mail( $admin_email, $subject, $body, [ 'Content-Type: text/plain; charset=UTF-8' ] );
 }
 
 wp_send_json_success( [
-    'message'    => "Application submitted. We'll review within 24–48 hours.",
+    'message'    => $is_resubmission
+        ? "Resubmission received. We'll review within 24–48 hours."
+        : "Application submitted. We'll review within 24–48 hours.",
     'driver_id'  => $driver_id,
     'kyc_status' => 'under_review',
 ] );
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 function idibia_ensure_driver_kyc_columns( string $table ): void {
     global $wpdb;
@@ -168,6 +212,7 @@ function idibia_ensure_driver_kyc_columns( string $table ): void {
         'vehicle_rear_photo_path'     => "VARCHAR(255) NULL",
         'vehicle_license_doc_path'    => "VARCHAR(255) NULL",
         'insurance_doc_path'          => "VARCHAR(255) NULL",
+        'kyc_rejection_history'       => "LONGTEXT NULL",
     ];
 
     foreach ( $definitions as $column => $definition ) {
@@ -178,6 +223,55 @@ function idibia_ensure_driver_kyc_columns( string $table ): void {
 
     $wpdb->query( "ALTER TABLE `$table` MODIFY `nin` VARCHAR(255) NULL" );
     $wpdb->query( "ALTER TABLE `$table` MODIFY `bvn` VARCHAR(255) NULL" );
+}
+
+function idibia_build_required_kyc_files( string $vehicle_type ): array {
+    // Vehicle photos are always required
+    $required = [ 'vehicle_photo', 'vehicle_interior_photo', 'vehicle_front_photo', 'vehicle_rear_photo' ];
+
+    // Fetch policy from DB
+    global $wpdb;
+    $policy_table = $wpdb->prefix . 'sd_kyc_policy';
+    $policy       = null;
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '$policy_table'" ) === $policy_table ) {
+        $policy = $wpdb->get_row( $wpdb->prepare(
+            "SELECT required_documents, selfie_required FROM `$policy_table` WHERE vehicle_type = %s LIMIT 1",
+            $vehicle_type
+        ) );
+    }
+
+    // Doc type → file fields mapping
+    $doc_map = [
+        'government_id'        => [ 'id_front', 'id_back' ],
+        'drivers_license'      => [ 'vehicle_license_doc' ],
+        'vehicle_insurance'    => [ 'insurance_doc' ],
+        'vehicle_registration' => [ 'vehicle_license_doc' ],
+        'proof_of_ownership'   => [ 'insurance_doc' ],
+    ];
+
+    if ( $policy ) {
+        $doc_types = json_decode( $policy->required_documents ?? '[]', true ) ?: [];
+        foreach ( $doc_types as $doc_type ) {
+            if ( isset( $doc_map[ $doc_type ] ) ) {
+                foreach ( $doc_map[ $doc_type ] as $field ) {
+                    if ( ! in_array( $field, $required, true ) ) {
+                        $required[] = $field;
+                    }
+                }
+            }
+        }
+        if ( ! empty( $policy->selfie_required ) ) {
+            array_unshift( $required, 'selfie' );
+        }
+    } else {
+        // Fallback: default requirements (government_id + drivers_license + selfie)
+        array_unshift( $required, 'selfie' );
+        foreach ( [ 'id_front', 'id_back', 'vehicle_license_doc' ] as $f ) {
+            if ( ! in_array( $f, $required, true ) ) $required[] = $f;
+        }
+    }
+
+    return $required;
 }
 
 function idibia_encrypt_sensitive( string $value ): ?string {
