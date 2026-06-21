@@ -26,8 +26,8 @@ loginForm.addEventListener('submit', async (event) => {
 
 /* Admin App Script */
 
-const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions'};
+const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -58,6 +58,7 @@ function nav(name,btn){
   if(name === 'revenue') loadRevenue();
   if(name === 'admin-users') loadAdminUsers();
   if(name === 'ratings') loadRatings();
+  if(name === 'campaigns') loadCampaigns(1);
 
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
@@ -2042,4 +2043,223 @@ function closeSubjectRatingsPanel() {
   const overlay = document.getElementById('subjectRatingsPanelOverlay');
   if (panel)   { panel.classList.remove('open'); panel.style.display = 'none'; }
   if (overlay) { overlay.style.display = 'none'; }
+}
+
+// ─── Campaign Management ──────────────────────────────────────────────────────
+
+const campState = { page: 1, per_page: 20 };
+
+async function loadCampaigns(page = campState.page) {
+  campState.page = page;
+  const status = document.getElementById('campStatusFilter')?.value || 'all';
+  const list   = document.getElementById('campList');
+  if (!list) return;
+  list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">Loading…</div>';
+
+  try {
+    const data = await adminApi('get_campaigns', { status, page, per_page: campState.per_page });
+    const campaigns = data.campaigns || [];
+
+    // Update metric cards when loading all-statuses page 1
+    if (status === 'all' && page === 1) {
+      const active    = campaigns.filter(c => c.status === 'active');
+      const totalPaid = campaigns.reduce((s, c) => s + Number(c.total_bonus_paid || 0), 0);
+      const enrolled  = campaigns.reduce((s, c) => s + Number(c.enrolled_drivers || 0), 0);
+      const completed = campaigns.reduce((s, c) => s + Number(c.completed_drivers || 0), 0);
+      const totalEnrolled = campaigns.reduce((s, c) => s + Number(c.enrolled_drivers || 0), 0);
+      const pct = totalEnrolled > 0 ? Math.round((completed / totalEnrolled) * 100) : 0;
+      const _e = id => document.getElementById(id);
+      if(_e('campMetricActive'))    _e('campMetricActive').textContent    = active.length;
+      if(_e('campMetricBonusPaid')) _e('campMetricBonusPaid').textContent = formatMoney(totalPaid);
+      if(_e('campMetricEnrolled'))  _e('campMetricEnrolled').textContent  = enrolled;
+      if(_e('campMetricCompletion'))_e('campMetricCompletion').textContent = pct + '%';
+    }
+
+    if (!campaigns.length) {
+      list.innerHTML = emptyState('🏁', 'No campaigns yet', 'Click "Create Campaign" to set up your first driver incentive.');
+      document.getElementById('campPagination').innerHTML = '';
+      return;
+    }
+
+    list.innerHTML = `
+      <table class="data-table" style="width:100%">
+        <thead><tr>
+          <th>Title</th><th>Status</th><th>Target</th><th>Bonus</th>
+          <th>Enrolled</th><th>Completed</th><th>Bonus Paid</th><th>Ends</th><th>Actions</th>
+        </tr></thead>
+        <tbody>${campaigns.map(c => {
+          const statusClass = c.status === 'active' ? 'badge-success' : c.status === 'completed' ? 'badge-info' : 'badge-warning';
+          const enrolled    = Number(c.enrolled_drivers || 0);
+          const completed   = Number(c.completed_drivers || 0);
+          const pct         = enrolled > 0 ? Math.round((completed / enrolled) * 100) : 0;
+          return `<tr>
+            <td style="font-weight:600">${escapeHtml(c.title)}</td>
+            <td><span class="badge ${statusClass}">${escapeHtml(c.status)}</span></td>
+            <td>${Number(c.target_trips).toLocaleString()} trips</td>
+            <td>${formatMoney(c.bonus_amount)}</td>
+            <td>${enrolled}</td>
+            <td>${completed} <span style="color:var(--text-muted);font-size:11px">(${pct}%)</span></td>
+            <td>${formatMoney(c.total_bonus_paid)}</td>
+            <td style="font-size:12px;color:var(--text-secondary)">${dateLabel(c.end_time)}</td>
+            <td>
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                <button class="btn-sm btn-view" onclick="openCampaignLeaderboard(${Number(c.id)})">Leaderboard</button>
+                ${c.status !== 'completed' ? `<button class="btn-sm" style="background:rgba(74,158,255,0.1);color:var(--info)" onclick="openEditCampaignModal(${Number(c.id)})">Edit</button>` : ''}
+                ${c.status === 'active' ? `<button class="btn-sm btn-suspend" onclick="deactivateCampaign(${Number(c.id)}, '${escapeHtml(c.title).replace(/'/g,"\\'")}')">Deactivate</button>` : ''}
+              </div>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+
+    // Pagination
+    renderPagination('campPagination', campState, data.total, 'loadCampaigns');
+  } catch(e) {
+    list.innerHTML = emptyState('⚠️', 'Could not load campaigns', escapeHtml(e.message));
+  }
+}
+
+async function openCampaignLeaderboard(campaignId) {
+  const card    = document.getElementById('campLeaderboardCard');
+  const title   = document.getElementById('campLeaderboardTitle');
+  const content = document.getElementById('campLeaderboardContent');
+  card.style.display = 'block';
+  title.textContent  = 'Loading leaderboard…';
+  content.innerHTML  = '<div style="text-align:center;color:var(--text-muted);padding:20px">Loading…</div>';
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const data       = await adminApi('get_campaign_leaderboard', { campaign_id: campaignId });
+    const campaign   = data.campaign;
+    const leaderboard = data.leaderboard || [];
+    title.textContent = `Leaderboard: ${campaign.title}`;
+
+    if (!leaderboard.length) {
+      content.innerHTML = emptyState('🏁', 'No drivers yet', 'No driver has completed a trip during this campaign window yet.');
+      return;
+    }
+
+    content.innerHTML = `
+      <div style="margin-bottom:16px;font-size:13px;color:var(--text-secondary)">
+        Target: <strong>${Number(campaign.target_trips).toLocaleString()} trips</strong> &nbsp;·&nbsp;
+        Window: ${dateLabel(campaign.start_time)} → ${dateLabel(campaign.end_time)}
+      </div>
+      <table class="data-table" style="width:100%">
+        <thead><tr><th>#</th><th>Driver</th><th>Vehicle</th><th>Trips Done</th><th>Progress</th><th>Bonus</th></tr></thead>
+        <tbody>${leaderboard.map((d, i) => `<tr>
+          <td style="font-weight:700;color:${i===0?'var(--warning)':i===1?'var(--text-secondary)':i===2?'#cd7f32':'var(--text-muted)'}">${i+1}</td>
+          <td style="font-weight:600">${escapeHtml(d.full_name || 'Unknown')}</td>
+          <td style="font-size:12px;color:var(--text-secondary)">${escapeHtml(vehicleLabel ? vehicleLabel(d.vehicle_type) : d.vehicle_type||'')}</td>
+          <td>${Number(d.trips_completed).toLocaleString()} / ${Number(d.target_trips).toLocaleString()}</td>
+          <td style="min-width:120px">
+            <div style="background:var(--surface);border-radius:4px;height:8px;overflow:hidden">
+              <div style="background:${d.bonus_earned?'var(--success)':'var(--info)'};height:100%;width:${d.progress_pct}%;border-radius:4px;transition:width 0.4s"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${d.progress_pct}%</div>
+          </td>
+          <td>${d.bonus_earned ? '<span class="badge badge-success">Earned ✓</span>' : '<span style="color:var(--text-muted);font-size:12px">Pending</span>'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+  } catch(e) {
+    content.innerHTML = emptyState('⚠️', 'Could not load leaderboard', escapeHtml(e.message));
+  }
+}
+
+function closeCampaignLeaderboard() {
+  document.getElementById('campLeaderboardCard').style.display = 'none';
+}
+
+function openCreateCampaignModal() {
+  document.getElementById('campEditId').value      = '';
+  document.getElementById('campTitle').value       = '';
+  document.getElementById('campDescription').value = '';
+  document.getElementById('campTargetTrips').value = '';
+  document.getElementById('campBonusAmount').value = '';
+  document.getElementById('campStartTime').value   = '';
+  document.getElementById('campEndTime').value     = '';
+  document.getElementById('campVehicleTypes').value = 'all';
+  document.getElementById('campaignModalTitle').textContent = 'Create Campaign';
+  document.getElementById('campSaveBtn').textContent = 'Create Campaign';
+  document.getElementById('campaignModalError').style.display = 'none';
+  document.getElementById('campaignModalOverlay').style.display = 'flex';
+}
+
+async function openEditCampaignModal(campaignId) {
+  try {
+    const data     = await adminApi('get_campaign', { campaign_id: campaignId });
+    const campaign = data.campaign;
+    document.getElementById('campEditId').value       = campaign.id;
+    document.getElementById('campTitle').value        = campaign.title || '';
+    document.getElementById('campDescription').value  = campaign.description || '';
+    document.getElementById('campTargetTrips').value  = campaign.target_trips || '';
+    document.getElementById('campBonusAmount').value  = campaign.bonus_amount || '';
+    document.getElementById('campStartTime').value    = (campaign.start_time || '').replace(' ', 'T').slice(0, 16);
+    document.getElementById('campEndTime').value      = (campaign.end_time || '').replace(' ', 'T').slice(0, 16);
+    document.getElementById('campVehicleTypes').value = campaign.eligible_vehicle_types || 'all';
+    document.getElementById('campaignModalTitle').textContent = 'Edit Campaign';
+    document.getElementById('campSaveBtn').textContent = 'Save Changes';
+    document.getElementById('campaignModalError').style.display = 'none';
+    document.getElementById('campaignModalOverlay').style.display = 'flex';
+  } catch(e) {
+    toast('Could not load campaign: ' + e.message);
+  }
+}
+
+function closeCampaignModal() {
+  document.getElementById('campaignModalOverlay').style.display = 'none';
+}
+
+async function saveCampaign() {
+  const errEl  = document.getElementById('campaignModalError');
+  const saveBtn = document.getElementById('campSaveBtn');
+  errEl.style.display = 'none';
+
+  const editId      = document.getElementById('campEditId').value;
+  const title       = document.getElementById('campTitle').value.trim();
+  const description = document.getElementById('campDescription').value.trim();
+  const target      = document.getElementById('campTargetTrips').value;
+  const bonus       = document.getElementById('campBonusAmount').value;
+  const start       = document.getElementById('campStartTime').value;
+  const end         = document.getElementById('campEndTime').value;
+  const vehicles    = document.getElementById('campVehicleTypes').value.trim() || 'all';
+
+  if (!title || !target || !bonus || !start || !end) {
+    errEl.textContent   = 'Please fill in all required fields.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+
+  try {
+    const params = { title, description, target_trips: target, bonus_amount: bonus, start_time: start, end_time: end, eligible_vehicle_types: vehicles };
+    if (editId) {
+      params.campaign_id = editId;
+      await adminApi('update_campaign', params, 'POST');
+      toast('Campaign updated successfully.');
+    } else {
+      await adminApi('create_campaign', params, 'POST');
+      toast('Campaign created successfully.');
+    }
+    closeCampaignModal();
+    loadCampaigns(1);
+  } catch(e) {
+    errEl.textContent   = e.message || 'Could not save campaign.';
+    errEl.style.display = 'block';
+  } finally {
+    saveBtn.disabled    = false;
+    saveBtn.textContent = editId ? 'Save Changes' : 'Create Campaign';
+  }
+}
+
+async function deactivateCampaign(campaignId, campaignTitle) {
+  if (!confirm(`Deactivate campaign "${campaignTitle}"? Drivers already enrolled will keep their progress but no new bonuses will be awarded.`)) return;
+  try {
+    await adminApi('deactivate_campaign', { campaign_id: campaignId }, 'POST');
+    toast('Campaign deactivated.');
+    loadCampaigns();
+  } catch(e) {
+    toast('Error: ' + e.message);
+  }
 }

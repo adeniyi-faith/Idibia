@@ -236,6 +236,109 @@ function idibia_credit_driver_for_trip( int $trip_id ): bool {
 }
 
 /**
+ * After a trip is completed, check every active campaign to see if this driver
+ * just hit the trip target for the first time. If so, credit the bonus and
+ * send a congratulations notification.
+ */
+function idibia_check_campaign_bonuses( int $driver_id, int $trip_id ): void {
+    global $wpdb;
+
+    if ( $driver_id <= 0 ) {
+        return;
+    }
+
+    $now = gmdate( 'Y-m-d H:i:s' );
+
+    $campaigns = $wpdb->get_results( $wpdb->prepare(
+        "SELECT * FROM `{$wpdb->prefix}sd_campaigns`
+         WHERE status = 'active'
+           AND start_time <= %s
+           AND end_time >= %s",
+        $now, $now
+    ), ARRAY_A ) ?: [];
+
+    foreach ( $campaigns as $campaign ) {
+        $campaign_id  = (int) $campaign['id'];
+        $target_trips = (int) $campaign['target_trips'];
+        $bonus_amount = (float) $campaign['bonus_amount'];
+
+        // Skip if this driver already received a payout for this campaign.
+        $already_paid = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_campaign_payouts`
+             WHERE campaign_id = %d AND driver_id = %d",
+            $campaign_id, $driver_id
+        ) );
+        if ( $already_paid > 0 ) {
+            continue;
+        }
+
+        // Check vehicle type eligibility if the campaign restricts to specific types.
+        if ( ! empty( $campaign['eligible_vehicle_types'] ) ) {
+            $allowed_types = json_decode( $campaign['eligible_vehicle_types'], true );
+            if ( is_array( $allowed_types ) && ! empty( $allowed_types ) ) {
+                $driver_vehicle = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT vehicle_type FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1",
+                    $driver_id
+                ) );
+                if ( ! in_array( $driver_vehicle, $allowed_types, true ) ) {
+                    continue;
+                }
+            }
+        }
+
+        // Count trips completed by this driver within the campaign window.
+        $trips_completed = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips`
+             WHERE driver_id = %d
+               AND status = 'completed'
+               AND completed_at >= %s
+               AND completed_at <= %s",
+            $driver_id,
+            $campaign['start_time'],
+            $campaign['end_time']
+        ) );
+
+        if ( $trips_completed < $target_trips ) {
+            continue;
+        }
+
+        // Driver has just hit the target. Credit the bonus.
+        $credited = idibia_credit_driver_wallet(
+            $driver_id,
+            $bonus_amount,
+            'bonus',
+            $campaign_id,
+            "Campaign bonus: {$campaign['title']}"
+        );
+
+        if ( ! $credited ) {
+            continue;
+        }
+
+        // Record this payout so it cannot be double-paid.
+        $wpdb->insert(
+            $wpdb->prefix . 'sd_campaign_payouts',
+            [
+                'campaign_id'        => $campaign_id,
+                'driver_id'          => $driver_id,
+                'trips_at_completion' => $trips_completed,
+                'bonus_paid'         => $bonus_amount,
+                'paid_at'            => $now,
+            ],
+            [ '%d', '%d', '%d', '%f', '%s' ]
+        );
+
+        // Notify the driver.
+        idibia_notify_user(
+            $driver_id,
+            'driver',
+            'Bonus Earned! 🎉',
+            "Congratulations! You've completed the \"{$campaign['title']}\" challenge and earned ₦" . number_format( $bonus_amount, 0 ) . ' bonus. It has been added to your wallet.'
+        );
+    }
+}
+
+/**
  * Rate limiting helper using WordPress Transients API.
  * Returns true if allowed, false if rate limited.
  */

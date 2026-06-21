@@ -125,6 +125,21 @@ function idibia_maybe_create_tables() {
             KEY `status` (`status`)
         ) $charset;" );
 
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_campaign_payouts` (
+            `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `campaign_id` BIGINT UNSIGNED NOT NULL,
+            `driver_id` BIGINT UNSIGNED NOT NULL,
+            `trips_at_completion` INT UNSIGNED NOT NULL,
+            `bonus_paid` DECIMAL(10,2) NOT NULL,
+            `paid_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            UNIQUE KEY `campaign_driver` (`campaign_id`, `driver_id`),
+            KEY `campaign_id` (`campaign_id`),
+            KEY `driver_id` (`driver_id`)
+        ) $charset;" );
+
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_campaigns` ADD COLUMN IF NOT EXISTS `eligible_vehicle_types` TEXT NULL COMMENT 'JSON array or null for all'" );
+
         $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_wallet_ledger` (
             `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
             `driver_id` BIGINT UNSIGNED NOT NULL,

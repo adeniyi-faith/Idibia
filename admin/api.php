@@ -349,6 +349,54 @@ try {
             idibia_admin_get_subject_ratings();
             break;
 
+        case 'get_campaigns':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_get_campaigns();
+            break;
+
+        case 'get_campaign':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_get_campaign();
+            break;
+
+        case 'create_campaign':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_pricing_commission' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_create_campaign();
+            break;
+
+        case 'update_campaign':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_pricing_commission' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_update_campaign();
+            break;
+
+        case 'deactivate_campaign':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_pricing_commission' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_deactivate_campaign();
+            break;
+
+        case 'get_campaign_leaderboard':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) {
+                wp_send_json_error( [ 'message' => 'Denied.' ], 403 );
+            }
+            idibia_admin_get_campaign_leaderboard();
+            break;
+
         default:
             wp_send_json_error( [ 'message' => 'Unknown action.' ] );
     }
@@ -2140,3 +2188,246 @@ function idibia_admin_get_subject_ratings(): void {
     ] );
 }
 endif;
+
+// ─── Campaign Management ──────────────────────────────────────────────────────
+
+function idibia_admin_get_campaigns(): void {
+    global $wpdb;
+    $status   = sanitize_key( $_GET['status'] ?? 'all' );
+    $page     = max( 1, (int) ( $_GET['page'] ?? 1 ) );
+    $per_page = min( 100, max( 1, (int) ( $_GET['per_page'] ?? 20 ) ) );
+    $offset   = ( $page - 1 ) * $per_page;
+
+    $where = '';
+    if ( $status !== 'all' && in_array( $status, [ 'active', 'inactive', 'completed' ], true ) ) {
+        $where = $wpdb->prepare( 'WHERE c.status = %s', $status );
+    }
+
+    $total = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_campaigns` c $where" );
+
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT c.*,
+            COUNT(DISTINCT cp.driver_id) AS enrolled_drivers,
+            COUNT(DISTINCT CASE WHEN cp.id IS NOT NULL THEN cp.driver_id END) AS completed_drivers,
+            COALESCE(SUM(cp.bonus_paid), 0) AS total_bonus_paid
+         FROM `{$wpdb->prefix}sd_campaigns` c
+         LEFT JOIN `{$wpdb->prefix}sd_campaign_payouts` cp ON cp.campaign_id = c.id
+         $where
+         GROUP BY c.id
+         ORDER BY c.created_at DESC
+         LIMIT %d OFFSET %d",
+        $per_page, $offset
+    ), ARRAY_A ) ?: [];
+
+    wp_send_json_success( [ 'campaigns' => $rows, 'total' => $total, 'page' => $page, 'per_page' => $per_page ] );
+}
+
+function idibia_admin_get_campaign(): void {
+    global $wpdb;
+    $campaign_id = (int) ( $_GET['campaign_id'] ?? 0 );
+    if ( $campaign_id <= 0 ) {
+        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
+    }
+
+    $campaign = $wpdb->get_row( $wpdb->prepare(
+        "SELECT c.*,
+            COUNT(DISTINCT cp.driver_id) AS enrolled_drivers,
+            COUNT(DISTINCT CASE WHEN cp.id IS NOT NULL THEN cp.driver_id END) AS completed_drivers,
+            COALESCE(SUM(cp.bonus_paid), 0) AS total_bonus_paid
+         FROM `{$wpdb->prefix}sd_campaigns` c
+         LEFT JOIN `{$wpdb->prefix}sd_campaign_payouts` cp ON cp.campaign_id = c.id
+         WHERE c.id = %d
+         GROUP BY c.id",
+        $campaign_id
+    ), ARRAY_A );
+
+    if ( ! $campaign ) {
+        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
+    }
+
+    wp_send_json_success( [ 'campaign' => $campaign ] );
+}
+
+function idibia_admin_create_campaign(): void {
+    global $wpdb;
+
+    $title       = sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) );
+    $description = sanitize_textarea_field( wp_unslash( $_POST['description'] ?? '' ) );
+    $target      = (int) ( $_POST['target_trips'] ?? 0 );
+    $bonus       = (float) ( $_POST['bonus_amount'] ?? 0 );
+    $start       = sanitize_text_field( wp_unslash( $_POST['start_time'] ?? '' ) );
+    $end         = sanitize_text_field( wp_unslash( $_POST['end_time'] ?? '' ) );
+    $vehicle_raw = sanitize_text_field( wp_unslash( $_POST['eligible_vehicle_types'] ?? 'all' ) );
+
+    if ( ! $title || $target <= 0 || $bonus <= 0 || ! $start || ! $end ) {
+        wp_send_json_error( [ 'message' => 'title, target_trips, bonus_amount, start_time, and end_time are required.' ], 400 );
+    }
+    if ( strtotime( $end ) <= strtotime( $start ) ) {
+        wp_send_json_error( [ 'message' => 'end_time must be after start_time.' ], 400 );
+    }
+
+    $eligible = ( $vehicle_raw === 'all' ) ? null : $vehicle_raw;
+
+    $wpdb->insert(
+        $wpdb->prefix . 'sd_campaigns',
+        [
+            'title'                  => $title,
+            'description'            => $description,
+            'target_trips'           => $target,
+            'bonus_amount'           => $bonus,
+            'start_time'             => gmdate( 'Y-m-d H:i:s', strtotime( $start ) ),
+            'end_time'               => gmdate( 'Y-m-d H:i:s', strtotime( $end ) ),
+            'status'                 => 'active',
+            'eligible_vehicle_types' => $eligible,
+            'created_at'             => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%s', '%s', '%d', '%f', '%s', '%s', '%s', '%s', '%s' ]
+    );
+
+    $campaign_id = (int) $wpdb->insert_id;
+    idibia_admin_audit_log( 'create_campaign', 'campaign', $campaign_id, [ 'title' => $title ] );
+    wp_send_json_success( [ 'message' => 'Campaign created.', 'campaign_id' => $campaign_id ] );
+}
+
+function idibia_admin_update_campaign(): void {
+    global $wpdb;
+
+    $campaign_id = (int) ( $_POST['campaign_id'] ?? 0 );
+    if ( $campaign_id <= 0 ) {
+        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
+    }
+
+    $campaign = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, status, start_time FROM `{$wpdb->prefix}sd_campaigns` WHERE id = %d LIMIT 1",
+        $campaign_id
+    ), ARRAY_A );
+
+    if ( ! $campaign ) {
+        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
+    }
+
+    if ( $campaign['status'] === 'active' && strtotime( $campaign['start_time'] ) <= time() ) {
+        wp_send_json_error( [ 'message' => 'Cannot edit an active campaign that has already started. Deactivate it first.' ], 409 );
+    }
+
+    $data    = [];
+    $formats = [];
+
+    if ( isset( $_POST['title'] ) ) {
+        $data['title'] = sanitize_text_field( wp_unslash( $_POST['title'] ) );
+        $formats[]     = '%s';
+    }
+    if ( isset( $_POST['description'] ) ) {
+        $data['description'] = sanitize_textarea_field( wp_unslash( $_POST['description'] ) );
+        $formats[]           = '%s';
+    }
+    if ( isset( $_POST['target_trips'] ) ) {
+        $data['target_trips'] = max( 1, (int) $_POST['target_trips'] );
+        $formats[]            = '%d';
+    }
+    if ( isset( $_POST['bonus_amount'] ) ) {
+        $data['bonus_amount'] = (float) $_POST['bonus_amount'];
+        $formats[]            = '%f';
+    }
+    if ( isset( $_POST['start_time'] ) ) {
+        $data['start_time'] = gmdate( 'Y-m-d H:i:s', strtotime( sanitize_text_field( wp_unslash( $_POST['start_time'] ) ) ) );
+        $formats[]          = '%s';
+    }
+    if ( isset( $_POST['end_time'] ) ) {
+        $data['end_time'] = gmdate( 'Y-m-d H:i:s', strtotime( sanitize_text_field( wp_unslash( $_POST['end_time'] ) ) ) );
+        $formats[]        = '%s';
+    }
+    if ( isset( $_POST['eligible_vehicle_types'] ) ) {
+        $raw                           = sanitize_text_field( wp_unslash( $_POST['eligible_vehicle_types'] ) );
+        $data['eligible_vehicle_types'] = ( $raw === 'all' ) ? null : $raw;
+        $formats[]                     = '%s';
+    }
+    if ( isset( $_POST['status'] ) && in_array( $_POST['status'], [ 'active', 'inactive', 'completed' ], true ) ) {
+        $data['status'] = $_POST['status'];
+        $formats[]      = '%s';
+    }
+
+    if ( empty( $data ) ) {
+        wp_send_json_error( [ 'message' => 'No fields to update.' ], 400 );
+    }
+
+    $wpdb->update( $wpdb->prefix . 'sd_campaigns', $data, [ 'id' => $campaign_id ], $formats, [ '%d' ] );
+    idibia_admin_audit_log( 'update_campaign', 'campaign', $campaign_id, $data );
+    wp_send_json_success( [ 'message' => 'Campaign updated.' ] );
+}
+
+function idibia_admin_deactivate_campaign(): void {
+    global $wpdb;
+
+    $campaign_id = (int) ( $_POST['campaign_id'] ?? 0 );
+    if ( $campaign_id <= 0 ) {
+        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
+    }
+
+    $exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM `{$wpdb->prefix}sd_campaigns` WHERE id = %d LIMIT 1",
+        $campaign_id
+    ) );
+
+    if ( ! $exists ) {
+        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
+    }
+
+    $wpdb->update(
+        $wpdb->prefix . 'sd_campaigns',
+        [ 'status' => 'inactive' ],
+        [ 'id'     => $campaign_id ],
+        [ '%s' ],
+        [ '%d' ]
+    );
+
+    idibia_admin_audit_log( 'deactivate_campaign', 'campaign', $campaign_id );
+    wp_send_json_success( [ 'message' => 'Campaign deactivated.' ] );
+}
+
+function idibia_admin_get_campaign_leaderboard(): void {
+    global $wpdb;
+
+    $campaign_id = (int) ( $_GET['campaign_id'] ?? 0 );
+    if ( $campaign_id <= 0 ) {
+        wp_send_json_error( [ 'message' => 'campaign_id is required.' ], 400 );
+    }
+
+    $campaign = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, title, target_trips, start_time, end_time FROM `{$wpdb->prefix}sd_campaigns` WHERE id = %d LIMIT 1",
+        $campaign_id
+    ), ARRAY_A );
+
+    if ( ! $campaign ) {
+        wp_send_json_error( [ 'message' => 'Campaign not found.' ], 404 );
+    }
+
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT d.id AS driver_id, d.full_name, d.vehicle_type, d.vehicle_plate,
+            COUNT(t.id) AS trips_completed,
+            cp.bonus_paid,
+            cp.paid_at
+         FROM `{$wpdb->prefix}sd_trips` t
+         INNER JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id
+         LEFT JOIN `{$wpdb->prefix}sd_campaign_payouts` cp ON cp.campaign_id = %d AND cp.driver_id = t.driver_id
+         WHERE t.status = 'completed'
+           AND t.completed_at >= %s
+           AND t.completed_at <= %s
+         GROUP BY d.id
+         ORDER BY trips_completed DESC
+         LIMIT 100",
+        $campaign_id,
+        $campaign['start_time'],
+        $campaign['end_time']
+    ), ARRAY_A ) ?: [];
+
+    foreach ( $rows as &$row ) {
+        $row['trips_completed'] = (int) $row['trips_completed'];
+        $row['target_trips']    = (int) $campaign['target_trips'];
+        $row['progress_pct']    = min( 100, round( ( $row['trips_completed'] / max( 1, $campaign['target_trips'] ) ) * 100 ) );
+        $row['bonus_earned']    = $row['bonus_paid'] !== null;
+    }
+    unset( $row );
+
+    wp_send_json_success( [ 'campaign' => $campaign, 'leaderboard' => $rows ] );
+}
