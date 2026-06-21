@@ -174,10 +174,12 @@ function idibia_maybe_create_tables() {
             `subject_id` BIGINT UNSIGNED NOT NULL,
             `rating` TINYINT UNSIGNED NOT NULL,
             `comment` TEXT NULL,
+            `flagged` TINYINT(1) NOT NULL DEFAULT 0,
             `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (`id`),
             KEY `trip_id` (`trip_id`)
         ) $charset;" );
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_ratings` ADD COLUMN IF NOT EXISTS `flagged` TINYINT(1) NOT NULL DEFAULT 0" );
 
         $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_notifications` (
             `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -873,7 +873,7 @@ async function submitDriverRatingFromModal() {
   body.append('rating', _driverRatingValue);
   body.append('comment', comment);
   try {
-    const response = await fetch('/rating-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+    const response = await fetch('/driver-rating-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
     const json = await parseDriverJson(response);
     closeDriverRatingModal();
     showToast(json.data?.message || (json.success ? 'Rating saved. Thank you!' : 'Could not save rating.'));

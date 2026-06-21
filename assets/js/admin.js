@@ -26,8 +26,8 @@ loginForm.addEventListener('submit', async (event) => {
 
 /* Admin App Script */
 
-const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',settings:'Settings','admin-users':'Admin Users'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions'};
+const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -43,6 +43,7 @@ function nav(name,btn){
   document.getElementById('topbar-sub').textContent=subs[name]||'';
   document.getElementById('notifPanel').classList.remove('open');
   closeAdminUserPanel();
+  closeSubjectRatingsPanel();
 
   // Close sidebar on mobile after navigation
   if(name === 'overview') loadDashboard();
@@ -56,6 +57,7 @@ function nav(name,btn){
   if(name === 'reconciliation') loadReconciliation();
   if(name === 'revenue') loadRevenue();
   if(name === 'admin-users') loadAdminUsers();
+  if(name === 'ratings') loadRatings();
 
   if(window.innerWidth < 900) {
     document.getElementById('sidebar').classList.remove('open');
@@ -691,7 +693,8 @@ function renderCustomerDirectoryItem(customer){
   const status = customer.status || 'active';
   const verified = Number(customer.email_verified)===1 ? 'Email verified' : 'Email pending';
   const meta = [customer.email||'No email', customer.phone||'No phone', verified, dateLabel(customer.created_at)].map(escapeHtml).join(' · ');
-  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="showUnavailableFeature('Customer profile', 'Customer detail screens need a dedicated customer-detail endpoint before opening full profiles.')">Profile</button></div></div>`;
+  const safeCustomerName = escapeHtml(customer.full_name || 'Customer').replace(/'/g,'&#39;');
+  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="openSubjectRatings('customer',${Number(customer.id)},'${safeCustomerName}')">Ratings</button></div></div>`;
 }
 function queueCustomerSearch(v){ clearTimeout(searchTimers.customers); searchTimers.customers=setTimeout(()=>{pageState.customers.search=v; loadCustomers(1);},300); }
 
@@ -946,10 +949,13 @@ async function loadDriverDetail(driverId) {
       html += `<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">WALLET BALANCE</div><div style="font-size:15px;font-weight:700">${formatMoney(driver.wallet_balance)}</div></div>`;
     }
 
+    const safeName = escapeHtml(driver.full_name || 'Driver').replace(/'/g,'&#39;');
+    html += `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">`;
+    html += `<button class="btn-sm btn-view" onclick="openSubjectRatings('driver',${Number(driver.id)},'${safeName}')">View Ratings</button>`;
     if(driver.status !== 'suspended'){
-      const safeName = escapeHtml(driver.full_name || 'Driver').replace(/'/g,'&#39;');
-      html += `<div style="margin-top:8px"><button class="btn-sm btn-suspend" onclick="closeDriverModal();suspendDriverFromDirectory(${Number(driver.id)},'${safeName}')">Suspend Driver</button></div>`;
+      html += `<button class="btn-sm btn-suspend" onclick="closeDriverModal();suspendDriverFromDirectory(${Number(driver.id)},'${safeName}')">Suspend Driver</button>`;
     }
+    html += `</div>`;
 
     document.getElementById('driverModalBody').innerHTML = html;
     document.getElementById('driverModal').classList.add('open');
@@ -1845,4 +1851,195 @@ async function removeFromBlacklist(id){
   } catch(e) {
     toast(e.message || 'Could not remove from blacklist');
   }
+}
+
+
+// ── Ratings panel ─────────────────────────────────────────────────────────────
+
+const pageStateRatings = { page: 1, per_page: 20 };
+
+function starsHtml(rating) {
+  const n = Number(rating) || 0;
+  let s = '';
+  for (let i = 1; i <= 5; i++) {
+    s += `<span style="color:${i <= n ? 'var(--gold,#f5b842)' : 'var(--text-muted)'}">★</span>`;
+  }
+  return s;
+}
+
+async function loadRatings(page = pageStateRatings.page) {
+  pageStateRatings.page = page;
+  const list = document.getElementById('ratingsList');
+  if (!list) return;
+  list.innerHTML = skeletonRows();
+
+  const params = { page };
+  const reviewerType = document.getElementById('ratingsFilterType')?.value;
+  const star         = document.getElementById('ratingsFilterStar')?.value;
+  const dateFrom     = document.getElementById('ratingsDateFrom')?.value;
+  const dateTo       = document.getElementById('ratingsDateTo')?.value;
+  const flaggedOnly  = document.getElementById('ratingsFlaggedOnly')?.checked;
+
+  if (reviewerType) params.reviewer_type = reviewerType;
+  if (star)         params.rating         = star;
+  if (dateFrom)     params.date_from      = dateFrom;
+  if (dateTo)       params.date_to        = dateTo;
+  if (flaggedOnly)  params.flagged_only   = '1';
+
+  try {
+    const data    = await adminApi('get_ratings', params);
+    const ratings = data.ratings || [];
+    const total   = Number(data.total || 0);
+
+    document.getElementById('ratingsTotalCount').textContent  = total.toLocaleString();
+    const avgScore = ratings.length
+      ? (ratings.reduce((s, r) => s + Number(r.rating), 0) / ratings.length).toFixed(1)
+      : '--';
+    document.getElementById('ratingsAvgScore').textContent    = avgScore + (avgScore !== '--' ? '★' : '');
+    document.getElementById('ratingsFlaggedCount').textContent = ratings.filter(r => Number(r.flagged)).length.toString();
+    document.getElementById('ratingsOneStarCount').textContent = ratings.filter(r => Number(r.rating) === 1).length.toString();
+
+    if (!ratings.length) {
+      list.innerHTML = emptyState('⭐', 'No ratings match your filters', 'Try adjusting the filters above.');
+    } else {
+      list.innerHTML = `<div class="table-responsive"><table class="data-table"><thead><tr>
+        <th>Reviewer</th><th>Subject</th><th>Stars</th><th>Comment</th><th>Trip</th><th>Date</th><th>Actions</th>
+      </tr></thead><tbody>${ratings.map(renderRatingRow).join('')}</tbody></table></div>`;
+    }
+
+    renderPagination('ratingsPagination', pageStateRatings, total, 'loadRatings');
+  } catch (e) {
+    list.innerHTML = emptyState('⚠️', 'Could not load ratings', escapeHtml(e.message));
+  }
+}
+
+function renderRatingRow(r) {
+  const reviewerLabel = r.reviewer_type === 'customer' ? 'Customer' : 'Driver';
+  const subjectType   = r.reviewer_type === 'customer' ? 'driver'   : 'customer';
+  const flagClass     = Number(r.flagged) ? 'badge-warning' : '';
+  const flagLabel     = Number(r.flagged) ? '🚩 Flagged' : '';
+  return `<tr>
+    <td>
+      <span style="font-size:11px;color:var(--text-muted)">${escapeHtml(reviewerLabel)}</span><br>
+      <strong>${escapeHtml(r.reviewer_name || 'Unknown')}</strong>
+    </td>
+    <td>
+      <button class="btn-link" style="text-align:left;background:none;border:none;cursor:pointer;color:var(--info);font-size:13px;padding:0" onclick="openSubjectRatings('${escapeHtml(subjectType)}',${Number(r.subject_id)},'${escapeHtml(r.subject_name||'Unknown').replace(/'/g,"&#39;")}')">
+        ${escapeHtml(r.subject_name || 'Unknown')}
+      </button>
+    </td>
+    <td style="white-space:nowrap">${starsHtml(r.rating)} <span style="font-size:12px;color:var(--text-muted)">${r.rating}/5</span>${flagLabel ? `<br><span class="badge ${flagClass}" style="font-size:10px">${flagLabel}</span>` : ''}</td>
+    <td style="max-width:200px;font-size:13px;color:var(--text-secondary)">${escapeHtml(r.comment || '—')}</td>
+    <td style="font-size:12px">${escapeHtml(r.trip_ref || ('#' + r.trip_id))}</td>
+    <td style="font-size:12px;white-space:nowrap">${dateLabel(r.created_at)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn-sm" style="margin-right:4px" onclick="toggleFlagRating(${Number(r.id)}, this)">${Number(r.flagged) ? 'Unflag' : '🚩 Flag'}</button>
+      <button class="btn-sm btn-reject" onclick="deleteRating(${Number(r.id)})">Delete</button>
+    </td>
+  </tr>`;
+}
+
+async function toggleFlagRating(ratingId, btn) {
+  btn.disabled = true;
+  try {
+    const data = await adminApi('flag_rating', { rating_id: ratingId }, 'POST');
+    toast(data.message || 'Done.');
+    loadRatings();
+  } catch(e) {
+    toast(e.message || 'Could not flag rating.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteRating(ratingId) {
+  const confirmed = await showConfirmDialog({
+    title: 'Delete Rating',
+    desc: 'Permanently remove this rating? The subject\'s average score will be recalculated immediately.',
+    confirmLabel: 'Delete',
+    confirmClass: 'danger',
+    reasonRequired: false,
+  });
+  if (confirmed === null) return;
+  try {
+    const data = await adminApi('delete_rating', { rating_id: ratingId }, 'POST');
+    toast(data.message || 'Rating deleted.');
+    loadRatings();
+  } catch(e) {
+    toast(e.message || 'Could not delete rating.');
+  }
+}
+
+async function openSubjectRatings(subjectType, subjectId, subjectName) {
+  const panel   = document.getElementById('subjectRatingsPanel');
+  const overlay = document.getElementById('subjectRatingsPanelOverlay');
+  const body    = document.getElementById('subjectRatingsPanelBody');
+  const title   = document.getElementById('subjectRatingsPanelTitle');
+  if (!panel) return;
+
+  title.textContent = `Ratings for ${subjectName}`;
+  body.innerHTML    = skeletonRows();
+  panel.style.display   = '';
+  overlay.style.display = '';
+  panel.classList.add('open');
+
+  try {
+    const data     = await adminApi('get_subject_ratings', { subject_type: subjectType, subject_id: subjectId });
+    const ratings  = data.ratings  || [];
+    const avg      = Number(data.avg || 0);
+    const breakdown = data.breakdown || {};
+
+    let html = `<div style="background:var(--surface);border-radius:12px;padding:16px;margin-bottom:16px">`;
+    html += `<div style="display:flex;align-items:center;gap:16px;margin-bottom:12px">`;
+    html += `<div style="font-size:36px;font-weight:700;color:var(--gold,#f5b842)">${avg.toFixed(1)}</div>`;
+    html += `<div>${starsHtml(Math.round(avg))}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${ratings.length} review${ratings.length !== 1 ? 's' : ''}</div></div>`;
+    html += `</div>`;
+
+    for (let star = 5; star >= 1; star--) {
+      const count = Number(breakdown[star] || 0);
+      const pct   = ratings.length ? Math.round((count / ratings.length) * 100) : 0;
+      html += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:12px">
+        <span style="width:40px;text-align:right;color:var(--text-muted)">${star}★</span>
+        <div style="flex:1;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--gold,#f5b842);border-radius:4px"></div>
+        </div>
+        <span style="width:28px;color:var(--text-muted)">${count}</span>
+      </div>`;
+    }
+    html += `</div>`;
+
+    if (ratings.length) {
+      html += ratings.slice(0, 10).map(r => `
+        <div style="border-bottom:1px solid var(--surface-2);padding:12px 0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+            <div>
+              <strong style="font-size:13px">${escapeHtml(r.reviewer_name || 'Anonymous')}</strong>
+              <span style="font-size:11px;color:var(--text-muted);margin-left:8px">${escapeHtml(r.trip_ref || '#' + r.trip_id)}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span>${starsHtml(r.rating)}</span>
+              <span style="font-size:11px;color:var(--text-muted)">${dateLabel(r.created_at)}</span>
+              ${Number(r.flagged) ? '<span class="badge badge-warning" style="font-size:10px">Flagged</span>' : ''}
+            </div>
+          </div>
+          ${r.comment ? `<div style="font-size:13px;color:var(--text-secondary)">${escapeHtml(r.comment)}</div>` : '<div style="font-size:12px;color:var(--text-muted);font-style:italic">No comment left</div>'}
+        </div>`).join('');
+      if (ratings.length > 10) {
+        html += `<div style="text-align:center;padding:12px;font-size:12px;color:var(--text-muted)">Showing 10 most recent of ${ratings.length} total reviews</div>`;
+      }
+    } else {
+      html += emptyState('⭐', 'No ratings yet', 'This person has not been rated yet.');
+    }
+
+    body.innerHTML = html;
+  } catch(e) {
+    body.innerHTML = emptyState('⚠️', 'Could not load ratings', escapeHtml(e.message));
+  }
+}
+
+function closeSubjectRatingsPanel() {
+  const panel   = document.getElementById('subjectRatingsPanel');
+  const overlay = document.getElementById('subjectRatingsPanelOverlay');
+  if (panel)   { panel.classList.remove('open'); panel.style.display = 'none'; }
+  if (overlay) { overlay.style.display = 'none'; }
 }
