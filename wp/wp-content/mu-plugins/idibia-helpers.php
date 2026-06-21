@@ -130,14 +130,101 @@ function idibia_queue_pusher_after_commit( $channels, string $event_name, array 
  * Processes a Paystack webhook payload (Stub).
  */
 function idibia_process_paystack_webhook( array $payload ): void {
-    // To be implemented in a future phase
+    global $wpdb;
+
+    $event = $payload['event'] ?? '';
+    if ( $event !== 'charge.success' ) {
+        return;
+    }
+
+    $data      = $payload['data'] ?? [];
+    $reference = $data['reference'] ?? '';
+    $metadata  = $data['metadata'] ?? [];
+    $amount_k  = (int) ( $data['amount'] ?? 0 ); // Paystack sends kobo
+
+    if ( empty( $metadata['topup'] ) || empty( $metadata['customer_id'] ) ) {
+        return;
+    }
+
+    $customer_id = (int) $metadata['customer_id'];
+    $amount      = $amount_k / 100;
+
+    idibia_credit_customer_wallet_topup( $customer_id, $amount, $reference );
 }
 
 /**
- * Processes a Flutterwave webhook payload (Stub).
+ * Processes a Flutterwave webhook payload.
  */
 function idibia_process_flutterwave_webhook( array $payload ): void {
-    // To be implemented in a future phase
+    global $wpdb;
+
+    $event = $payload['event'] ?? '';
+    if ( $event !== 'charge.completed' ) {
+        return;
+    }
+
+    $data   = $payload['data'] ?? [];
+    $status = $data['status'] ?? '';
+    if ( $status !== 'successful' ) {
+        return;
+    }
+
+    $reference = $data['tx_ref'] ?? '';
+    $meta      = $data['meta'] ?? [];
+    $amount    = (float) ( $data['amount'] ?? 0 );
+
+    if ( empty( $meta['topup'] ) || empty( $meta['customer_id'] ) ) {
+        return;
+    }
+
+    $customer_id = (int) $meta['customer_id'];
+    idibia_credit_customer_wallet_topup( $customer_id, $amount, $reference );
+}
+
+/**
+ * Credits a customer wallet after a confirmed top-up payment.
+ * Idempotent: skips if the reference already exists in the ledger.
+ */
+function idibia_credit_customer_wallet_topup( int $customer_id, float $amount, string $reference ): void {
+    global $wpdb;
+
+    if ( $customer_id <= 0 || $amount <= 0 ) {
+        return;
+    }
+
+    // Idempotency: don't credit the same reference twice
+    $exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT id FROM `{$wpdb->prefix}sd_customer_wallet_ledger`
+         WHERE customer_id = %d AND description LIKE %s LIMIT 1",
+        $customer_id,
+        '%' . $wpdb->esc_like( $reference ) . '%'
+    ) );
+
+    if ( $exists ) {
+        return;
+    }
+
+    $wpdb->query(
+        $wpdb->prepare(
+            "UPDATE `{$wpdb->prefix}sd_customers` SET wallet_balance = wallet_balance + %f WHERE id = %d",
+            $amount,
+            $customer_id
+        )
+    );
+
+    $wpdb->insert(
+        $wpdb->prefix . 'sd_customer_wallet_ledger',
+        [
+            'customer_id'  => $customer_id,
+            'amount'       => $amount,
+            'entry_type'   => 'topup',
+            'reference_id' => 0,
+            'description'  => 'Wallet top-up via ' . $reference,
+        ],
+        [ '%d', '%f', '%s', '%d', '%s' ]
+    );
+
+    idibia_notify_user( $customer_id, 'customer', 'Wallet Topped Up', "₦" . number_format( $amount, 2 ) . " has been added to your wallet." );
 }
 
 /**

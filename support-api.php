@@ -70,7 +70,8 @@ if ( $action === 'create_ticket' || $action === 'safety_report' ) {
         'sender_id'   => $actor_id,
         'sender_type' => $actor_type,
         'message'     => $message,
-    ], [ '%d', '%d', '%s', '%s' ] );
+        'created_at'  => gmdate( 'Y-m-d H:i:s' ),
+    ], [ '%d', '%d', '%s', '%s', '%s' ] );
     if ( false === $message_inserted ) {
         idibia_transaction_rollback();
         wp_send_json_error( [ 'message' => 'Could not save the support message.' ] );
@@ -131,7 +132,8 @@ if ( $action === 'add_message' || $action === 'upload_evidence' ) {
             'sender_id'   => $actor_id,
             'sender_type' => $actor_type,
             'message'     => $message,
-        ], [ '%d', '%d', '%s', '%s' ] );
+            'created_at'  => gmdate( 'Y-m-d H:i:s' ),
+        ], [ '%d', '%d', '%s', '%s', '%s' ] );
         if ( false === $message_inserted ) {
             idibia_transaction_rollback();
             wp_send_json_error( [ 'message' => 'Could not save the support message.' ] );

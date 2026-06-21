@@ -694,7 +694,7 @@ function renderCustomerDirectoryItem(customer){
   const verified = Number(customer.email_verified)===1 ? 'Email verified' : 'Email pending';
   const meta = [customer.email||'No email', customer.phone||'No phone', verified, dateLabel(customer.created_at)].map(escapeHtml).join(' · ');
   const safeCustomerName = escapeHtml(customer.full_name || 'Customer').replace(/'/g,'&#39;');
-  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadCustomerDetail(${Number(customer.id)})">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendCustomerFromDirectory(${Number(customer.id)},'${safeCustomerName}')">Suspend</button>`}</div></div>`;
+  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadCustomerDetail(${Number(customer.id)})">Profile</button><button class="btn-sm" onclick="openSubjectRatings('customer',${Number(customer.id)},'${safeCustomerName}')">Ratings</button></div></div>`;
 }
 function queueCustomerSearch(v){ clearTimeout(searchTimers.customers); searchTimers.customers=setTimeout(()=>{pageState.customers.search=v; loadCustomers(1);},300); }
 
@@ -954,6 +954,7 @@ async function loadDriverDetail(driverId) {
     html += `<button class="btn-sm btn-view" onclick="openSubjectRatings('driver',${Number(driver.id)},'${safeName}')">View Ratings</button>`;
     if(driver.status !== 'suspended'){
       html += `<button class="btn-sm btn-suspend" onclick="closeDriverModal();suspendDriverFromDirectory(${Number(driver.id)},'${safeName}')">Suspend Driver</button>`;
+      html += `<button class="btn-sm" style="background:rgba(34,197,94,.12);color:#16a34a;border:none" onclick="openDriverAdjustmentModal(${Number(driver.id)},'${safeName}')">Penalty / Bonus</button>`;
     }
     html += `</div>`;
 
@@ -967,46 +968,76 @@ function closeDriverModal() {
   document.getElementById('driverModal').classList.remove('open');
 }
 
+// ── DRIVER PENALTY / BONUS MODAL ─────────────────────────────────────────────
+
+async function openDriverAdjustmentModal(driverId, driverName) {
+  const type = await showConfirmDialog({
+    title: 'Penalty / Bonus',
+    desc: `Apply a penalty or bonus to ${driverName}'s wallet.`,
+    confirmLabel: 'Continue',
+    reasonLabel: 'Type (enter "penalty" or "bonus")',
+    reasonRequired: true,
+  });
+  if (type === null) return;
+  const adjType = type.trim().toLowerCase();
+  if (!['penalty','bonus'].includes(adjType)) { toast('Please type exactly "penalty" or "bonus".'); return; }
+
+  const amountStr = prompt(`Enter the amount (₦) for the ${adjType}:`);
+  if (!amountStr) return;
+  const amount = parseFloat(amountStr);
+  if (!amount || amount <= 0) { toast('Invalid amount.'); return; }
+
+  const reason = prompt('Reason (required):');
+  if (!reason || !reason.trim()) { toast('A reason is required.'); return; }
+
+  try {
+    const data = await adminApi('issue_driver_adjustment', { driver_id: driverId, amount, adjustment_type: adjType, reason }, 'POST');
+    toast(data.message || 'Adjustment applied.');
+    loadDriverDetail(driverId);
+  } catch(e) {
+    toast(e.message || 'Could not apply adjustment.');
+  }
+}
+
+// ── CUSTOMER DETAIL MODAL ────────────────────────────────────────────────────
+
 async function loadCustomerDetail(customerId) {
   try {
     const data = await adminApi('get_customer', { customer_id: customerId });
-    const c = data.customer;
+    const c    = data.customer;
+    const ledger = data.ledger || [];
 
     document.getElementById('customerModalTitle').textContent = c.full_name || 'Customer Details';
 
-    const verified = Number(c.email_verified) === 1;
-    const statusClass = c.status === 'suspended' ? 'badge-danger' : 'badge-success';
+    const typeLabel = {topup:'Top-Up', refund:'Refund', credit:'Credit', debit:'Debit', referral_bonus:'Referral Bonus'};
 
-    let html = `<div style="display:flex;gap:16px;margin-bottom:16px;">`;
-    html += `<div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark);width:64px;height:64px;font-size:24px;">${escapeHtml(initials(c.full_name))}</div>`;
-    html += `<div>`;
-    html += `<div style="font-weight:600;font-size:16px;">${escapeHtml(c.full_name || 'Unnamed customer')}</div>`;
-    html += `<div style="color:var(--text-secondary);font-size:13px;margin-top:4px;">${escapeHtml(c.email || 'No email')} · ${escapeHtml(c.phone || 'No phone')}</div>`;
-    html += `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">`;
-    html += `<span class="badge ${statusClass}">${escapeHtml(formatStatusLabel(c.status || 'active'))}</span>`;
-    html += `<span class="badge ${verified ? 'badge-success' : 'badge-warning'}">${verified ? 'Email verified' : 'Email pending'}</span>`;
-    html += `</div></div></div>`;
+    let html = `<div style="display:flex;gap:16px;margin-bottom:16px">`;
+    html += `<div class="avatar" style="background:rgba(245,200,66,.12);color:var(--gold-dark);width:64px;height:64px;font-size:24px">${escapeHtml(initials(c.full_name))}</div>`;
+    html += `<div><div style="font-weight:600;font-size:16px">${escapeHtml(c.full_name||'Unnamed')}</div>`;
+    html += `<div style="color:var(--text-secondary);font-size:13px;margin-top:4px">${escapeHtml(c.email||'No email')} · ${escapeHtml(c.phone||'No phone')}</div>`;
+    html += `<div style="margin-top:8px"><span class="badge ${c.status==='suspended'?'badge-danger':'badge-success'}">${escapeHtml(formatStatusLabel(c.status||'active'))}</span></div>`;
+    html += `</div></div>`;
 
     html += `<div class="metrics-grid" style="margin-bottom:16px">`;
-    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">TRIPS</div><div style="font-size:13px;font-weight:600">${Number(c.total_trips || 0).toLocaleString()}</div></div>`;
-    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">TOTAL SPENT</div><div style="font-size:13px;font-weight:600">${formatMoney(c.total_spent || 0)}</div></div>`;
-    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">RATING</div><div style="font-size:13px;font-weight:600">${c.avg_rating ? Number(c.avg_rating).toFixed(1)+'★' : '--'}</div></div>`;
-    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">JOINED</div><div style="font-size:13px;font-weight:600">${dateLabel(c.created_at)}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">TRIPS</div><div style="font-size:13px;font-weight:600">${Number(c.total_trips||0).toLocaleString()}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px"><div style="font-size:10px;color:var(--text-muted)">RATING</div><div style="font-size:13px;font-weight:600">${c.rating?Number(c.rating).toFixed(1)+'★':'--'}</div></div>`;
+    html += `<div style="background:var(--surface);border-radius:10px;padding:12px;grid-column:span 2"><div style="font-size:10px;color:var(--text-muted)">WALLET BALANCE</div><div style="font-size:15px;font-weight:700">${formatMoney(c.wallet_balance)}</div></div>`;
     html += `</div>`;
 
-    if (c.last_trip_at) {
-      html += `<div style="background:var(--surface);border-radius:10px;padding:12px;margin-bottom:16px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">LAST TRIP</div><div style="font-size:13px;font-weight:600">${dateLabel(c.last_trip_at)}</div></div>`;
-    }
+    html += `<div style="margin-bottom:16px"><button class="btn-sm" style="background:rgba(34,197,94,.12);color:#16a34a;border:none" onclick="openCreditCustomerModal(${Number(c.id)})">Credit Wallet</button></div>`;
 
-    const safeName = escapeHtml(c.full_name || 'Customer').replace(/'/g,'&#39;');
-    html += `<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">`;
-    html += `<button class="btn-sm btn-view" onclick="openSubjectRatings('customer',${Number(c.id)},'${safeName}')">View Ratings</button>`;
-    if (c.status !== 'suspended') {
-      html += `<button class="btn-sm btn-suspend" onclick="closeCustomerModal();suspendCustomerFromDirectory(${Number(c.id)},'${safeName}')">Suspend Customer</button>`;
-    } else {
-      html += `<button class="btn-sm" style="background:var(--success);color:#fff" onclick="reinstateCustomer(${Number(c.id)},'${safeName}')">Reinstate Customer</button>`;
+    if (ledger.length) {
+      html += `<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px">RECENT WALLET ACTIVITY</div>`;
+      html += ledger.map(row => {
+        const isIn  = ['topup','refund','credit','referral_bonus'].includes(row.entry_type);
+        const color = isIn ? 'var(--success,#16a34a)' : 'var(--danger,#e53)';
+        const sign  = isIn ? '+' : '-';
+        return `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:12px">
+          <div><span style="font-weight:600">${escapeHtml(typeLabel[row.entry_type]||row.entry_type)}</span><br><span style="color:var(--text-muted)">${escapeHtml(row.description||'')} · ${escapeHtml(row.created_at?.slice(0,10)||'')}</span></div>
+          <div style="font-weight:700;color:${color}">${sign}${formatMoney(row.amount)}</div>
+        </div>`;
+      }).join('');
     }
-    html += `</div>`;
 
     document.getElementById('customerModalBody').innerHTML = html;
     document.getElementById('customerModal').classList.add('open');
@@ -1019,30 +1050,22 @@ function closeCustomerModal() {
   document.getElementById('customerModal').classList.remove('open');
 }
 
-async function suspendCustomerFromDirectory(customerId, customerName) {
-  const reason = await showConfirmDialog({
-    title: `Suspend ${customerName}?`,
-    desc: 'The customer will be blocked from booking new trips.',
-    reasonLabel: 'Reason (optional)',
-    reasonRequired: false,
-    confirmLabel: 'Suspend',
-    confirmClass: 'danger',
-  });
-  if (reason === null) return;
-  try {
-    await adminApi('suspend_customer', { customer_id: customerId, reason }, 'POST');
-    toast(`${customerName} suspended.`);
-    loadCustomers();
-  } catch(e) { toast(e.message || 'Could not suspend customer.'); }
-}
+async function openCreditCustomerModal(customerId) {
+  const amountStr = prompt('Amount to credit to customer wallet (₦):');
+  if (!amountStr) return;
+  const amount = parseFloat(amountStr);
+  if (!amount || amount <= 0) { toast('Invalid amount.'); return; }
 
-async function reinstateCustomer(customerId, customerName) {
+  const reason = prompt('Reason for credit (required):');
+  if (!reason || !reason.trim()) { toast('A reason is required.'); return; }
+
   try {
-    await adminApi('reinstate_customer', { customer_id: customerId }, 'POST');
-    toast(`${customerName} reinstated.`);
-    closeCustomerModal();
-    loadCustomers();
-  } catch(e) { toast(e.message || 'Could not reinstate customer.'); }
+    const data = await adminApi('admin_credit_customer_wallet', { customer_id: customerId, amount, reason }, 'POST');
+    toast(data.message || 'Wallet credited.');
+    loadCustomerDetail(customerId);
+  } catch(e) {
+    toast(e.message || 'Could not credit wallet.');
+  }
 }
 
 async function loadPaymentDetail(paymentId) {
@@ -1068,6 +1091,10 @@ async function loadPaymentDetail(paymentId) {
       html += `<div style="margin-top: 16px;"><a href="${escapeHtml(p.receipt_url)}" target="_blank" class="btn-primary" style="display:inline-block;text-align:center;text-decoration:none;font-size:13px;">View Receipt</a></div>`;
     }
 
+    if (!['refunded'].includes(p.status)) {
+      html += `<div style="margin-top:12px"><button class="btn-sm" style="background:rgba(239,68,68,.12);color:#dc2626;border:none" onclick="openRefundModal(${Number(p.id)},${Number(p.amount)})">Issue Refund</button></div>`;
+    }
+
     document.getElementById('paymentModalBody').innerHTML = html;
     document.getElementById('paymentModal').classList.add('open');
   } catch(e) {
@@ -1077,6 +1104,30 @@ async function loadPaymentDetail(paymentId) {
 
 function closePaymentModal() {
   document.getElementById('paymentModal').classList.remove('open');
+}
+
+async function openRefundModal(paymentId, originalAmount) {
+  const amountStr = prompt(`Refund amount (₦) — original payment was ₦${Number(originalAmount).toLocaleString()}:`);
+  if (!amountStr) return;
+  const amount = parseFloat(amountStr);
+  if (!amount || amount <= 0) { toast('Invalid amount.'); return; }
+
+  const refundType = prompt('Refund type: type "wallet" to credit the customer wallet, or "bank" to reverse via the payment provider:');
+  if (!refundType) return;
+  const rt = refundType.trim().toLowerCase();
+  const mappedType = rt === 'wallet' ? 'wallet_credit' : rt === 'bank' ? 'bank_reversal' : null;
+  if (!mappedType) { toast('Please type "wallet" or "bank".'); return; }
+
+  const reason = prompt('Reason for refund (required):');
+  if (!reason || !reason.trim()) { toast('A reason is required.'); return; }
+
+  try {
+    const data = await adminApi('issue_refund', { payment_id: paymentId, refund_amount: amount, refund_type: mappedType, reason }, 'POST');
+    toast(data.message || 'Refund processed.');
+    closePaymentModal();
+  } catch(e) {
+    toast(e.message || 'Could not process refund.');
+  }
 }
 
 
