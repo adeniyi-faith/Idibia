@@ -24,7 +24,7 @@ if ( ! idibia_pusher_is_configured() ) {
 $socket_id    = sanitize_text_field( wp_unslash( $_POST['socket_id'] ?? '' ) );
 $channel_name = sanitize_text_field( wp_unslash( $_POST['channel_name'] ?? '' ) );
 
-if ( ! preg_match( '/^\d+\.\d+$/', $socket_id ) || ! preg_match( '/^private-(trip|driver)-\d+$/', $channel_name ) ) {
+if ( ! preg_match( '/^\d+\.\d+$/', $socket_id ) || ! preg_match( '/^private-(trip|driver|customer)-\d+$/', $channel_name ) ) {
     http_response_code( 400 );
     wp_send_json_error( [ 'message' => 'Invalid realtime channel.' ] );
 }
@@ -35,7 +35,10 @@ $allowed      = false;
 
 global $wpdb;
 
-if ( preg_match( '/^private-driver-(\d+)$/', $channel_name, $matches ) ) {
+if ( preg_match( '/^private-customer-(\d+)$/', $channel_name, $matches ) ) {
+    $customer_id = (int) $matches[1];
+    $allowed = $account_type === 'customer' && idibia_find_or_create_profile_row( $user_id, 'customer' ) === $customer_id;
+} elseif ( preg_match( '/^private-driver-(\d+)$/', $channel_name, $matches ) ) {
     $driver_id = (int) $matches[1];
     $allowed = $account_type === 'driver' && idibia_find_or_create_profile_row( $user_id, 'driver' ) === $driver_id;
 } elseif ( preg_match( '/^private-trip-(\d+)$/', $channel_name, $matches ) ) {

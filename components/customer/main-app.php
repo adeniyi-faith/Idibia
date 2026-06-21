@@ -24,10 +24,28 @@
         </button>
       </div>
     </div>
+    <!-- Notification Bell -->
+    <div style="position:relative;margin-top:auto;padding-bottom:8px">
+      <button class="sidebar-exit" id="notifBellBtn" onclick="toggleNotifDropdown()" title="Notifications" style="position:relative">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:#e53e3e;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;padding:0 4px;line-height:16px;text-align:center"></span>
+      </button>
+    </div>
     <button class="sidebar-exit" onclick="confirmLogout()" title="Sign Out">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
     </button>
   </nav>
+
+  <!-- Notification Dropdown -->
+  <div id="notifDropdown" style="display:none;position:fixed;top:0;left:60px;width:300px;height:100%;background:var(--white);border-right:1px solid var(--surface-2);z-index:900;display:none;flex-direction:column;box-shadow:4px 0 16px rgba(0,0,0,0.12)">
+    <div style="padding:16px;border-bottom:1px solid var(--surface-2);display:flex;justify-content:space-between;align-items:center">
+      <strong style="font-size:15px">Notifications</strong>
+      <button onclick="markAllNotifRead()" style="font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0">Mark all read</button>
+    </div>
+    <div id="notifList" style="flex:1;overflow-y:auto;padding:8px 0">
+      <div style="padding:16px;color:var(--text-muted);font-size:13px">Loading…</div>
+    </div>
+  </div>
   <div class="main-content">
 
     <!-- HOME TAB -->
@@ -582,3 +600,87 @@
     </button>
   </div>
 </div>
+
+<script>
+/* ── Customer Notification Bell ── */
+(function(){
+  var open = false;
+
+  window.toggleNotifDropdown = function(){
+    var dd = document.getElementById('notifDropdown');
+    open = !open;
+    dd.style.display = open ? 'flex' : 'none';
+    if(open) fetchNotifications();
+    document.onclick = open ? function(e){
+      if(!document.getElementById('notifBellBtn').contains(e.target) && !document.getElementById('notifDropdown').contains(e.target)){
+        open=false; dd.style.display='none'; document.onclick=null;
+      }
+    } : null;
+  };
+
+  function renderList(items){
+    var el = document.getElementById('notifList');
+    if(!items.length){ el.innerHTML='<div style="padding:16px;color:var(--text-muted);font-size:13px">No notifications yet.</div>'; return; }
+    el.innerHTML = items.map(function(n){
+      return '<div onclick="markNotifRead('+n.id+')" style="padding:12px 16px;border-bottom:1px solid var(--surface-2);cursor:pointer;background:'+(n.is_read?'transparent':'rgba(var(--primary-rgb,26,26,46),0.04)')+'">'
+        +'<div style="font-size:13px;font-weight:'+(n.is_read?'400':'600')+';color:var(--text)">'+escN(n.title)+'</div>'
+        +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+escN(n.body)+'</div>'
+        +'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">'+fmtN(n.created_at)+'</div>'
+      +'</div>';
+    }).join('');
+  }
+
+  function escN(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  function fmtN(s){ if(!s) return ''; var d=new Date(s.replace(' ','T')); return d.toLocaleString(); }
+
+  function updateBadge(count){
+    var b=document.getElementById('notifBadge');
+    if(count>0){ b.textContent=count>99?'99+':count; b.style.display='inline-block'; }
+    else { b.style.display='none'; }
+  }
+
+  function fetchNotifications(){
+    var fd=new FormData(); fd.append('action','get_notifications');
+    fetch('/notifications-api.php',{method:'POST',body:fd,credentials:'include'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d.success){
+          updateBadge(d.data.unread_count);
+          if(open) renderList(d.data.notifications);
+        }
+      }).catch(function(){});
+  }
+
+  window.markNotifRead = function(id){
+    var fd=new FormData(); fd.append('action','mark_read'); fd.append('notification_id',id);
+    fetch('/notifications-api.php',{method:'POST',body:fd,credentials:'include'}).then(function(){ fetchNotifications(); });
+  };
+
+  window.markAllNotifRead = function(){
+    var fd=new FormData(); fd.append('action','mark_read'); fd.append('notification_id','all');
+    fetch('/notifications-api.php',{method:'POST',body:fd,credentials:'include'}).then(function(){ fetchNotifications(); });
+  };
+
+  // Poll every 30 seconds
+  fetchNotifications();
+  setInterval(fetchNotifications, 30000);
+
+  // Pusher real-time: subscribe on the user's own private channel for instant notifications.
+  // Reuses the existing idibiaPusher instance (created by dashboard.js) so we don't open
+  // a second WebSocket connection.
+  document.addEventListener('DOMContentLoaded', function(){
+    var customerId = window.CURRENT_CUSTOMER_ID || 0;
+    if(!customerId) return;
+    function trySubscribe(){
+      var pusher = typeof initIdibiaPusher === 'function' ? initIdibiaPusher() : null;
+      if(!pusher){ setTimeout(trySubscribe, 500); return; }
+      var channel = pusher.subscribe('private-customer-' + customerId);
+      channel.bind('notification.new', function(data){
+        fetchNotifications();
+        if(typeof showToast === 'function') showToast(data.title + ': ' + data.body);
+      });
+    }
+    trySubscribe();
+  });
+})();
+</script>

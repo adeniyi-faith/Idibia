@@ -109,6 +109,8 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 
 <script>
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ); ?>;
+window.PUSHER_CONFIG = window.idibiaPusherConfig;
+window.CURRENT_CUSTOMER_ID = <?php echo (int) $customer_id; ?>;
 window.idibiaLogoutUrl = '/';
 window.idibiaActiveTrip = <?php echo $active_trip_id ? (int) $active_trip_id : 'null'; ?>;
 window.idibiaCustomerRating = '<?php echo esc_js( $customer_rating ); ?>';

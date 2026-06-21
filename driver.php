@@ -159,6 +159,8 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 
 <script>
 window.idibiaPusherConfig = <?php echo wp_json_encode( $pusher_config ?? null ); ?>;
+window.PUSHER_CONFIG = window.idibiaPusherConfig;
+window.CURRENT_DRIVER_ID = <?php echo (int) ( $driver_initial_context['driver_id'] ?? 0 ); ?>;
 window.driverInitialContext = <?php echo wp_json_encode( $driver_initial_context ?? [] ); ?>;
 window.idibiaLogoutUrl = '/';
 </script>

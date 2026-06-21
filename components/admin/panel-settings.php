@@ -2,6 +2,32 @@
   <div class="panel" id="panel-settings">
     <div class="page-header"><h2 class="page-title">Settings</h2><div class="page-sub">Platform configuration and policies</div></div>
     <div class="settings-section">
+      <h4>Email (SMTP)</h4>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">
+        Connect a real email service so messages actually reach users' inboxes instead of going to spam.
+        Leave blank to keep using the server's default mail (not recommended).
+      </p>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">SMTP Host</label><input class="form-input" data-setting="smtp_host" placeholder="smtp.gmail.com or smtp.mailgun.org"></div>
+        <div class="form-group"><label class="form-label">SMTP Port</label><input class="form-input" type="number" data-setting="smtp_port" placeholder="587" value="587"></div>
+        <div class="form-group"><label class="form-label">SMTP Username</label><input class="form-input" data-setting="smtp_username" placeholder="your@email.com"></div>
+        <div class="form-group"><label class="form-label">SMTP Password</label><input class="form-input" type="password" data-setting="smtp_password" placeholder="••••••••"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">From Email</label><input class="form-input" data-setting="smtp_from_email" placeholder="no-reply@idibia.com"></div>
+        <div class="form-group"><label class="form-label">From Name</label><input class="form-input" data-setting="smtp_from_name" placeholder="Idibia"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn-primary" style="font-size:12px;padding:8px 14px;width:auto" onclick="savePaymentSettings()">Save Email settings</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input class="form-input" id="smtpTestEmail" type="email" placeholder="test@example.com" style="width:200px">
+          <button class="btn-primary" style="font-size:12px;padding:8px 14px;width:auto;background:var(--text-muted)" onclick="sendTestEmail()">Send Test Email</button>
+        </div>
+        <span id="smtp-test-status" style="font-size:13px;color:var(--text-muted)"></span>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <h4>Services & APIs</h4>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Nominatim URL</label><input class="form-input" data-setting="nominatim_url" placeholder="https://nominatim.openstreetmap.org/search"></div>
@@ -179,5 +205,22 @@
     var zm=document.getElementById('zoneModal');
     if(zm) zm.addEventListener('click',function(e){if(e.target===this)closeZoneModal();});
   });
+
+  window.sendTestEmail = function(){
+    var to = document.getElementById('smtpTestEmail').value.trim();
+    var st = document.getElementById('smtp-test-status');
+    if(!to){ alert('Enter a recipient email address first.'); return; }
+    st.style.color='var(--text-muted)'; st.textContent='Sending…';
+    var fd=new FormData();
+    fd.append('action','test_smtp_email');
+    fd.append('to', to);
+    fetch('/admin/api.php',{method:'POST',body:fd,credentials:'include'})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        st.style.color = d.success ? '#4caf50' : '#f44';
+        st.textContent = d.data && d.data.message ? d.data.message : (d.success ? 'Sent!' : 'Failed.');
+      })
+      .catch(function(){ st.style.color='#f44'; st.textContent='Network error.'; });
+  };
 })();
 </script>
