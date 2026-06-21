@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 13;
+    $target_version = 14;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -449,6 +449,18 @@ function idibia_maybe_create_tables() {
 
         update_option( 'idibia_db_version', 13 );
         $current_version = 13;
+    }
+
+    if ( $current_version < 14 ) {
+        global $wpdb;
+
+        $wpdb->query( "INSERT IGNORE INTO `{$wpdb->prefix}sd_settings` (`setting_key`, `setting_value`) VALUES
+            ('dispatch_retry_limit', '3'),
+            ('trip_timeout_minutes', '10'),
+            ('scheduled_dispatch_advance_minutes', '10');" );
+
+        update_option( 'idibia_db_version', 14 );
+        $current_version = 14;
     }
 }
 
