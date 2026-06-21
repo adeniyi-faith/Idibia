@@ -1110,7 +1110,7 @@ function idibia_admin_get_my_permissions() {
     }
 
     $admin = $wpdb->get_row( $wpdb->prepare( "SELECT u.role_id, r.name as role_name FROM `{$wpdb->prefix}sd_admin_users` u JOIN `{$wpdb->prefix}sd_roles` r ON u.role_id = r.id WHERE u.id = %d", $admin_id ) );
-    if ( ! $admin ) wp_send_json_error();
+    if ( ! $admin ) wp_send_json_error( [ 'message' => 'Admin user not found.' ] );
 
     if ( $admin->role_name === 'Super Admin' ) {
         wp_send_json_success( ['is_super' => true, 'permissions' => []] );
