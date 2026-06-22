@@ -101,7 +101,7 @@ try {
         case 'get_customer':
             idibia_require_method( 'GET' );
             if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
-            idibia_admin_get_customer();
+            idibia_admin_get_customer_detail();
             break;
 
         case 'suspend_customer':
@@ -191,12 +191,6 @@ try {
             idibia_require_method( 'GET' );
             if(!idibia_admin_has_permission('view_trips')){ wp_send_json_error(['message'=>'Denied.'],403); }
             idibia_admin_get_trip_pod();
-            break;
-
-        case 'get_customer':
-            idibia_require_method( 'GET' );
-            if ( ! idibia_admin_has_permission( 'view_customers' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
-            idibia_admin_get_customer_detail();
             break;
 
         case 'issue_refund':
