@@ -81,6 +81,15 @@ function idibia_admin_send_broadcast(): void {
         ],
         [ '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%d', '%s' ]
     );
+    $broadcast_id = (int) $wpdb->insert_id;
+    idibia_admin_audit_log( 'send_broadcast', 'broadcast', $broadcast_id, [], null, [
+        'title'           => $title,
+        'target_type'     => $target_type,
+        'target_value'    => $target_value ?: null,
+        'recipient_count' => count( $recipients ),
+        'send_email'      => $send_email,
+        'scheduled'       => ! empty( $sched_val ),
+    ] );
 
     if ( $sent_at ) {
         foreach ( $recipients as $r ) {

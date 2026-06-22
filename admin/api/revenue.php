@@ -3,41 +3,63 @@
 
 function idibia_admin_revenue_analytics(): void {
     global $wpdb;
-    $fare_expr = "COALESCE(NULLIF(final_fare,0), NULLIF(fare_estimate,0), fare, 0)";
-    $commission_expr = "$fare_expr * platform_pct / 100";
 
-    $month_start = gmdate( 'Y-m-01' );
-    $today       = gmdate( 'Y-m-d' );
+    // Accept optional date range; default to the current calendar month.
+    $date_from = sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) );
+    $date_to   = sanitize_text_field( wp_unslash( $_GET['date_to']   ?? '' ) );
+    if ( ! $date_from || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_from ) ) {
+        $date_from = gmdate( 'Y-m-01' );
+    }
+    if ( ! $date_to || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_to ) ) {
+        $date_to = gmdate( 'Y-m-d' );
+    }
+
+    $fare_expr       = "COALESCE(NULLIF(final_fare,0), NULLIF(fare_estimate,0), fare, 0)";
+    $commission_expr = "$fare_expr * platform_pct / 100";
 
     $monthly_revenue = (float) $wpdb->get_var( $wpdb->prepare(
         "SELECT COALESCE(SUM($commission_expr),0) FROM `{$wpdb->prefix}sd_trips` WHERE status='completed' AND DATE(COALESCE(completed_at,created_at)) >= %s AND DATE(COALESCE(completed_at,created_at)) <= %s",
-        $month_start, $today
+        $date_from, $date_to
     ) );
 
     $driver_payouts = (float) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COALESCE(SUM(amount),0) FROM `{$wpdb->prefix}sd_payouts` WHERE status='paid' AND DATE(created_at) >= %s AND DATE(created_at) <= %s",
-        $month_start, $today
+        "SELECT COALESCE(SUM(amount),0) FROM `{$wpdb->prefix}sd_payouts` WHERE status='paid' AND DATE(updated_at) >= %s AND DATE(updated_at) <= %s",
+        $date_from, $date_to
     ) );
 
-    $days_elapsed = max( 1, (int) gmdate( 'j' ) );
-    $avg_daily = $monthly_revenue / $days_elapsed;
+    $total_refunds = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(amount),0) FROM `{$wpdb->prefix}sd_payments` WHERE status='refunded' AND DATE(COALESCE(reviewed_at, updated_at)) >= %s AND DATE(COALESCE(reviewed_at, updated_at)) <= %s",
+        $date_from, $date_to
+    ) );
 
-    // Revenue per day for the last 7 days
-    $week_rows = $wpdb->get_results( "
+    $pending_payouts = (float) $wpdb->get_var(
+        "SELECT COALESCE(SUM(amount),0) FROM `{$wpdb->prefix}sd_payouts` WHERE status IN ('pending','processing')"
+    );
+
+    $days_elapsed = max( 1, (int) ( ( strtotime( $date_to ) - strtotime( $date_from ) ) / 86400 ) + 1 );
+    $avg_daily    = $monthly_revenue / $days_elapsed;
+
+    // Per-day revenue for the entire selected period.
+    $day_rows = $wpdb->get_results( $wpdb->prepare( "
         SELECT DATE(COALESCE(completed_at,created_at)) AS day,
                COALESCE(SUM($commission_expr),0) AS revenue
         FROM `{$wpdb->prefix}sd_trips`
-        WHERE status='completed' AND DATE(COALESCE(completed_at,created_at)) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+        WHERE status='completed'
+          AND DATE(COALESCE(completed_at,created_at)) >= %s
+          AND DATE(COALESCE(completed_at,created_at)) <= %s
         GROUP BY DATE(COALESCE(completed_at,created_at))
         ORDER BY day ASC
-    ", ARRAY_A ) ?: [];
-    $week_map = [];
-    foreach ( $week_rows as $r ) { $week_map[ $r['day'] ] = (float) $r['revenue']; }
-    $weekly_chart = [];
-    for ( $i = 6; $i >= 0; $i-- ) {
-        $d = gmdate( 'Y-m-d', strtotime( "-{$i} day" ) );
-        $weekly_chart[] = [ 'date' => $d, 'label' => gmdate( 'D', strtotime( $d ) ), 'revenue' => $week_map[ $d ] ?? 0.0 ];
+    ", $date_from, $date_to ), ARRAY_A ) ?: [];
+
+    $day_map = [];
+    foreach ( $day_rows as $r ) { $day_map[ $r['day'] ] = (float) $r['revenue']; }
+
+    $daily_breakdown = [];
+    for ( $ts = strtotime( $date_from ); $ts <= strtotime( $date_to ); $ts += 86400 ) {
+        $d = gmdate( 'Y-m-d', $ts );
+        $daily_breakdown[] = [ 'date' => $d, 'label' => gmdate( 'D', $ts ), 'revenue' => $day_map[ $d ] ?? 0.0 ];
     }
+    $weekly_chart = array_slice( $daily_breakdown, -7 ); // last 7 days for the bar chart
 
     // Revenue by service category
     $cat_rows = $wpdb->get_results( "
@@ -51,78 +73,213 @@ function idibia_admin_revenue_analytics(): void {
     ", ARRAY_A ) ?: [];
     $category_chart = array_map( fn($r) => [ 'label' => $r['cat'], 'revenue' => (float) $r['revenue'] ], $cat_rows );
 
-    // Gateway success rate (captured vs total non-pending)
+    // Gateway success rate (all-time)
     $total_payments   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payments` WHERE status NOT IN ('pending')" );
     $success_payments = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_payments` WHERE status IN ('captured','approved')" );
     $gateway_success_rate = $total_payments > 0 ? round( $success_payments / $total_payments * 100, 1 ) : 0;
 
-    // Same-day completed trips this month
+    // Completed trips in the selected period
     $same_day_trips = (int) $wpdb->get_var( $wpdb->prepare(
-        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE status='completed' AND DATE(COALESCE(completed_at,created_at)) >= %s",
-        $month_start
+        "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_trips` WHERE status='completed' AND DATE(COALESCE(completed_at,created_at)) >= %s AND DATE(COALESCE(completed_at,created_at)) <= %s",
+        $date_from, $date_to
     ) );
 
     wp_send_json_success( [
-        'monthly_revenue'      => $monthly_revenue,
-        'net_commission'       => $monthly_revenue,
-        'driver_payouts'       => $driver_payouts,
-        'avg_daily'            => $avg_daily,
-        'weekly_chart'         => $weekly_chart,
-        'category_chart'       => $category_chart,
-        'gateway_success_rate' => $gateway_success_rate,
-        'same_day_trips'       => $same_day_trips,
+        'date_from'             => $date_from,
+        'date_to'               => $date_to,
+        'monthly_revenue'       => $monthly_revenue,
+        'net_commission'        => $monthly_revenue,
+        'driver_payouts'        => $driver_payouts,
+        'avg_daily'             => $avg_daily,
+        'total_refunds_issued'  => $total_refunds,
+        'total_pending_payouts' => $pending_payouts,
+        'net_platform_revenue'  => $monthly_revenue - $total_refunds,
+        'weekly_chart'          => $weekly_chart,
+        'daily_breakdown'       => $daily_breakdown,
+        'category_chart'        => $category_chart,
+        'gateway_success_rate'  => $gateway_success_rate,
+        'same_day_trips'        => $same_day_trips,
     ] );
 }
 
 function idibia_admin_export_tax_summary(): void {
     global $wpdb;
-    $rows = $wpdb->get_results( "SELECT d.full_name, d.email, COALESCE(SUM(p.amount), 0) as total_payouts FROM `{$wpdb->prefix}sd_drivers` d LEFT JOIN `{$wpdb->prefix}sd_payouts` p ON p.driver_id = d.id AND p.status = 'paid' GROUP BY d.id", ARRAY_A );
+    [ $date_from, $date_to ] = idibia_rev_date_range();
 
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="tax_summary.csv"');
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT d.full_name, d.email, COALESCE(SUM(p.amount), 0) AS total_payouts
+         FROM `{$wpdb->prefix}sd_drivers` d
+         LEFT JOIN `{$wpdb->prefix}sd_payouts` p
+               ON p.driver_id = d.id AND p.status = 'paid'
+              AND DATE(p.updated_at) >= %s AND DATE(p.updated_at) <= %s
+         GROUP BY d.id
+         ORDER BY total_payouts DESC",
+        $date_from, $date_to
+    ), ARRAY_A );
 
-    $output = fopen('php://output', 'w');
-    fputcsv($output, ['Driver Name', 'Email', 'Total Payouts']);
-    foreach ($rows as $row) {
-        fputcsv($output, [$row['full_name'], $row['email'], $row['total_payouts']]);
+    idibia_send_csv_headers( "tax_summary_{$date_from}_to_{$date_to}.csv" );
+    $out = fopen( 'php://output', 'w' );
+    fputcsv( $out, [ 'Driver Name', 'Email', 'Total Payouts (₦)', 'Period' ] );
+    foreach ( $rows as $row ) {
+        fputcsv( $out, [ $row['full_name'], $row['email'], $row['total_payouts'], "$date_from to $date_to" ] );
     }
-    fclose($output);
+    fclose( $out );
     exit;
 }
 
 function idibia_admin_export_driver_wht(): void {
     global $wpdb;
-    $rows = $wpdb->get_results( "SELECT d.full_name, d.email, d.bank_name, d.account_number, COALESCE(SUM(p.amount), 0) as total_payouts FROM `{$wpdb->prefix}sd_drivers` d LEFT JOIN `{$wpdb->prefix}sd_payouts` p ON p.driver_id = d.id AND p.status = 'paid' GROUP BY d.id", ARRAY_A );
+    [ $date_from, $date_to ] = idibia_rev_date_range();
 
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="driver_wht.csv"');
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT d.full_name, d.email, d.bank_name, d.account_number,
+                COALESCE(SUM(p.amount), 0) AS total_payouts
+         FROM `{$wpdb->prefix}sd_drivers` d
+         LEFT JOIN `{$wpdb->prefix}sd_payouts` p
+               ON p.driver_id = d.id AND p.status = 'paid'
+              AND DATE(p.updated_at) >= %s AND DATE(p.updated_at) <= %s
+         GROUP BY d.id
+         ORDER BY total_payouts DESC",
+        $date_from, $date_to
+    ), ARRAY_A );
 
-    $output = fopen('php://output', 'w');
-    fputcsv($output, ['Driver Name', 'Email', 'Bank Name', 'Account Number', 'Total Payouts', 'WHT Withheld (e.g. 5%)']);
-    foreach ($rows as $row) {
-        $wht = $row['total_payouts'] * 0.05;
-        fputcsv($output, [$row['full_name'], $row['email'], $row['bank_name'], $row['account_number'], $row['total_payouts'], $wht]);
+    idibia_send_csv_headers( "driver_wht_{$date_from}_to_{$date_to}.csv" );
+    $out = fopen( 'php://output', 'w' );
+    fputcsv( $out, [ 'Driver Name', 'Email', 'Bank Name', 'Account Number', 'Total Payouts (₦)', 'WHT 5% (₦)', 'Period' ] );
+    foreach ( $rows as $row ) {
+        $wht = round( (float) $row['total_payouts'] * 0.05, 2 );
+        fputcsv( $out, [ $row['full_name'], $row['email'], $row['bank_name'], $row['account_number'], $row['total_payouts'], $wht, "$date_from to $date_to" ] );
     }
-    fclose($output);
+    fclose( $out );
     exit;
 }
 
 function idibia_admin_export_vat_schedule(): void {
     global $wpdb;
-    $rows = $wpdb->get_results( "SELECT id, trip_ref, fare, platform_pct FROM `{$wpdb->prefix}sd_trips` WHERE status = 'completed'", ARRAY_A );
+    [ $date_from, $date_to ] = idibia_rev_date_range();
 
-    header('Content-Type: text/csv');
-    header('Content-Disposition: attachment; filename="vat_schedule.csv"');
+    $fare_expr = "COALESCE(NULLIF(final_fare,0), NULLIF(fare_estimate,0), fare, 0)";
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT trip_ref, $fare_expr AS fare_amount, platform_pct
+         FROM `{$wpdb->prefix}sd_trips`
+         WHERE status = 'completed'
+           AND DATE(COALESCE(completed_at, created_at)) >= %s
+           AND DATE(COALESCE(completed_at, created_at)) <= %s
+         ORDER BY COALESCE(completed_at, created_at) ASC",
+        $date_from, $date_to
+    ), ARRAY_A );
 
-    $output = fopen('php://output', 'w');
-    fputcsv($output, ['Trip Ref', 'Total Fare', 'Platform Commission', 'VAT (e.g. 7.5% of Commission)']);
-    foreach ($rows as $row) {
-        $commission = $row['fare'] * ($row['platform_pct'] / 100);
-        $vat = $commission * 0.075;
-        fputcsv($output, [$row['trip_ref'], $row['fare'], $commission, $vat]);
+    idibia_send_csv_headers( "vat_schedule_{$date_from}_to_{$date_to}.csv" );
+    $out = fopen( 'php://output', 'w' );
+    fputcsv( $out, [ 'Trip Ref', 'Total Fare (₦)', 'Platform Commission (₦)', 'VAT 7.5% of Commission (₦)', 'Period' ] );
+    foreach ( $rows as $row ) {
+        $commission = round( (float) $row['fare_amount'] * ( (float) $row['platform_pct'] / 100 ), 2 );
+        $vat        = round( $commission * 0.075, 2 );
+        fputcsv( $out, [ $row['trip_ref'], $row['fare_amount'], $commission, $vat, "$date_from to $date_to" ] );
     }
-    fclose($output);
+    fclose( $out );
     exit;
+}
+
+/** Helper: parse and validate date_from / date_to from GET params. */
+function idibia_rev_date_range(): array {
+    $from = sanitize_text_field( wp_unslash( $_GET['date_from'] ?? '' ) );
+    $to   = sanitize_text_field( wp_unslash( $_GET['date_to']   ?? '' ) );
+    if ( ! $from || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $from ) ) { $from = gmdate( 'Y-m-01' ); }
+    if ( ! $to   || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $to   ) ) { $to   = gmdate( 'Y-m-d'  ); }
+    return [ $from, $to ];
+}
+
+/** Helper: send the right HTTP headers for a CSV file download. */
+function idibia_send_csv_headers( string $filename ): void {
+    while ( ob_get_level() ) { ob_end_clean(); }
+    header( 'Content-Type: text/csv; charset=utf-8' );
+    header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+    header( 'Cache-Control: no-cache, must-revalidate' );
+    header( 'Pragma: no-cache' );
+    header( 'Expires: 0' );
+}
+
+function idibia_admin_get_pnl_summary(): void {
+    global $wpdb;
+    [ $date_from, $date_to ] = idibia_rev_date_range();
+
+    $fare_expr       = "COALESCE(NULLIF(final_fare,0), NULLIF(fare_estimate,0), fare, 0)";
+    $commission_expr = "$fare_expr * platform_pct / 100";
+
+    // Gross revenue = sum of platform commissions earned on completed trips.
+    $gross_revenue = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM($commission_expr), 0) FROM `{$wpdb->prefix}sd_trips`
+         WHERE status='completed' AND DATE(COALESCE(completed_at, created_at)) >= %s AND DATE(COALESCE(completed_at, created_at)) <= %s",
+        $date_from, $date_to
+    ) );
+
+    // Total money actually paid out to drivers.
+    $total_payouts = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_payouts`
+         WHERE status='paid' AND DATE(updated_at) >= %s AND DATE(updated_at) <= %s",
+        $date_from, $date_to
+    ) );
+
+    // Total refunded to customers.
+    $total_refunds = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_payments`
+         WHERE status='refunded' AND DATE(COALESCE(reviewed_at, updated_at)) >= %s AND DATE(COALESCE(reviewed_at, updated_at)) <= %s",
+        $date_from, $date_to
+    ) );
+
+    // Total bonuses paid to drivers (campaign completions + manual bonuses).
+    $total_bonuses = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_wallet_ledger`
+         WHERE entry_type='bonus' AND amount > 0 AND DATE(created_at) >= %s AND DATE(created_at) <= %s",
+        $date_from, $date_to
+    ) );
+
+    // Payouts still sitting in pending/processing (all-time, not date-filtered).
+    $outstanding_payouts = (float) $wpdb->get_var(
+        "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_payouts` WHERE status IN ('pending','processing')"
+    );
+
+    $net_profit     = $gross_revenue - $total_payouts - $total_refunds - $total_bonuses;
+    $payout_rate    = $gross_revenue > 0 ? round( $total_payouts / $gross_revenue * 100, 1 ) : 0.0;
+    $running_balance = $gross_revenue - $total_payouts - $total_refunds;
+
+    // Compare against the previous period of the same length.
+    $from_ts   = strtotime( $date_from );
+    $to_ts     = strtotime( $date_to );
+    $duration  = max( 1, $to_ts - $from_ts );
+    $prev_to   = gmdate( 'Y-m-d', $from_ts - 86400 );
+    $prev_from = gmdate( 'Y-m-d', $from_ts - $duration - 86400 );
+
+    $prev_revenue = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM($commission_expr), 0) FROM `{$wpdb->prefix}sd_trips`
+         WHERE status='completed' AND DATE(COALESCE(completed_at, created_at)) >= %s AND DATE(COALESCE(completed_at, created_at)) <= %s",
+        $prev_from, $prev_to
+    ) );
+
+    $revenue_change_pct = $prev_revenue > 0
+        ? round( ( $gross_revenue - $prev_revenue ) / $prev_revenue * 100, 1 )
+        : null;
+
+    wp_send_json_success( [
+        'date_from'                  => $date_from,
+        'date_to'                    => $date_to,
+        'gross_revenue'              => $gross_revenue,
+        'platform_commission_earned' => $gross_revenue,
+        'total_payouts_made'         => $total_payouts,
+        'total_refunds_issued'       => $total_refunds,
+        'total_bonuses_paid'         => $total_bonuses,
+        'net_profit'                 => $net_profit,
+        'payout_rate'                => $payout_rate,
+        'outstanding_payouts'        => $outstanding_payouts,
+        'running_balance'            => $running_balance,
+        'prev_period'                => [
+            'date_from' => $prev_from,
+            'date_to'   => $prev_to,
+            'revenue'   => $prev_revenue,
+        ],
+        'revenue_change_pct'         => $revenue_change_pct,
+    ] );
 }
 
 function idibia_admin_manual_payments(): void {
