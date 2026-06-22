@@ -2088,7 +2088,6 @@ function idibia_admin_get_trip_pod(): void {
 }
 
 
-if ( ! function_exists( 'idibia_admin_get_ratings' ) ) :
 function idibia_admin_get_ratings(): void {
     global $wpdb;
 
@@ -2167,9 +2166,7 @@ function idibia_admin_get_ratings(): void {
 
     wp_send_json_success( [ 'ratings' => $rows ?: [], 'total' => $total, 'page' => $page, 'per_page' => $per_page ] );
 }
-endif;
 
-if ( ! function_exists( 'idibia_admin_delete_rating' ) ) :
 function idibia_admin_delete_rating(): void {
     global $wpdb;
     $rating_id = absint( $_POST['rating_id'] ?? 0 );
@@ -2210,9 +2207,7 @@ function idibia_admin_delete_rating(): void {
 
     wp_send_json_success( [ 'message' => 'Rating deleted and averages recalculated.' ] );
 }
-endif;
 
-if ( ! function_exists( 'idibia_admin_flag_rating' ) ) :
 function idibia_admin_flag_rating(): void {
     global $wpdb;
     $rating_id = absint( $_POST['rating_id'] ?? 0 );
@@ -2240,9 +2235,7 @@ function idibia_admin_flag_rating(): void {
 
     wp_send_json_success( [ 'message' => $new_flag ? 'Rating flagged for review.' : 'Flag removed.', 'flagged' => (bool) $new_flag ] );
 }
-endif;
 
-if ( ! function_exists( 'idibia_admin_get_subject_ratings' ) ) :
 function idibia_admin_get_subject_ratings(): void {
     global $wpdb;
     $subject_type = sanitize_key( $_GET['subject_type'] ?? '' );
@@ -2286,7 +2279,6 @@ function idibia_admin_get_subject_ratings(): void {
         'breakdown' => $breakdown,
     ] );
 }
-endif;
 
 // -------------------------------------------------------------------------
 // CUSTOMER DETAIL (admin)
