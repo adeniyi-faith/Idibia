@@ -36,11 +36,30 @@
     </button>
   </nav>
 
+  <!-- Mobile Header (visible only on mobile) -->
+  <header id="mobile-header">
+    <div class="mobile-header-brand">
+      <div class="mobile-header-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+      </div>
+      <span class="mobile-header-name">Idibia</span>
+    </div>
+    <button class="mobile-notif-btn" id="notifBellBtnMobile" onclick="toggleNotifDropdown()" aria-label="Notifications">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="notifBadgeMobile" style="display:none;position:absolute;top:4px;right:4px;background:#e53e3e;color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;padding:0 3px;line-height:15px;text-align:center;pointer-events:none;"></span>
+    </button>
+  </header>
+
   <!-- Notification Dropdown -->
   <div id="notifDropdown" style="display:none;position:fixed;top:0;left:60px;width:300px;height:100%;background:var(--white);border-right:1px solid var(--surface-2);z-index:900;display:none;flex-direction:column;box-shadow:4px 0 16px rgba(0,0,0,0.12)">
     <div style="padding:16px;border-bottom:1px solid var(--surface-2);display:flex;justify-content:space-between;align-items:center">
       <strong style="font-size:15px">Notifications</strong>
-      <button onclick="markAllNotifRead()" style="font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0">Mark all read</button>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button onclick="markAllNotifRead()" style="font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0">Mark all read</button>
+        <button class="notif-close-mobile" onclick="toggleNotifDropdown()" aria-label="Close" style="display:none;background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);line-height:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="18" height="18"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>
     <div id="notifList" style="flex:1;overflow-y:auto;padding:8px 0">
       <div style="padding:16px;color:var(--text-muted);font-size:13px">Loading…</div>
@@ -612,7 +631,10 @@
     dd.style.display = open ? 'flex' : 'none';
     if(open) fetchNotifications();
     document.onclick = open ? function(e){
-      if(!document.getElementById('notifBellBtn').contains(e.target) && !document.getElementById('notifDropdown').contains(e.target)){
+      var desktopBtn = document.getElementById('notifBellBtn');
+      var mobileBtn  = document.getElementById('notifBellBtnMobile');
+      var insideBtn  = (desktopBtn && desktopBtn.contains(e.target)) || (mobileBtn && mobileBtn.contains(e.target));
+      if(!insideBtn && !document.getElementById('notifDropdown').contains(e.target)){
         open=false; dd.style.display='none'; document.onclick=null;
       }
     } : null;
@@ -634,9 +656,16 @@
   function fmtN(s){ if(!s) return ''; var d=new Date(s.replace(' ','T')); return d.toLocaleString(); }
 
   function updateBadge(count){
-    var b=document.getElementById('notifBadge');
-    if(count>0){ b.textContent=count>99?'99+':count; b.style.display='inline-block'; }
-    else { b.style.display='none'; }
+    var txt = count > 0 ? (count > 99 ? '99+' : String(count)) : '';
+    var b  = document.getElementById('notifBadge');
+    var bm = document.getElementById('notifBadgeMobile');
+    if(count > 0){
+      b.textContent = txt; b.style.display = 'inline-block';
+      if(bm){ bm.textContent = txt; bm.style.display = 'inline-block'; }
+    } else {
+      b.style.display = 'none';
+      if(bm) bm.style.display = 'none';
+    }
   }
 
   function fetchNotifications(){
