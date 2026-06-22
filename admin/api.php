@@ -522,6 +522,16 @@ try {
             idibia_admin_get_demand_supply_heatmap();
             break;
 
+        case 'get_admin_notifications':
+            idibia_require_method( 'GET' );
+            idibia_admin_get_notifications();
+            break;
+
+        case 'mark_admin_notifications_read':
+            idibia_require_method( 'POST' );
+            idibia_admin_mark_notifications_read();
+            break;
+
         default:
             wp_send_json_error( [ 'message' => 'Unknown action.' ] );
     }

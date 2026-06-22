@@ -624,6 +624,15 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 20 );
         $current_version = 20;
     }
+
+    if ( $current_version < 21 ) {
+        global $wpdb;
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_customers`
+            ADD COLUMN IF NOT EXISTS `total_trips` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `rating`,
+            ADD COLUMN IF NOT EXISTS `wallet_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER `total_trips`" );
+        update_option( 'idibia_db_version', 21 );
+        $current_version = 21;
+    }
 }
 
 function idibia_add_customer_rating_and_prefs_columns(): void {
@@ -679,6 +688,8 @@ function idibia_create_tables() {
         `referred_by`    BIGINT UNSIGNED  NULL,
                 `status`         ENUM('pending','active','suspended') NOT NULL DEFAULT 'pending',
         `rating`           DECIMAL(3,2)     NOT NULL DEFAULT 0.00,
+        `total_trips`      INT UNSIGNED     NOT NULL DEFAULT 0,
+        `wallet_balance`   DECIMAL(12,2)    NOT NULL DEFAULT 0.00,
         `notification_preferences` TEXT     NULL,
         `created_at`     DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
         `updated_at`     DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

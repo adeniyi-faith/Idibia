@@ -44,7 +44,7 @@
     </div>
 
     <!-- SUPPLY & DEMAND HEATMAP + LIVE ALERTS SIDE BY SIDE -->
-    <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:16px">
+    <div style="display:grid;grid-template-columns:1fr minmax(0,340px);gap:16px;margin-top:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
 
       <!-- Supply vs Demand by Zone -->
       <div class="scard">

@@ -137,6 +137,44 @@ function idibia_admin_get_broadcasts(): void {
     wp_send_json_success( [ 'broadcasts' => $rows ] );
 }
 
+function idibia_admin_get_notifications(): void {
+    global $wpdb, $admin_id;
+    if ( ! $admin_id ) { wp_send_json_error( [ 'message' => 'Unauthorized.' ], 401 ); }
+
+    $rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, title, body, is_read, created_at
+         FROM `{$wpdb->prefix}sd_notifications`
+         WHERE user_id = %d AND user_type = 'admin'
+         ORDER BY created_at DESC LIMIT 30",
+        $admin_id
+    ), ARRAY_A ) ?: [];
+
+    $unread_count = 0;
+    foreach ( $rows as &$row ) {
+        $row['id']      = (int) $row['id'];
+        $row['is_read'] = (bool) $row['is_read'];
+        if ( ! $row['is_read'] ) $unread_count++;
+    }
+    unset( $row );
+
+    wp_send_json_success( [ 'notifications' => $rows, 'unread_count' => $unread_count ] );
+}
+
+function idibia_admin_mark_notifications_read(): void {
+    global $wpdb, $admin_id;
+    if ( ! $admin_id ) { wp_send_json_error( [ 'message' => 'Unauthorized.' ], 401 ); }
+
+    $wpdb->update(
+        $wpdb->prefix . 'sd_notifications',
+        [ 'is_read' => 1 ],
+        [ 'user_id' => $admin_id, 'user_type' => 'admin', 'is_read' => 0 ],
+        [ '%d' ],
+        [ '%d', '%s', '%d' ]
+    );
+
+    wp_send_json_success( [ 'message' => 'All notifications marked as read.' ] );
+}
+
 function idibia_admin_test_smtp_email(): void {
     $to = sanitize_email( $_POST['to'] ?? '' );
     if ( ! $to ) {
