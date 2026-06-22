@@ -252,6 +252,7 @@ function idibia_admin_get_live_alerts(): void {
     wp_send_json_success( [ 'alerts' => $alerts, 'count' => count( $alerts ) ] );
 }
 
+/**
  * Returns supply-vs-demand data for each active operational zone.
  * Counts online drivers and recent trip requests within each zone's radius.
  */
