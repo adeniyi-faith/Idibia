@@ -56,6 +56,7 @@
     <div class="modal-footer">
       <button onclick="closeTripModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Close</button>
       <button id="tripPodBtn" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--info);background:none;font-size:13px;font-weight:700;color:var(--info);display:none" onclick="adminViewTripPod()">View POD</button>
+      <button id="tripCorrectStatusBtn" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--warn);background:none;font-size:13px;font-weight:700;color:var(--warn)" onclick="openCorrectStatusModal(_currentAdminTripId)">Correct Status</button>
       <button class="btn-primary disabled-action" aria-disabled="true" onclick="showUnavailableFeature('Receipt email', 'Receipt email delivery needs a receipt generation endpoint before messages can be sent.')">Email Receipt</button>
     </div>
   </div>
@@ -227,6 +228,57 @@
         <button onclick="closeTicketDetailModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Close</button>
         <button class="btn-primary" onclick="adminReplyToTicket()" id="ticketAdminReplyBtn">Send Reply</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- CORRECT TRIP STATUS MODAL -->
+<div class="modal-overlay" id="correctStatusModal" onclick="if(event.target===this)closeCorrectStatusModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h3 style="font-size:15px">Correct Trip Status</h3>
+      <button aria-label="Close" onclick="closeCorrectStatusModal()" style="background:none;border:none;font-size:18px;color:var(--text-muted)">×</button>
+    </div>
+    <div class="modal-body">
+      <p id="correctStatusDesc" style="font-size:13px;color:var(--text-secondary);margin-bottom:16px"></p>
+      <div class="form-group">
+        <label class="form-label">New Trip Status <span style="color:var(--text-muted)">(leave blank to keep current)</span></label>
+        <select class="form-input" id="correctStatusNew">
+          <option value="">-- No change --</option>
+          <option value="pending">Pending</option>
+          <option value="searching">Searching</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Dispatch Status <span style="color:var(--text-muted)">(leave blank to keep current)</span></label>
+        <select class="form-input" id="correctDispatchStatusNew">
+          <option value="">-- No change --</option>
+          <option value="searching">Searching</option>
+          <option value="offered">Offered</option>
+          <option value="accepted">Accepted</option>
+          <option value="arriving">Arriving</option>
+          <option value="arrived_pickup">Arrived at Pickup</option>
+          <option value="picked_up">Picked Up</option>
+          <option value="arrived_dropoff">Arrived at Drop-off</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="no_driver">No Driver Found</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reason <span style="color:var(--danger)">*</span></label>
+        <textarea class="form-input" id="correctStatusReason" rows="3" placeholder="Explain why this correction is needed — this is permanently logged." style="resize:none"></textarea>
+      </div>
+      <div style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.25);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text-secondary)">
+        Both the customer and the driver will be notified of the status change via push notification.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button onclick="closeCorrectStatusModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Cancel</button>
+      <button class="btn-primary" onclick="submitCorrectTripStatus()">Save Correction</button>
     </div>
   </div>
 </div>

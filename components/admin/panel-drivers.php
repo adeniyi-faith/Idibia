@@ -19,8 +19,30 @@
         <select class="filter-select" id="driverStatusFilter" onchange="setDriverStatusFilter(this.value)"><option value="all">All statuses</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
         <button onclick="loadDrivers(1)">Search</button>
       </div>
+      <!-- Bulk action bar — hidden until at least one driver is selected -->
+      <div id="driverBulkBar" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-1);border-radius:10px;margin-bottom:12px;border:1px solid var(--surface-2)">
+        <span id="driverSelectedCount" style="font-size:13px;font-weight:700;color:var(--info)">0 selected</span>
+        <div style="flex:1"></div>
+        <select class="filter-select" id="driverBulkActionSelect" style="font-size:12px;padding:6px 10px;height:auto">
+          <option value="">Bulk Actions…</option>
+          <option value="suspend">Suspend</option>
+          <option value="reinstate">Reinstate</option>
+          <option value="send_notification">Send Notification</option>
+          <option value="export">Export Selected</option>
+        </select>
+        <button class="btn-primary" style="font-size:12px;padding:7px 14px;white-space:nowrap" onclick="executeBulkDriverAction(document.getElementById('driverBulkActionSelect').value)">Apply</button>
+        <button style="font-size:12px;padding:7px 10px;background:none;border:1.5px solid var(--surface-2);border-radius:9px;cursor:pointer;color:var(--text-secondary)" onclick="clearDriverSelection()">Clear</button>
+      </div>
+
       <div class="scard">
-        <div class="scard-header"><h3>Driver Directory</h3></div>
+        <div class="scard-header">
+          <h3 style="display:flex;align-items:center;gap:10px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap">
+              <input type="checkbox" id="driverSelectAll" onchange="toggleDriverSelectAll(this.checked)"> Select All
+            </label>
+            Driver Directory
+          </h3>
+        </div>
         <div id="driverDirectory"></div><div class="pagination" id="driverPagination"></div>
       </div>
     </div>
