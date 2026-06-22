@@ -463,6 +463,29 @@ try {
             idibia_admin_test_smtp_email();
             break;
 
+        case 'correct_trip_status':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'correct_trip_status' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_correct_trip_status();
+            break;
+
+        case 'get_live_alerts':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_live_map' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_live_alerts();
+            break;
+
+        case 'bulk_action':
+            idibia_require_method( 'POST' );
+            idibia_admin_bulk_action();
+            break;
+
+        case 'get_demand_supply_heatmap':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_live_map' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_demand_supply_heatmap();
+            break;
+
         default:
             wp_send_json_error( [ 'message' => 'Unknown action.' ] );
     }
@@ -2830,4 +2853,482 @@ function idibia_admin_test_smtp_email(): void {
     } else {
         wp_send_json_error( [ 'message' => "Failed to send. Check your SMTP settings." ] );
     }
+}
+
+/**
+ * Manually corrects a trip's status with a mandatory reason, logs the event, and notifies both parties.
+ */
+function idibia_admin_correct_trip_status(): void {
+    global $wpdb, $admin_id;
+
+    $trip_id      = absint( $_POST['trip_id'] ?? 0 );
+    $new_status   = sanitize_key( $_POST['new_status'] ?? '' );
+    $new_dispatch = sanitize_key( $_POST['new_dispatch_status'] ?? '' );
+    $reason       = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
+
+    if ( ! $trip_id || ! trim( $reason ) ) {
+        wp_send_json_error( [ 'message' => 'trip_id and reason are required.' ] );
+    }
+
+    $valid_statuses = [ 'pending', 'searching', 'in_progress', 'completed', 'cancelled' ];
+    $valid_dispatch = [ 'searching', 'offered', 'accepted', 'arriving', 'arrived_pickup', 'picked_up', 'arrived_dropoff', 'completed', 'cancelled', 'no_driver' ];
+
+    if ( $new_status && ! in_array( $new_status, $valid_statuses, true ) ) {
+        wp_send_json_error( [ 'message' => 'Invalid new_status value.' ] );
+    }
+    if ( $new_dispatch && ! in_array( $new_dispatch, $valid_dispatch, true ) ) {
+        wp_send_json_error( [ 'message' => 'Invalid new_dispatch_status value.' ] );
+    }
+    if ( ! $new_status && ! $new_dispatch ) {
+        wp_send_json_error( [ 'message' => 'Provide new_status or new_dispatch_status (or both).' ] );
+    }
+
+    $trip = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, status, dispatch_status FROM `{$wpdb->prefix}sd_trips` WHERE id = %d LIMIT 1",
+        $trip_id
+    ), ARRAY_A );
+
+    if ( ! $trip ) {
+        wp_send_json_error( [ 'message' => 'Trip not found.' ] );
+    }
+
+    // Whitelist: which trip statuses can be changed to which targets
+    $allowed_transitions = [
+        'pending'     => [ 'searching', 'in_progress', 'cancelled' ],
+        'searching'   => [ 'pending', 'in_progress', 'cancelled' ],
+        'in_progress' => [ 'completed', 'cancelled', 'searching' ],
+        'completed'   => [], // Terminal — admins may not change a legitimately completed trip
+        'cancelled'   => [ 'pending', 'searching' ], // Allow re-opening if cancelled by mistake
+    ];
+
+    if ( $new_status && $new_status !== $trip['status'] ) {
+        $from = $trip['status'];
+        $permitted = $allowed_transitions[ $from ] ?? [];
+        if ( ! in_array( $new_status, $permitted, true ) ) {
+            wp_send_json_error( [ 'message' => "Cannot move trip from '{$from}' to '{$new_status}'. This transition is not allowed." ] );
+        }
+    }
+
+    $old_status   = $trip['status'];
+    $old_dispatch = $trip['dispatch_status'];
+
+    idibia_transaction_start();
+
+    $update_data   = [];
+    $update_format = [];
+    if ( $new_status ) {
+        $update_data['status'] = $new_status;
+        $update_format[]       = '%s';
+    }
+    if ( $new_dispatch ) {
+        $update_data['dispatch_status'] = $new_dispatch;
+        $update_format[]                = '%s';
+    }
+
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'sd_trips',
+        $update_data,
+        [ 'id' => $trip_id ],
+        $update_format,
+        [ '%d' ]
+    );
+
+    if ( false === $updated ) {
+        idibia_transaction_rollback();
+        wp_send_json_error( [ 'message' => 'Database update failed.' ] );
+    }
+
+    idibia_log_event( $trip_id, 'admin_status_correction', [
+        'old_status'          => $old_status,
+        'new_status'          => $new_status ?: $old_status,
+        'old_dispatch_status' => $old_dispatch,
+        'new_dispatch_status' => $new_dispatch ?: $old_dispatch,
+        'admin_id'            => (int) $admin_id,
+        'reason'              => $reason,
+    ] );
+
+    idibia_admin_audit_log( 'correct_trip_status', 'trip', $trip_id, [
+        'old_status'          => $old_status,
+        'new_status'          => $new_status ?: $old_status,
+        'old_dispatch_status' => $old_dispatch,
+        'new_dispatch_status' => $new_dispatch ?: $old_dispatch,
+        'reason'              => $reason,
+    ] );
+
+    if ( function_exists( 'idibia_pusher_broadcast_trip' ) ) {
+        idibia_pusher_broadcast_trip( $trip_id, 'admin_status_correction', [ 'reason' => $reason ] );
+    }
+
+    idibia_transaction_commit();
+    wp_send_json_success( [ 'message' => 'Trip status corrected successfully.' ] );
+}
+
+/**
+ * Returns an array of active operational alerts: stuck trips, SOS, stale payment proofs, failed payouts, escalated disputes.
+ */
+function idibia_admin_get_live_alerts(): void {
+    global $wpdb;
+
+    $alerts  = [];
+    $now     = gmdate( 'Y-m-d H:i:s' );
+    $timeout = max( 1, (int) idibia_get_setting( 'trip_timeout_minutes', 10 ) );
+
+    // 1. Trips stuck in searching for longer than the configured timeout
+    $stuck_searching = $wpdb->get_results( $wpdb->prepare(
+        "SELECT t.id AS trip_id, t.trip_ref, t.created_at, t.searching_at
+         FROM `{$wpdb->prefix}sd_trips` t
+         WHERE t.dispatch_status = 'searching'
+           AND t.driver_id IS NULL
+           AND (
+               (t.searching_at IS NOT NULL AND t.searching_at <= DATE_SUB(%s, INTERVAL %d MINUTE))
+               OR (t.searching_at IS NULL AND t.created_at <= DATE_SUB(%s, INTERVAL %d MINUTE))
+           )
+         ORDER BY t.created_at ASC LIMIT 20",
+        $now, $timeout, $now, $timeout
+    ), ARRAY_A ) ?: [];
+
+    foreach ( $stuck_searching as $row ) {
+        $alerts[] = [
+            'alert_type'  => 'trip_stuck_searching',
+            'severity'    => 'high',
+            'trip_id'     => (int) $row['trip_id'],
+            'user_id'     => null,
+            'description' => "Trip {$row['trip_ref']} has been searching for a driver for over {$timeout} minutes.",
+            'created_at'  => $row['searching_at'] ?? $row['created_at'],
+        ];
+    }
+
+    // 2. In-progress trips with no driver GPS update for > 15 minutes
+    $stuck_active = $wpdb->get_results(
+        "SELECT t.id AS trip_id, t.trip_ref, dl.updated_at AS gps_at, d.full_name AS driver_name
+         FROM `{$wpdb->prefix}sd_trips` t
+         LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = t.driver_id
+         LEFT JOIN `{$wpdb->prefix}sd_driver_locations` dl ON dl.driver_id = t.driver_id
+         WHERE t.dispatch_status IN ('accepted','arriving','arrived_pickup','picked_up','arrived_dropoff')
+           AND t.driver_id IS NOT NULL
+           AND (dl.updated_at IS NULL OR dl.updated_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE))
+         ORDER BY t.created_at ASC LIMIT 20",
+        ARRAY_A
+    ) ?: [];
+
+    foreach ( $stuck_active as $row ) {
+        $alerts[] = [
+            'alert_type'  => 'trip_stuck_in_progress',
+            'severity'    => 'medium',
+            'trip_id'     => (int) $row['trip_id'],
+            'user_id'     => null,
+            'description' => "Trip {$row['trip_ref']} is active but no GPS from driver {$row['driver_name']} for 15+ minutes.",
+            'created_at'  => $row['gps_at'] ?? $now,
+        ];
+    }
+
+    // 3. SOS support tickets filed in the last hour
+    $tickets_table = $wpdb->prefix . 'sd_support_tickets';
+    if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $tickets_table ) ) ) {
+        $sos = $wpdb->get_results(
+            "SELECT st.id AS ticket_id, st.creator_id, st.creator_type, st.created_at
+             FROM `{$tickets_table}` st
+             WHERE st.category LIKE '%sos%'
+               AND st.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)
+               AND st.status IN ('open','in_progress')
+             ORDER BY st.created_at DESC LIMIT 10",
+            ARRAY_A
+        ) ?: [];
+
+        foreach ( $sos as $row ) {
+            $alerts[] = [
+                'alert_type'  => 'sos_filed',
+                'severity'    => 'critical',
+                'trip_id'     => null,
+                'user_id'     => (int) $row['creator_id'],
+                'description' => "SOS ticket #{$row['ticket_id']} filed by {$row['creator_type']} in the last hour — immediate attention required.",
+                'created_at'  => $row['created_at'],
+                'ticket_id'   => (int) $row['ticket_id'],
+            ];
+        }
+    }
+
+    // 4. Payment proofs submitted but not reviewed for > 2 hours
+    $pending_proofs = $wpdb->get_results(
+        "SELECT p.id AS payment_id, p.trip_id, p.amount, p.updated_at, t.trip_ref
+         FROM `{$wpdb->prefix}sd_payments` p
+         LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = p.trip_id
+         WHERE p.status = 'proof_submitted'
+           AND p.reviewed_at IS NULL
+           AND p.updated_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 HOUR)
+         ORDER BY p.updated_at ASC LIMIT 10",
+        ARRAY_A
+    ) ?: [];
+
+    foreach ( $pending_proofs as $row ) {
+        $alerts[] = [
+            'alert_type'  => 'payment_proof_pending_long',
+            'severity'    => 'medium',
+            'trip_id'     => (int) $row['trip_id'],
+            'user_id'     => null,
+            'description' => "Payment proof for trip {$row['trip_ref']} (₦" . number_format( (float) $row['amount'], 2 ) . ") has been waiting review for over 2 hours.",
+            'created_at'  => $row['updated_at'],
+            'payment_id'  => (int) $row['payment_id'],
+        ];
+    }
+
+    // 5. Failed payouts in the last 24 hours
+    $failed_payouts = $wpdb->get_results(
+        "SELECT po.id AS payout_id, po.driver_id, po.amount, po.created_at, d.full_name AS driver_name
+         FROM `{$wpdb->prefix}sd_payouts` po
+         LEFT JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = po.driver_id
+         WHERE po.status = 'failed'
+           AND po.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+         ORDER BY po.created_at DESC LIMIT 10",
+        ARRAY_A
+    ) ?: [];
+
+    foreach ( $failed_payouts as $row ) {
+        $alerts[] = [
+            'alert_type'  => 'payout_failed',
+            'severity'    => 'high',
+            'trip_id'     => null,
+            'user_id'     => (int) $row['driver_id'],
+            'description' => "Payout of ₦" . number_format( (float) $row['amount'], 2 ) . " to driver {$row['driver_name']} failed.",
+            'created_at'  => $row['created_at'],
+            'payout_id'   => (int) $row['payout_id'],
+        ];
+    }
+
+    // 6. Disputes escalated in the last 24 hours
+    $escalated = $wpdb->get_results(
+        "SELECT di.id AS dispute_id, di.trip_id, di.description, di.created_at, t.trip_ref
+         FROM `{$wpdb->prefix}sd_disputes` di
+         LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = di.trip_id
+         WHERE di.status = 'escalated'
+           AND di.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)
+         ORDER BY di.created_at DESC LIMIT 10",
+        ARRAY_A
+    ) ?: [];
+
+    foreach ( $escalated as $row ) {
+        $alerts[] = [
+            'alert_type'  => 'dispute_escalated',
+            'severity'    => 'high',
+            'trip_id'     => (int) $row['trip_id'],
+            'user_id'     => null,
+            'description' => "Dispute on trip {$row['trip_ref']} was escalated: " . mb_substr( $row['description'] ?? '', 0, 100 ),
+            'created_at'  => $row['created_at'],
+            'dispute_id'  => (int) $row['dispute_id'],
+        ];
+    }
+
+    // Sort: critical first, then high, medium, low
+    $order = [ 'critical' => 0, 'high' => 1, 'medium' => 2, 'low' => 3 ];
+    usort( $alerts, static fn( $a, $b ) => ( $order[ $a['severity'] ] ?? 9 ) <=> ( $order[ $b['severity'] ] ?? 9 ) );
+
+    wp_send_json_success( [ 'alerts' => $alerts, 'count' => count( $alerts ) ] );
+}
+
+/**
+ * Applies a single action (suspend, reinstate, send_notification, export) to multiple drivers or customers at once.
+ */
+function idibia_admin_bulk_action(): void {
+    global $wpdb;
+
+    $entity_type = sanitize_key( $_POST['entity_type'] ?? '' );
+    $action      = sanitize_key( $_POST['action'] ?? '' );
+    $reason      = sanitize_textarea_field( wp_unslash( $_POST['reason'] ?? '' ) );
+    $message     = sanitize_textarea_field( wp_unslash( $_POST['message'] ?? '' ) );
+
+    // entity_ids and action_params arrive as JSON strings from the JS FormData
+    $entity_ids_raw  = sanitize_text_field( wp_unslash( $_POST['entity_ids'] ?? '[]' ) );
+    $entity_ids      = json_decode( $entity_ids_raw, true );
+    if ( ! is_array( $entity_ids ) ) { $entity_ids = []; }
+
+    $params_raw = sanitize_text_field( wp_unslash( $_POST['action_params'] ?? '{}' ) );
+    $params     = json_decode( $params_raw, true );
+    if ( is_array( $params ) ) {
+        if ( isset( $params['reason'] ) )  { $reason  = sanitize_textarea_field( $params['reason'] ); }
+        if ( isset( $params['message'] ) ) { $message = sanitize_textarea_field( $params['message'] ); }
+    }
+
+    if ( ! in_array( $entity_type, [ 'driver', 'customer' ], true ) ) {
+        wp_send_json_error( [ 'message' => 'entity_type must be "driver" or "customer".' ] );
+    }
+    if ( ! in_array( $action, [ 'suspend', 'reinstate', 'send_notification', 'export' ], true ) ) {
+        wp_send_json_error( [ 'message' => 'Invalid action. Allowed: suspend, reinstate, send_notification, export.' ] );
+    }
+
+    $entity_ids = array_values( array_filter( array_map( 'absint', $entity_ids ) ) );
+    if ( empty( $entity_ids ) ) {
+        wp_send_json_error( [ 'message' => 'entity_ids must be a non-empty array of IDs.' ] );
+    }
+    if ( count( $entity_ids ) > 200 ) {
+        wp_send_json_error( [ 'message' => 'Maximum 200 entities per bulk operation.' ] );
+    }
+
+    // Permission gating mirrors the individual action permissions
+    if ( in_array( $action, [ 'suspend', 'reinstate' ], true ) ) {
+        $perm = $entity_type === 'driver' ? 'suspend_reinstate_driver' : 'view_customers';
+        if ( ! idibia_admin_has_permission( $perm ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+    } else {
+        $perm = $entity_type === 'driver' ? 'view_drivers' : 'view_customers';
+        if ( ! idibia_admin_has_permission( $perm ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+    }
+
+    $bulk_id   = uniqid( 'bulk_', true );
+    $db_table  = $wpdb->prefix . ( $entity_type === 'driver' ? 'sd_drivers' : 'sd_customers' );
+    $placeholders = implode( ',', array_fill( 0, count( $entity_ids ), '%d' ) );
+
+    // Export: just return the rows as data — no DB mutation
+    if ( $action === 'export' ) {
+        if ( $entity_type === 'driver' ) {
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, full_name, email, phone, status, kyc_status, vehicle_type, total_trips, created_at FROM `$db_table` WHERE id IN ($placeholders) ORDER BY id",
+                ...$entity_ids
+            ), ARRAY_A ) ?: [];
+        } else {
+            $rows = $wpdb->get_results( $wpdb->prepare(
+                "SELECT id, full_name, email, phone, status, email_verified, created_at FROM `$db_table` WHERE id IN ($placeholders) ORDER BY id",
+                ...$entity_ids
+            ), ARRAY_A ) ?: [];
+        }
+        idibia_admin_audit_log( "bulk_export_{$entity_type}", $entity_type, 0, [ 'bulk_operation_id' => $bulk_id, 'entity_ids' => $entity_ids ] );
+        wp_send_json_success( [ 'bulk_operation_id' => $bulk_id, 'action' => 'export', 'entity_type' => $entity_type, 'export_data' => $rows, 'count' => count( $rows ) ] );
+    }
+
+    $success_ids = [];
+    $failed_ids  = [];
+
+    foreach ( $entity_ids as $eid ) {
+        $ok = false;
+        if ( $action === 'suspend' ) {
+            $data = $entity_type === 'driver' ? [ 'status' => 'suspended', 'is_online' => 0 ] : [ 'status' => 'suspended' ];
+            $fmt  = $entity_type === 'driver' ? [ '%s', '%d' ] : [ '%s' ];
+            $ok   = false !== $wpdb->update( $db_table, $data, [ 'id' => $eid ], $fmt, [ '%d' ] );
+        } elseif ( $action === 'reinstate' ) {
+            $ok = false !== $wpdb->update( $db_table, [ 'status' => 'active' ], [ 'id' => $eid ], [ '%s' ], [ '%d' ] );
+        } elseif ( $action === 'send_notification' ) {
+            if ( $message ) {
+                idibia_notify_user( $eid, $entity_type, 'Admin Notification', $message );
+                $ok = true;
+            }
+        }
+
+        if ( $ok ) {
+            idibia_admin_audit_log( "bulk_{$action}_{$entity_type}", $entity_type, $eid, [
+                'bulk_operation_id' => $bulk_id,
+                'reason'            => $reason,
+                'message'           => $message,
+            ] );
+            $success_ids[] = $eid;
+        } else {
+            $failed_ids[] = $eid;
+        }
+    }
+
+    wp_send_json_success( [
+        'bulk_operation_id' => $bulk_id,
+        'action'            => $action,
+        'entity_type'       => $entity_type,
+        'success_count'     => count( $success_ids ),
+        'failed_count'      => count( $failed_ids ),
+        'failed_ids'        => $failed_ids,
+        'message'           => count( $success_ids ) . ' of ' . count( $entity_ids ) . " {$entity_type}(s) processed successfully.",
+    ] );
+}
+
+/**
+ * Returns supply-vs-demand data for each active operational zone.
+ * Counts online drivers and recent trip requests within each zone's radius.
+ */
+function idibia_admin_get_demand_supply_heatmap(): void {
+    global $wpdb;
+
+    $zones_raw = $wpdb->get_results(
+        "SELECT id, name, center_lat, center_lng, radius_km FROM `{$wpdb->prefix}sd_operational_zones` WHERE is_active = 1 ORDER BY name ASC",
+        ARRAY_A
+    ) ?: [];
+
+    if ( empty( $zones_raw ) ) {
+        wp_send_json_success( [ 'zones' => [] ] );
+    }
+
+    $zones = [];
+    foreach ( $zones_raw as $zone ) {
+        $clat = (float) $zone['center_lat'];
+        $clng = (float) $zone['center_lng'];
+        $rkm  = (float) $zone['radius_km'];
+
+        // Bounding box for a fast pre-filter before the precise Haversine check
+        $deg_lat = $rkm / 111.0;
+        $deg_lng = $rkm / max( 0.001, 111.0 * cos( deg2rad( $clat ) ) );
+        $lat_min = $clat - $deg_lat;
+        $lat_max = $clat + $deg_lat;
+        $lng_min = $clng - $deg_lng;
+        $lng_max = $clng + $deg_lng;
+
+        // Count active drivers inside the zone
+        $driver_locs = $wpdb->get_results( $wpdb->prepare(
+            "SELECT dl.lat, dl.lng
+             FROM `{$wpdb->prefix}sd_driver_locations` dl
+             JOIN `{$wpdb->prefix}sd_drivers` d ON d.id = dl.driver_id
+             WHERE d.is_online = 1 AND d.status = 'active' AND d.kyc_status = 'approved'
+               AND dl.lat BETWEEN %f AND %f AND dl.lng BETWEEN %f AND %f",
+            $lat_min, $lat_max, $lng_min, $lng_max
+        ), ARRAY_A ) ?: [];
+
+        $drivers_count = 0;
+        foreach ( $driver_locs as $loc ) {
+            $dist = function_exists( 'idibia_dispatch_haversine_km' )
+                ? idibia_dispatch_haversine_km( $clat, $clng, (float) $loc['lat'], (float) $loc['lng'] )
+                : idibia_heatmap_haversine( $clat, $clng, (float) $loc['lat'], (float) $loc['lng'] );
+            if ( $dist <= $rkm ) { $drivers_count++; }
+        }
+
+        // Count trip requests from the last 30 minutes whose pickup falls in this zone
+        $recent_trips = $wpdb->get_results( $wpdb->prepare(
+            "SELECT pickup_lat, pickup_lng
+             FROM `{$wpdb->prefix}sd_trips`
+             WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 MINUTE)
+               AND pickup_lat IS NOT NULL AND pickup_lng IS NOT NULL
+               AND pickup_lat BETWEEN %f AND %f AND pickup_lng BETWEEN %f AND %f",
+            $lat_min, $lat_max, $lng_min, $lng_max
+        ), ARRAY_A ) ?: [];
+
+        $quote_requests = 0;
+        foreach ( $recent_trips as $t ) {
+            $dist = function_exists( 'idibia_dispatch_haversine_km' )
+                ? idibia_dispatch_haversine_km( $clat, $clng, (float) $t['pickup_lat'], (float) $t['pickup_lng'] )
+                : idibia_heatmap_haversine( $clat, $clng, (float) $t['pickup_lat'], (float) $t['pickup_lng'] );
+            if ( $dist <= $rkm ) { $quote_requests++; }
+        }
+
+        // Classify demand level by driver-to-request ratio
+        if ( $quote_requests === 0 ) {
+            $demand_level = $drivers_count > 0 ? 'low' : 'low';
+        } elseif ( $drivers_count === 0 ) {
+            $demand_level = 'high';
+        } else {
+            $ratio = $drivers_count / $quote_requests;
+            $demand_level = $ratio >= 2 ? 'low' : ( $ratio >= 1 ? 'medium' : 'high' );
+        }
+
+        $zones[] = [
+            'id'                        => (int) $zone['id'],
+            'name'                      => $zone['name'],
+            'center_lat'                => $clat,
+            'center_lng'                => $clng,
+            'radius_km'                 => $rkm,
+            'active_drivers_count'      => $drivers_count,
+            'quote_requests_last_30min' => $quote_requests,
+            'demand_level'              => $demand_level,
+        ];
+    }
+
+    wp_send_json_success( [ 'zones' => $zones ] );
+}
+
+function idibia_heatmap_haversine( float $lat1, float $lng1, float $lat2, float $lng2 ): float {
+    $earth = 6371;
+    $dlat  = deg2rad( $lat2 - $lat1 );
+    $dlng  = deg2rad( $lng2 - $lng1 );
+    $a     = sin( $dlat / 2 ) ** 2 + cos( deg2rad( $lat1 ) ) * cos( deg2rad( $lat2 ) ) * sin( $dlng / 2 ) ** 2;
+    return $earth * 2 * atan2( sqrt( $a ), sqrt( 1 - $a ) );
 }

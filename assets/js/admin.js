@@ -655,8 +655,10 @@ async function loadDrivers(page=pageState.drivers.page){
 }
 function renderDriverDirectoryItem(driver){
   const status = driver.status || 'active';
+  const id = Number(driver.id);
+  const checked = _selectedDriverIds.has(id) ? 'checked' : '';
   const meta = [vehicleIcon(driver.vehicle_type)+' '+vehicleLabel(driver.vehicle_type), driver.kyc_status ? 'KYC '+formatStatusLabel(driver.kyc_status) : null, Number(driver.is_online)===1?'Online':'Offline', (driver.rating?Number(driver.rating).toFixed(1)+'★':null), Number(driver.total_trips||0).toLocaleString()+' trips'].filter(Boolean).map(escapeHtml).join(' · ');
-  return `<div class="list-item"><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name||'Unnamed driver')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadDriverDetail(${driver.id})">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendDriverFromDirectory(${Number(driver.id)}, '${escapeHtml(driver.full_name||'Driver').replace(/'/g,'&#39;')}')">Suspend</button>`}</div></div>`;
+  return `<div class="list-item"><label style="display:flex;align-items:center;padding:0 8px 0 12px;cursor:pointer;flex-shrink:0"><input type="checkbox" class="driver-check" data-id="${id}" ${checked} onchange="toggleDriverSelect(${id},this.checked)" style="width:15px;height:15px;cursor:pointer"></label><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name||'Unnamed driver')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadDriverDetail(${id})">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendDriverFromDirectory(${id}, '${escapeHtml(driver.full_name||'Driver').replace(/'/g,'&#39;')}')">Suspend</button>`}</div></div>`;
 }
 async function suspendDriverFromDirectory(driverId, name){
   const reason = await showConfirmDialog({
@@ -692,10 +694,12 @@ async function loadCustomers(page=pageState.customers.page){
 }
 function renderCustomerDirectoryItem(customer){
   const status = customer.status || 'active';
+  const id = Number(customer.id);
+  const checked = _selectedCustomerIds.has(id) ? 'checked' : '';
   const verified = Number(customer.email_verified)===1 ? 'Email verified' : 'Email pending';
   const meta = [customer.email||'No email', customer.phone||'No phone', verified, dateLabel(customer.created_at)].map(escapeHtml).join(' · ');
   const safeCustomerName = escapeHtml(customer.full_name || 'Customer').replace(/'/g,'&#39;');
-  return `<div class="list-item"><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadCustomerDetail(${Number(customer.id)})">Profile</button><button class="btn-sm" onclick="openSubjectRatings('customer',${Number(customer.id)},'${safeCustomerName}')">Ratings</button></div></div>`;
+  return `<div class="list-item"><label style="display:flex;align-items:center;padding:0 8px 0 12px;cursor:pointer;flex-shrink:0"><input type="checkbox" class="customer-check" data-id="${id}" ${checked} onchange="toggleCustomerSelect(${id},this.checked)" style="width:15px;height:15px;cursor:pointer"></label><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadCustomerDetail(${id})">Profile</button><button class="btn-sm" onclick="openSubjectRatings('customer',${id},'${safeCustomerName}')">Ratings</button></div></div>`;
 }
 function queueCustomerSearch(v){ clearTimeout(searchTimers.customers); searchTimers.customers=setTimeout(()=>{pageState.customers.search=v; loadCustomers(1);},300); }
 
@@ -839,6 +843,9 @@ async function loadLiveOps(){
     const list = document.getElementById('opsDriverList');
     if(list) list.innerHTML = `<div class="list-item"><div class="item-info"><div class="item-name">Could not load live operations</div><div class="item-meta">${escapeHtml(err.message)}</div></div></div>`;
   }
+  // Load the alert feed and heatmap in parallel alongside the main ops data
+  loadLiveAlerts();
+  loadDemandHeatmap();
 }
 function renderLiveOps(data){
   const trips   = data.trips   || [];
@@ -902,6 +909,10 @@ function renderLiveOps(data){
 setInterval(() => {
   if(document.getElementById('panel-ops')?.classList.contains('active')) loadLiveOps();
 }, 15000);
+// Refresh alerts every 60 seconds independently of the main ops data refresh
+setInterval(() => {
+  if(document.getElementById('panel-ops')?.classList.contains('active')) loadLiveAlerts();
+}, 60000);
 setInterval(() => {
   if(document.getElementById('panel-overview')?.classList.contains('active')) loadDashboard();
 }, 30000);
@@ -2391,4 +2402,342 @@ async function deactivateCampaign(campaignId, campaignTitle) {
   } catch(e) {
     toast('Error: ' + e.message);
   }
+}
+
+// ─── TRIP STATUS CORRECTION ──────────────────────────────────────────────────
+
+let _correctStatusTripId = 0;
+
+function openCorrectStatusModal(tripId) {
+  if (!tripId) { toast('No trip selected.'); return; }
+  _correctStatusTripId = tripId;
+  document.getElementById('correctStatusDesc').textContent =
+    'Manually override the status for Trip #' + tripId + '. Both the customer and driver will be notified. A reason is required and will be permanently logged.';
+  document.getElementById('correctStatusNew').value = '';
+  document.getElementById('correctDispatchStatusNew').value = '';
+  document.getElementById('correctStatusReason').value = '';
+  document.getElementById('correctStatusModal').classList.add('open');
+}
+
+function closeCorrectStatusModal() {
+  document.getElementById('correctStatusModal').classList.remove('open');
+}
+
+async function submitCorrectTripStatus() {
+  const newStatus   = document.getElementById('correctStatusNew').value;
+  const newDispatch = document.getElementById('correctDispatchStatusNew').value;
+  const reason      = document.getElementById('correctStatusReason').value.trim();
+
+  if (!reason)                   { toast('A reason is required — it is permanently logged.'); return; }
+  if (!newStatus && !newDispatch){ toast('Please select at least one status to change.'); return; }
+
+  const btn = document.querySelector('#correctStatusModal .btn-primary');
+  const orig = btn?.textContent;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  try {
+    const params = { trip_id: _correctStatusTripId, reason };
+    if (newStatus)   params.new_status          = newStatus;
+    if (newDispatch) params.new_dispatch_status = newDispatch;
+
+    const data = await adminApi('correct_trip_status', params, 'POST');
+    toast(data.message || 'Trip status corrected.');
+    closeCorrectStatusModal();
+    closeTripModal();
+    if (document.getElementById('panel-trips')?.classList.contains('active')) loadTrips();
+    if (document.getElementById('panel-ops')?.classList.contains('active'))   loadLiveOps();
+  } catch(e) {
+    toast(e.message || 'Could not correct trip status.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+// ─── LIVE ALERTS FEED ────────────────────────────────────────────────────────
+
+async function loadLiveAlerts() {
+  const feed = document.getElementById('opsAlertFeed');
+  if (!feed) return;
+  try {
+    const data = await adminApi('get_live_alerts');
+    renderLiveAlerts(data.alerts || []);
+  } catch(e) {
+    feed.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--danger)">Could not load alerts: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderLiveAlerts(alerts) {
+  const feed  = document.getElementById('opsAlertFeed');
+  const badge = document.getElementById('opsAlertCount');
+
+  if (badge) {
+    badge.textContent    = alerts.length > 0 ? String(alerts.length) : '';
+    badge.style.display  = alerts.length > 0 ? 'inline-block' : 'none';
+  }
+  if (!feed) return;
+
+  if (!alerts.length) {
+    feed.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px">No active alerts — all looks good!</div>';
+    return;
+  }
+
+  const severityColor = { critical: 'var(--danger)', high: '#f97316', medium: 'var(--warn)', low: 'var(--text-muted)' };
+  const severityIcon  = { critical: '🚨', high: '⚠️', medium: '⏰', low: 'ℹ️' };
+  const typeLabel     = {
+    trip_stuck_searching:    'Stuck: Searching',
+    trip_stuck_in_progress:  'Stuck: In Progress',
+    sos_filed:               'SOS Filed',
+    payment_proof_pending_long: 'Payment Pending',
+    payout_failed:           'Payout Failed',
+    dispute_escalated:       'Dispute Escalated',
+  };
+
+  feed.innerHTML = alerts.map(alert => {
+    const color = severityColor[alert.severity] || 'var(--text-muted)';
+    const icon  = severityIcon[alert.severity]  || 'ℹ️';
+    const label = typeLabel[alert.alert_type]   || alert.alert_type;
+
+    let actionBtn = '';
+    if (alert.trip_id && alert.alert_type === 'trip_stuck_searching') {
+      actionBtn = `<button class="btn-sm" style="background:rgba(239,68,68,.12);color:#dc2626;border:none" onclick="forceCancelFromAlert(${alert.trip_id})">Force Cancel</button>
+                   <button class="btn-sm btn-view" onclick="openCorrectStatusModal(${alert.trip_id})">Correct Status</button>`;
+    } else if (alert.trip_id) {
+      actionBtn = `<button class="btn-sm btn-view" onclick="openTripDetailFromOps(${alert.trip_id})">View Trip</button>`;
+    } else if (alert.ticket_id) {
+      actionBtn = `<button class="btn-sm btn-view" onclick="showPanel('support')">View Ticket</button>`;
+    } else if (alert.dispute_id) {
+      actionBtn = `<button class="btn-sm btn-view" onclick="showPanel('disputes')">View Dispute</button>`;
+    } else if (alert.payout_id) {
+      actionBtn = `<button class="btn-sm btn-view" onclick="showPanel('payouts')">View Payouts</button>`;
+    }
+
+    return `<div style="padding:10px 14px;border-bottom:1px solid var(--surface-2)">
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <span style="font-size:14px;flex-shrink:0;margin-top:1px">${icon}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px">${escapeHtml(label)}</div>
+          <div style="font-size:11px;color:var(--text-secondary);line-height:1.4;word-break:break-word">${escapeHtml(alert.description)}</div>
+          ${actionBtn ? `<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">${actionBtn}</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function forceCancelFromAlert(tripId) {
+  const reason = await showConfirmDialog({
+    title:          'Force Cancel Trip',
+    desc:           'Force cancel trip #' + tripId + '? The customer and driver will be notified immediately.',
+    reasonLabel:    'Reason for cancellation',
+    reasonRequired: true,
+    confirmLabel:   'Force Cancel',
+  });
+  if (reason === null) return;
+  try {
+    const data = await adminApi('admin_force_cancel_trip', { trip_id: tripId, reason }, 'POST');
+    toast(data.message || 'Trip cancelled.');
+    loadLiveOps();
+  } catch(e) {
+    toast(e.message || 'Could not cancel trip.');
+  }
+}
+
+function openTripDetailFromOps(tripId) {
+  openTripDetail('#' + tripId, 'Trip', '', '', '', 'Unknown', 'Active', tripId);
+}
+
+// ─── BULK OPERATIONS ─────────────────────────────────────────────────────────
+
+const _selectedDriverIds   = new Set();
+const _selectedCustomerIds = new Set();
+
+function toggleDriverSelect(id, checked) {
+  if (checked) _selectedDriverIds.add(id); else _selectedDriverIds.delete(id);
+  updateDriverBulkBar();
+}
+
+function toggleDriverSelectAll(checked) {
+  document.querySelectorAll('.driver-check').forEach(cb => {
+    cb.checked = checked;
+    const id = Number(cb.dataset.id);
+    if (checked) _selectedDriverIds.add(id); else _selectedDriverIds.delete(id);
+  });
+  updateDriverBulkBar();
+}
+
+function clearDriverSelection() {
+  _selectedDriverIds.clear();
+  document.querySelectorAll('.driver-check').forEach(cb => cb.checked = false);
+  const sa = document.getElementById('driverSelectAll');
+  if (sa) sa.checked = false;
+  updateDriverBulkBar();
+}
+
+function updateDriverBulkBar() {
+  const bar   = document.getElementById('driverBulkBar');
+  const count = document.getElementById('driverSelectedCount');
+  if (bar)   bar.style.display   = _selectedDriverIds.size > 0 ? 'flex' : 'none';
+  if (count) count.textContent   = _selectedDriverIds.size + ' selected';
+}
+
+async function executeBulkDriverAction(action) {
+  if (!action) { toast('Please choose a bulk action first.'); return; }
+  if (!_selectedDriverIds.size) { toast('No drivers selected.'); return; }
+  const ids    = Array.from(_selectedDriverIds);
+  let actionParams = {};
+
+  if (action === 'suspend') {
+    const reason = await showConfirmDialog({ title: `Suspend ${ids.length} Driver(s)`, desc: `This will suspend ${ids.length} driver account(s). They will go offline immediately.`, reasonLabel: 'Reason (optional)', confirmLabel: 'Suspend All' });
+    if (reason === null) return;
+    actionParams.reason = reason;
+  } else if (action === 'reinstate') {
+    const reason = await showConfirmDialog({ title: `Reinstate ${ids.length} Driver(s)`, desc: `Restore ${ids.length} driver account(s) to active status.`, reasonLabel: 'Note (optional)', confirmLabel: 'Reinstate All' });
+    if (reason === null) return;
+    actionParams.reason = reason;
+  } else if (action === 'send_notification') {
+    const msg = prompt(`Message to send to ${ids.length} driver(s):`);
+    if (!msg?.trim()) { toast('A message is required.'); return; }
+    actionParams.message = msg.trim();
+  }
+
+  try {
+    const data = await adminApi('bulk_action', {
+      entity_type:   'driver',
+      action,
+      entity_ids:    JSON.stringify(ids),
+      action_params: JSON.stringify(actionParams),
+    }, 'POST');
+
+    if (action === 'export' && data.export_data) {
+      _downloadCsv(data.export_data, ['id','full_name','email','phone','status','kyc_status','vehicle_type','total_trips','created_at'], 'drivers_export.csv');
+      toast(`Exported ${data.export_data.length} driver(s).`);
+    } else {
+      toast(data.message || 'Bulk action complete.');
+      clearDriverSelection();
+      loadDrivers();
+    }
+  } catch(e) {
+    toast(e.message || 'Bulk action failed.');
+  }
+}
+
+function toggleCustomerSelect(id, checked) {
+  if (checked) _selectedCustomerIds.add(id); else _selectedCustomerIds.delete(id);
+  updateCustomerBulkBar();
+}
+
+function toggleCustomerSelectAll(checked) {
+  document.querySelectorAll('.customer-check').forEach(cb => {
+    cb.checked = checked;
+    const id = Number(cb.dataset.id);
+    if (checked) _selectedCustomerIds.add(id); else _selectedCustomerIds.delete(id);
+  });
+  updateCustomerBulkBar();
+}
+
+function clearCustomerSelection() {
+  _selectedCustomerIds.clear();
+  document.querySelectorAll('.customer-check').forEach(cb => cb.checked = false);
+  const sa = document.getElementById('customerSelectAll');
+  if (sa) sa.checked = false;
+  updateCustomerBulkBar();
+}
+
+function updateCustomerBulkBar() {
+  const bar   = document.getElementById('customerBulkBar');
+  const count = document.getElementById('customerSelectedCount');
+  if (bar)   bar.style.display = _selectedCustomerIds.size > 0 ? 'flex' : 'none';
+  if (count) count.textContent = _selectedCustomerIds.size + ' selected';
+}
+
+async function executeBulkCustomerAction(action) {
+  if (!action) { toast('Please choose a bulk action first.'); return; }
+  if (!_selectedCustomerIds.size) { toast('No customers selected.'); return; }
+  const ids    = Array.from(_selectedCustomerIds);
+  let actionParams = {};
+
+  if (action === 'suspend') {
+    const reason = await showConfirmDialog({ title: `Suspend ${ids.length} Customer(s)`, desc: `Suspend ${ids.length} customer account(s). They will be unable to book trips.`, reasonLabel: 'Reason (optional)', confirmLabel: 'Suspend All' });
+    if (reason === null) return;
+    actionParams.reason = reason;
+  } else if (action === 'reinstate') {
+    const reason = await showConfirmDialog({ title: `Reinstate ${ids.length} Customer(s)`, desc: `Restore ${ids.length} customer account(s) to active status.`, reasonLabel: 'Note (optional)', confirmLabel: 'Reinstate All' });
+    if (reason === null) return;
+    actionParams.reason = reason;
+  } else if (action === 'send_notification') {
+    const msg = prompt(`Message to send to ${ids.length} customer(s):`);
+    if (!msg?.trim()) { toast('A message is required.'); return; }
+    actionParams.message = msg.trim();
+  }
+
+  try {
+    const data = await adminApi('bulk_action', {
+      entity_type:   'customer',
+      action,
+      entity_ids:    JSON.stringify(ids),
+      action_params: JSON.stringify(actionParams),
+    }, 'POST');
+
+    if (action === 'export' && data.export_data) {
+      _downloadCsv(data.export_data, ['id','full_name','email','phone','status','email_verified','created_at'], 'customers_export.csv');
+      toast(`Exported ${data.export_data.length} customer(s).`);
+    } else {
+      toast(data.message || 'Bulk action complete.');
+      clearCustomerSelection();
+      loadCustomers();
+    }
+  } catch(e) {
+    toast(e.message || 'Bulk action failed.');
+  }
+}
+
+function _downloadCsv(rows, fields, filename) {
+  const header = fields.map(f => '"' + f + '"').join(',');
+  const body   = rows.map(r => fields.map(f => '"' + String(r[f] ?? '').replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a      = document.createElement('a');
+  a.href       = 'data:text/csv;charset=utf-8,' + encodeURIComponent(header + '\n' + body);
+  a.download   = filename;
+  a.click();
+}
+
+// ─── SUPPLY & DEMAND HEATMAP ─────────────────────────────────────────────────
+
+async function loadDemandHeatmap() {
+  const container = document.getElementById('opsHeatmapZones');
+  if (!container) return;
+  container.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px">Loading zone data…</div>';
+  try {
+    const data = await adminApi('get_demand_supply_heatmap');
+    renderDemandHeatmap(data.zones || []);
+  } catch(e) {
+    container.innerHTML = `<div style="padding:16px;font-size:12px;color:var(--danger)">Could not load heatmap: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderDemandHeatmap(zones) {
+  const container = document.getElementById('opsHeatmapZones');
+  if (!container) return;
+
+  if (!zones.length) {
+    container.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px">No active zones configured. Add zones in Settings → Zones to see supply and demand data here.</div>';
+    return;
+  }
+
+  const levelColor = { low: 'var(--success)', medium: 'var(--warn)', high: 'var(--danger)' };
+  const levelLabel = { low: 'Supply > Demand', medium: 'Balanced', high: 'Demand > Supply' };
+
+  container.innerHTML = zones.map(z => {
+    const color = levelColor[z.demand_level] || 'var(--text-muted)';
+    const label = levelLabel[z.demand_level] || z.demand_level;
+    const drivers  = z.active_drivers_count;
+    const requests = z.quote_requests_last_30min;
+    return `<div class="list-item" style="align-items:center;gap:10px">
+      <div style="width:12px;height:12px;border-radius:50%;background:${color};flex-shrink:0;box-shadow:0 0 8px ${color}66"></div>
+      <div class="item-info">
+        <div class="item-name" style="font-size:13px">${escapeHtml(z.name)}</div>
+        <div class="item-meta">${drivers} driver${drivers !== 1 ? 's' : ''} online · ${requests} request${requests !== 1 ? 's' : ''} (last 30 min) · ${escapeHtml(label)}</div>
+      </div>
+      <span class="badge" style="background:${color}20;color:${color};border:1px solid ${color}40;white-space:nowrap">${escapeHtml(z.demand_level.charAt(0).toUpperCase() + z.demand_level.slice(1))}</span>
+    </div>`;
+  }).join('');
 }

@@ -42,4 +42,41 @@
       <div class="scard-header"><h3>Active Riders</h3><span style="font-size:11px;color:var(--text-muted)">Online drivers with last known GPS</span></div>
       <div id="opsDriverList"></div>
     </div>
+
+    <!-- SUPPLY & DEMAND HEATMAP + LIVE ALERTS SIDE BY SIDE -->
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;margin-top:16px">
+
+      <!-- Supply vs Demand by Zone -->
+      <div class="scard">
+        <div class="scard-header">
+          <h3>Supply vs Demand by Zone</h3>
+          <button class="scard-action" onclick="loadDemandHeatmap()">Refresh</button>
+        </div>
+        <div style="padding:8px 0">
+          <div style="display:flex;gap:18px;padding:8px 16px 6px;font-size:11px;color:var(--text-muted);flex-wrap:wrap">
+            <span><span style="color:var(--success)">●</span> Supply &gt; Demand (drivers outnumber requests)</span>
+            <span><span style="color:var(--warn)">●</span> Balanced</span>
+            <span><span style="color:var(--danger)">●</span> Demand &gt; Supply (customers waiting)</span>
+          </div>
+          <div id="opsHeatmapZones" style="padding-bottom:8px">
+            <div style="padding:16px;color:var(--text-muted);font-size:12px">Loading zone data…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Alert Feed -->
+      <div class="scard" style="display:flex;flex-direction:column">
+        <div class="scard-header" style="flex-shrink:0">
+          <h3 style="display:flex;align-items:center;gap:6px">
+            Live Alerts
+            <span id="opsAlertCount" style="display:none;background:var(--danger);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:700;min-width:18px;text-align:center"></span>
+          </h3>
+          <button class="scard-action" onclick="loadLiveAlerts()">Refresh</button>
+        </div>
+        <div id="opsAlertFeed" style="flex:1;overflow-y:auto;max-height:420px;min-height:80px">
+          <div style="padding:16px;color:var(--text-muted);font-size:12px">Loading…</div>
+        </div>
+      </div>
+
+    </div>
   </div>

@@ -8,8 +8,31 @@
       <div class="metric-card"><div class="metric-label">SUSPENDED</div><div class="metric-value" style="color:var(--danger)" id="customersSuspendedCount">--</div><div class="metric-delta neutral">Current filter</div></div>
     </div>
     <div class="panel-search"><input id="customerSearch" placeholder="Search customer name or phone…" oninput="queueCustomerSearch(this.value)"><button onclick="loadCustomers(1)">Search</button></div>
+
+    <!-- Bulk action bar — hidden until at least one customer is selected -->
+    <div id="customerBulkBar" style="display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-1);border-radius:10px;margin-bottom:12px;border:1px solid var(--surface-2)">
+      <span id="customerSelectedCount" style="font-size:13px;font-weight:700;color:var(--info)">0 selected</span>
+      <div style="flex:1"></div>
+      <select class="filter-select" id="customerBulkActionSelect" style="font-size:12px;padding:6px 10px;height:auto">
+        <option value="">Bulk Actions…</option>
+        <option value="suspend">Suspend</option>
+        <option value="reinstate">Reinstate</option>
+        <option value="send_notification">Send Notification</option>
+        <option value="export">Export Selected</option>
+      </select>
+      <button class="btn-primary" style="font-size:12px;padding:7px 14px;white-space:nowrap" onclick="executeBulkCustomerAction(document.getElementById('customerBulkActionSelect').value)">Apply</button>
+      <button style="font-size:12px;padding:7px 10px;background:none;border:1.5px solid var(--surface-2);border-radius:9px;cursor:pointer;color:var(--text-secondary)" onclick="clearCustomerSelection()">Clear</button>
+    </div>
+
     <div class="scard">
-      <div class="scard-header"><h3>Customer Directory</h3></div>
+      <div class="scard-header">
+        <h3 style="display:flex;align-items:center;gap:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text-secondary);cursor:pointer;white-space:nowrap">
+            <input type="checkbox" id="customerSelectAll" onchange="toggleCustomerSelectAll(this.checked)"> Select All
+          </label>
+          Customer Directory
+        </h3>
+      </div>
       <div id="customerDirectory"></div><div class="pagination" id="customerPagination"></div>
     </div>
     <div class="scard">
