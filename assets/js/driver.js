@@ -1936,3 +1936,25 @@ function startDriverStatsPolling() {
   if (_driverStatsPollTimer) return;
   _driverStatsPollTimer = setInterval(fetchDriverStats, 30000);
 }
+
+async function saveDriverLanguage() {
+  const select = document.getElementById('driverLangSelect');
+  if (!select) return;
+  const lang = select.value;
+  const body = new FormData();
+  body.append('action', 'update_language');
+  body.append('language', lang);
+  try {
+    const res  = await fetch('/driver-profile-api.php', { method: 'POST', body, credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    const data = await res.json();
+    if (data.success) {
+      showToast(data.data.message || 'Language saved.');
+      // Reload the page so PHP-rendered strings update to the new language.
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      showToast(data.data?.message || 'Could not save language.');
+    }
+  } catch (_e) {
+    showToast('Network error. Please try again.');
+  }
+}
