@@ -1760,6 +1760,54 @@ function openPayoutModal() {
   openModal('modal-request-payout');
 }
 
+function openEarningsStatementModal() {
+  // Pre-select sensible defaults
+  const sel = document.getElementById('stmtPeriod');
+  if (sel) sel.value = 'this_month';
+  const custom = document.getElementById('stmtCustomDates');
+  if (custom) custom.style.display = 'none';
+  openModal('modal-earnings-statement');
+}
+
+function toggleCustomStatementDates() {
+  const sel = document.getElementById('stmtPeriod');
+  const custom = document.getElementById('stmtCustomDates');
+  if (!sel || !custom) return;
+  custom.style.display = sel.value === 'custom' ? 'block' : 'none';
+}
+
+function downloadEarningsStatement() {
+  const sel    = document.getElementById('stmtPeriod');
+  const period = sel ? sel.value : 'this_month';
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/driver-wallet-api.php';
+  form.style.display = 'none';
+
+  const fields = { action: 'download_earnings_statement', period };
+
+  if (period === 'custom') {
+    const from = document.getElementById('stmtDateFrom')?.value;
+    const to   = document.getElementById('stmtDateTo')?.value;
+    if (!from || !to) { showToast('Please select both a start and end date.'); return; }
+    fields.date_from = from;
+    fields.date_to   = to;
+  }
+
+  Object.entries(fields).forEach(([k, v]) => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = k; inp.value = v;
+    form.appendChild(inp);
+  });
+
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+  closeModal('modal-earnings-statement');
+  showToast('Generating your earnings statement…');
+}
+
 async function requestPayout(e) {
   e.preventDefault();
   const btn = document.getElementById('btnRequestPayout');

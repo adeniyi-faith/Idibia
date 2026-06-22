@@ -202,6 +202,85 @@ function idibia_admin_remove_from_blacklist(): void {
     wp_send_json_success( [ 'message' => 'Removed from blacklist.' ] );
 }
 
+function idibia_admin_reset_driver_password(): void {
+    global $wpdb, $admin_id;
+    $driver_id = absint( $_POST['driver_id'] ?? 0 );
+    if ( ! $driver_id ) {
+        wp_send_json_error( [ 'message' => 'Driver ID required.' ] );
+    }
+
+    $driver = $wpdb->get_row( $wpdb->prepare(
+        "SELECT id, email, full_name FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1",
+        $driver_id
+    ) );
+    if ( ! $driver ) {
+        wp_send_json_error( [ 'message' => 'Driver not found.' ] );
+    }
+
+    // Generate a secure random temporary password (12 chars: letters + digits)
+    $chars    = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    $temp_pwd = '';
+    for ( $i = 0; $i < 12; $i++ ) {
+        $temp_pwd .= $chars[ random_int( 0, strlen( $chars ) - 1 ) ];
+    }
+
+    $hash = wp_hash_password( $temp_pwd );
+
+    // Update driver record: set flag and store hash
+    $updated = $wpdb->update(
+        $wpdb->prefix . 'sd_drivers',
+        [
+            'force_password_change' => 1,
+            'temp_password_hash'    => $hash,
+        ],
+        [ 'id' => $driver_id ],
+        [ '%d', '%s' ],
+        [ '%d' ]
+    );
+
+    if ( false === $updated ) {
+        wp_send_json_error( [ 'message' => 'Could not update driver record.' ] );
+    }
+
+    // Also update the WordPress user password so wp_signon() uses the new temp password
+    $wp_user = get_user_by( 'email', $driver->email );
+    if ( $wp_user instanceof WP_User ) {
+        wp_set_password( $temp_pwd, $wp_user->ID );
+    }
+
+    // Send email with temp password
+    $first_name = explode( ' ', trim( $driver->full_name ) )[0];
+    $body = <<<BODY
+Hi {$first_name},
+
+Your Idibia driver account password has been reset by an administrator.
+
+Your temporary password is: {$temp_pwd}
+
+Please log in to the Idibia driver app and change your password immediately when prompted.
+
+If you did not request this reset, please contact support immediately.
+
+— Idibia Platform
+BODY;
+
+    idibia_send_mail(
+        $driver->email,
+        '[Idibia] Your driver account password has been reset',
+        $body,
+        [ 'Content-Type: text/plain; charset=UTF-8' ]
+    );
+
+    idibia_admin_audit_log(
+        'reset_driver_password',
+        'driver',
+        $driver_id,
+        [ 'admin_id' => $admin_id, 'email_sent_to' => $driver->email ]
+    );
+
+    wp_send_json_success( [ 'message' => 'Password reset. Temporary password sent to ' . $driver->email . '.' ] );
+}
+
 function idibia_admin_suspend_driver(): void {
     global $wpdb;
     $driver_id = absint( $_POST['driver_id'] ?? 0 );

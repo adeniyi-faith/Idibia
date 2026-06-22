@@ -52,7 +52,7 @@ if ( function_exists( 'idibia_is_blacklisted' ) && idibia_is_blacklisted( $bl_em
 idibia_finish_wordpress_login( $user );
 $driver_id = idibia_find_or_create_profile_row( $user->ID, 'driver' );
 global $wpdb;
-$driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, kyc_notes, kyc_rejection_history, status, is_online, email_verified, full_name, phone, vehicle_type, rating, total_trips, avatar_path, selfie_path FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
+$driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT kyc_status, kyc_notes, kyc_rejection_history, status, is_online, email_verified, full_name, phone, vehicle_type, rating, total_trips, avatar_path, selfie_path, force_password_change FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
 $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
 $status     = $driver_row['status'] ?? ( get_user_meta( $user->ID, 'idibia_account_status', true ) ?: 'pending' );
 $is_approved = $kyc_status === 'approved' && $status === 'active';
@@ -88,10 +88,13 @@ $avg_rating = $avg_rating > 0 ? round( $avg_rating, 1 ) : 0.0;
 
 $trips_history = $wpdb->get_results( $wpdb->prepare( "SELECT id, trip_ref, pickup, dropoff, fare, status, created_at, completed_at FROM `{$wpdb->prefix}sd_trips` WHERE driver_id = %d ORDER BY created_at DESC LIMIT 100", $driver_id ), ARRAY_A );
 
+$force_pwd_change = ! empty( $driver_row['force_password_change'] );
+
 // Return the full profile payload so the SPA login path hydrates the dashboard
 // overlay with the same data the server-rendered (hard reload) path produces.
 wp_send_json_success( [
-    'redirect'    => '/driver.php',
+    'redirect'              => $force_pwd_change ? '/driver-change-password.php' : '/driver.php',
+    'force_password_change' => $force_pwd_change,
     'first_name'  => idibia_first_name_from_user( $user ),
     'full_name'   => $driver_row['full_name'] ?? $user->display_name,
     'phone'       => $driver_row['phone'] ?? '',

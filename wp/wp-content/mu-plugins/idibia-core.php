@@ -614,6 +614,16 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 19 );
         $current_version = 19;
     }
+
+    if ( $current_version < 20 ) {
+        global $wpdb;
+        // Flag set by admin password reset; cleared after driver changes password.
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_drivers`
+            ADD COLUMN IF NOT EXISTS `force_password_change` TINYINT(1) NOT NULL DEFAULT 0 AFTER `status`,
+            ADD COLUMN IF NOT EXISTS `temp_password_hash`    VARCHAR(255)         NULL         AFTER `force_password_change`" );
+        update_option( 'idibia_db_version', 20 );
+        $current_version = 20;
+    }
 }
 
 function idibia_add_customer_rating_and_prefs_columns(): void {

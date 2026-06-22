@@ -672,6 +672,23 @@ async function suspendDriverFromDirectory(driverId, name){
   try{ const data=await adminApi('suspend_driver',{driver_id:driverId, reason},'POST'); toast(data.message||'Driver suspended.'); loadDrivers(); loadDashboard(); }
   catch(e){ toast(e.message||'Could not suspend driver.'); }
 }
+
+async function resetDriverPassword(driverId, name) {
+  const confirmed = await showConfirmDialog({
+    title: 'Reset Driver Password',
+    desc: 'This will generate a secure temporary password for ' + name + ' and send it to their registered email address. They will be required to set a new password on next login.',
+    confirmLabel: 'Reset Password',
+    confirmClass: 'btn-danger',
+  });
+  if (confirmed === null) return;
+  try {
+    const data = await adminApi('reset_driver_password', { driver_id: driverId }, 'POST');
+    toast(data.message || 'Password reset email sent.');
+    closeDriverModal();
+  } catch(e) {
+    toast(e.message || 'Could not reset password.');
+  }
+}
 function queueDriverSearch(v){ clearTimeout(searchTimers.drivers); searchTimers.drivers=setTimeout(()=>{pageState.drivers.search=v; loadDrivers(1);},300); }
 function setDriverStatusFilter(value){
   pageState.drivers.status = (value === 'all') ? '' : value;
@@ -1017,6 +1034,7 @@ async function loadDriverDetail(driverId) {
       html += `<button class="btn-sm btn-suspend" onclick="closeDriverModal();suspendDriverFromDirectory(${Number(driver.id)},'${safeName}')">Suspend Driver</button>`;
       html += `<button class="btn-sm" style="background:rgba(34,197,94,.12);color:#16a34a;border:none" onclick="openDriverAdjustmentModal(${Number(driver.id)},'${safeName}')">Penalty / Bonus</button>`;
     }
+    html += `<button class="btn-sm" style="background:rgba(239,68,68,.1);color:#dc2626;border:none" onclick="resetDriverPassword(${Number(driver.id)},'${safeName}')">Reset Password</button>`;
     html += `</div>`;
 
     document.getElementById('driverModalBody').innerHTML = html;
