@@ -75,6 +75,10 @@
 
   <div class="sidebar-bottom">
     <div class="nav-section-label" style="margin:0 0 4px;">System</div>
+    <button class="nav-btn" onclick="nav('system',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      System Health
+    </button>
     <button class="nav-btn" onclick="nav('settings',this)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
       Settings

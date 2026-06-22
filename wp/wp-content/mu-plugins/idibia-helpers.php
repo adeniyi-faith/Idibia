@@ -1196,3 +1196,52 @@ function idibia_is_blacklisted( string $email = '', string $phone = '' ): bool {
     }
     return false;
 }
+
+/**
+ * Returns a translated string for the given key.
+ *
+ * Usage: echo __t('online');  // prints "Online" in English, "Akan Layi" in Hausa, etc.
+ *
+ * How it works:
+ * - Looks up the current driver's saved language preference (stored in WP user meta).
+ * - Loads the matching file from /lang/ (e.g. /lang/ha.php for Hausa).
+ * - Returns the translated text, or falls back to English, or just returns the key itself.
+ *
+ * @param string      $key  A short code name like 'online', 'good_morning', etc.
+ * @param string|null $lang Force a specific language code (e.g. 'ha'). If null, uses the logged-in driver's preference.
+ */
+function __t( string $key, ?string $lang = null ): string {
+    static $loaded = [];
+
+    if ( $lang === null ) {
+        $lang = 'en';
+        if ( is_user_logged_in() ) {
+            $saved = get_user_meta( get_current_user_id(), 'idibia_driver_language', true );
+            if ( $saved ) {
+                $lang = sanitize_key( $saved );
+            }
+        }
+    } else {
+        $lang = sanitize_key( $lang );
+    }
+
+    $lang_dir = dirname( __DIR__, 3 ) . '/lang/';
+
+    // Load requested language file (cached after first load)
+    if ( ! array_key_exists( $lang, $loaded ) ) {
+        $file = $lang_dir . $lang . '.php';
+        $loaded[ $lang ] = file_exists( $file ) ? ( require $file ) : [];
+    }
+
+    if ( isset( $loaded[ $lang ][ $key ] ) ) {
+        return (string) $loaded[ $lang ][ $key ];
+    }
+
+    // Fall back to English
+    if ( $lang !== 'en' && ! array_key_exists( 'en', $loaded ) ) {
+        $en_file = $lang_dir . 'en.php';
+        $loaded['en'] = file_exists( $en_file ) ? ( require $en_file ) : [];
+    }
+
+    return isset( $loaded['en'][ $key ] ) ? (string) $loaded['en'][ $key ] : $key;
+}
