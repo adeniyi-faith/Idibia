@@ -53,7 +53,7 @@
   <!-- Notification Dropdown -->
   <div id="notifDropdown" style="display:none;position:fixed;top:0;left:60px;width:300px;height:100%;background:var(--white);border-right:1px solid var(--surface-2);z-index:900;display:none;flex-direction:column;box-shadow:4px 0 16px rgba(0,0,0,0.12)">
     <div style="padding:16px;border-bottom:1px solid var(--surface-2);display:flex;justify-content:space-between;align-items:center">
-      <strong style="font-size:15px">Notifications</strong>
+      <strong style="font-size:15px;color:var(--text-primary)">Notifications</strong>
       <div style="display:flex;align-items:center;gap:12px;">
         <button onclick="markAllNotifRead()" style="font-size:12px;color:var(--primary);background:none;border:none;cursor:pointer;padding:0">Mark all read</button>
         <button class="notif-close-mobile" onclick="toggleNotifDropdown()" aria-label="Close" style="display:none;background:none;border:none;cursor:pointer;padding:4px;color:var(--text-muted);line-height:0;">
@@ -645,7 +645,7 @@
     if(!items.length){ el.innerHTML='<div style="padding:16px;color:var(--text-muted);font-size:13px">No notifications yet.</div>'; return; }
     el.innerHTML = items.map(function(n){
       return '<div onclick="markNotifRead('+n.id+')" style="padding:12px 16px;border-bottom:1px solid var(--surface-2);cursor:pointer;background:'+(n.is_read?'transparent':'rgba(var(--primary-rgb,26,26,46),0.04)')+'">'
-        +'<div style="font-size:13px;font-weight:'+(n.is_read?'400':'600')+';color:var(--text)">'+escN(n.title)+'</div>'
+        +'<div style="font-size:13px;font-weight:'+(n.is_read?'400':'600')+';color:var(--text-primary)">'+escN(n.title)+'</div>'
         +'<div style="font-size:12px;color:var(--text-muted);margin-top:2px">'+escN(n.body)+'</div>'
         +'<div style="font-size:11px;color:var(--text-muted);margin-top:4px">'+fmtN(n.created_at)+'</div>'
       +'</div>';
