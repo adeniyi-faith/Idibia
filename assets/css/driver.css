@@ -1138,7 +1138,7 @@ svg { display: block; }
   top: max(15px, env(safe-area-inset-top, 15px));
   left: 15px;
   right: 15px;
-  z-index: 20;
+  z-index: 30;
   display: flex !important;
   align-items: center;
   justify-content: space-between;
