@@ -187,6 +187,49 @@ a { color: inherit; }
 .tab-view { display: none; flex: 1; overflow: hidden; flex-direction: column; }
 .tab-view.active { display: flex; }
 
+/* ═══════════════════════ MOBILE HEADER ═══════════════════════ */
+#mobile-header { display: none; }
+@media(max-width:767px){
+  #mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: max(14px, env(safe-area-inset-top)) 18px 14px;
+    background: var(--navy);
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .mobile-header-brand { display: flex; align-items: center; gap: 10px; }
+  .mobile-header-logo {
+    width: 36px; height: 36px;
+    background: var(--gold); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--navy); flex-shrink: 0;
+    box-shadow: var(--shadow-gold);
+  }
+  .mobile-header-name {
+    font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 18px; color: var(--white); letter-spacing: -0.3px;
+  }
+  .mobile-notif-btn {
+    position: relative; width: 40px; height: 40px;
+    border-radius: 12px; background: rgba(255,255,255,0.08);
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--white); transition: background 0.2s, color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mobile-notif-btn:active { background: rgba(245,200,66,0.18); color: var(--gold); }
+  /* Notification dropdown adapts to full-width on mobile */
+  #notifDropdown {
+    left: 0 !important;
+    width: 100% !important;
+    border-right: none !important;
+    box-shadow: var(--shadow-lg) !important;
+  }
+  .notif-close-mobile { display: flex !important; }
+}
+
 /* ═══════════════════════ HOME TAB ═══════════════════════ */
 .home-split { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 @media(min-width:768px){.home-split{flex-direction:row-reverse;}}
