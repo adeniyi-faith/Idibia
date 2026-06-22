@@ -63,9 +63,9 @@
           <div style="display:flex;align-items:center;gap:10px">
             <!-- Notification Bell (driver) -->
             <div style="position:relative">
-              <button id="driverNotifBellBtn" onclick="toggleDriverNotifDropdown()" title="Notifications" style="background:rgba(255,255,255,0.15);border:none;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;position:relative">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                <span id="driverNotifBadge" style="display:none;position:absolute;top:2px;right:2px;background:#e53e3e;color:#fff;font-size:10px;font-weight:700;min-width:14px;height:14px;border-radius:7px;padding:0 3px;line-height:14px;text-align:center"></span>
+              <button id="driverNotifBellBtn" onclick="toggleDriverNotifDropdown()" title="Notifications" style="background:var(--surface-2);border:1px solid var(--surface-2);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--navy);position:relative;flex-shrink:0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                <span id="driverNotifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:#e53e3e;color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;padding:0 3px;line-height:16px;text-align:center;border:2px solid #fff"></span>
               </button>
             </div>
             <div class="online-switch-wrap">
