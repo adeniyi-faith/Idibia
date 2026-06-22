@@ -178,7 +178,10 @@
                   <div style="font-size:13px; color:var(--text-muted); margin-bottom:4px;">Available Balance</div>
                   <div style="font-size:24px; font-weight:700;" id="wallet-balance-display">₦0</div>
                 </div>
-                <button class="global-btn" style="padding:8px 16px; font-size:14px;" onclick="openPayoutModal()">Request Payout</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <button class="global-btn" style="padding:8px 16px; font-size:14px;" onclick="openPayoutModal()">Request Payout</button>
+                  <button class="global-btn" style="padding:8px 14px; font-size:13px; background:var(--surface-2,#f0f0f5); color:var(--text-primary); border:1.5px solid var(--border,#e0e0e0);" onclick="openEarningsStatementModal()" title="Download earnings statement">&#8203;&#x1F4C4; Statement</button>
+                </div>
               </div>
 
               <div class="section-head" style="margin-bottom:12px;">
@@ -372,6 +375,38 @@
               <button type="submit" class="global-btn" style="flex:1;justify-content:center">Save Changes</button>
             </div>
           </form>
+        </div>
+      </div>
+
+      <!-- Earnings Statement Modal -->
+      <div class="modal" id="modal-earnings-statement" onclick="closeModal('modal-earnings-statement')">
+        <div class="modal-content" onclick="event.stopPropagation()">
+          <h3>Download Earnings Statement</h3>
+          <p class="modal-sub">Download a PDF summary of your earnings for any period.</p>
+          <div class="form-group">
+            <label class="form-label">Period</label>
+            <select class="form-input" id="stmtPeriod" onchange="toggleCustomStatementDates()">
+              <option value="this_month">This Month</option>
+              <option value="last_month">Last Month</option>
+              <option value="this_week">This Week</option>
+              <option value="last_week">Last Week</option>
+              <option value="custom">Custom Date Range</option>
+            </select>
+          </div>
+          <div id="stmtCustomDates" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">From</label>
+              <input type="date" class="form-input" id="stmtDateFrom">
+            </div>
+            <div class="form-group">
+              <label class="form-label">To</label>
+              <input type="date" class="form-input" id="stmtDateTo">
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:24px">
+            <button type="button" class="global-btn ghost" style="flex:1;justify-content:center" onclick="closeModal('modal-earnings-statement')">Cancel</button>
+            <button type="button" class="global-btn" style="flex:1;justify-content:center" onclick="downloadEarningsStatement()">Download PDF</button>
+          </div>
         </div>
       </div>
 

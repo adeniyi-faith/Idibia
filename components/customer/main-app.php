@@ -713,3 +713,36 @@
   });
 })();
 </script>
+
+<!-- ══════════ MODAL: Trip Details ══════════ -->
+<div class="modal-overlay" id="modal-trip-details" onclick="if(event.target===this)closeModal(null,'trip-details')">
+  <div class="modal-content" onclick="event.stopPropagation()" style="max-width:420px;width:100%">
+    <div class="modal-handle"></div>
+    <div class="modal-header" style="text-align:left;margin-bottom:16px">
+      <h2 style="font-size:18px">Trip Details</h2>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;font-size:14px;">
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-muted)">Status</span>
+        <span style="font-weight:600;text-transform:capitalize" id="td-status">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-muted)">Pickup</span>
+        <span style="font-weight:500;text-align:right;max-width:60%" id="td-pickup">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-muted)">Drop-off</span>
+        <span style="font-weight:500;text-align:right;max-width:60%" id="td-dropoff">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span style="color:var(--text-muted)">Fare</span>
+        <span style="font-weight:700" id="td-fare">—</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap">
+      <button id="td-reorder-btn" class="btn-primary" style="flex:1;min-width:120px">Book Again</button>
+      <button id="td-receipt-btn" onclick="viewTripDetailReceipt()" style="flex:1;min-width:120px;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;display:none;">View Receipt</button>
+      <button id="td-pdf-btn" onclick="downloadTripDetailPDF()" style="flex:1;min-width:120px;background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:10px;font-size:14px;font-weight:600;color:var(--text-primary);cursor:pointer;display:none;">⬇ PDF</button>
+    </div>
+  </div>
+</div>

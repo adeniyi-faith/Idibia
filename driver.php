@@ -24,6 +24,12 @@ if ( is_user_logged_in() && get_user_meta( get_current_user_id(), 'idibia_accoun
     global $wpdb;
     $driver_row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ), ARRAY_A );
 
+    // Admin-triggered password reset: block app access until the driver sets a new password.
+    if ( ! empty( $driver_row['force_password_change'] ) ) {
+        header( 'Location: /driver-change-password.php' );
+        exit;
+    }
+
     $kyc_status = $driver_row['kyc_status'] ?? ( get_user_meta( $current_user->ID, 'idibia_kyc_status', true ) ?: 'pending' );
 
     $upload_dir = wp_upload_dir();

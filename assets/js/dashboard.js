@@ -939,6 +939,12 @@ function viewReceipt() {
   if (currentReceiptUrl) window.open(currentReceiptUrl, '_blank');
 }
 
+function downloadReceiptPDF() {
+  if (!currentReceiptUrl) return;
+  var sep = currentReceiptUrl.indexOf('?') === -1 ? '?' : '&';
+  window.location.href = currentReceiptUrl + sep + 'format=pdf';
+}
+
 function showPostTripModal(trip) {
   // Populate receipt breakdown
   const payment = trip?.payment || {};
@@ -963,6 +969,16 @@ function showPostTripModal(trip) {
     const methodLabel = method === 'manual_transfer' ? 'bank transfer — payment verified' : method === 'card' ? 'card' : method;
     const textNode = payLabel.firstChild;
     if (textNode && textNode.nodeType === Node.TEXT_NODE) textNode.textContent = `Paid by ${methodLabel}`;
+  }
+
+  // Receipt & PDF download buttons in post-trip modal
+  const receiptUrl = payment.receipt_url || null;
+  if (receiptUrl) {
+    currentReceiptUrl = receiptUrl;
+    const rb = document.getElementById('receiptLinkBtn');
+    if (rb) rb.style.display = 'inline-block';
+    const pb = document.getElementById('receiptPdfBtn');
+    if (pb) pb.style.display = 'inline-block';
   }
 
   // Delivery address in header
@@ -1182,10 +1198,14 @@ function renderManualPaymentPanel(trip) {
     currentReceiptUrl = payment.receipt_url;
     const receiptBtn = document.getElementById('receiptLinkBtn');
     if (receiptBtn) receiptBtn.style.display = 'inline-block';
+    const pdfBtn = document.getElementById('receiptPdfBtn');
+    if (pdfBtn) pdfBtn.style.display = 'inline-block';
   } else {
     currentReceiptUrl = null;
     const receiptBtn = document.getElementById('receiptLinkBtn');
     if (receiptBtn) receiptBtn.style.display = 'none';
+    const pdfBtn = document.getElementById('receiptPdfBtn');
+    if (pdfBtn) pdfBtn.style.display = 'none';
   }
   const manual = settings.manual_transfer || {};
   const status = record?.status || trip?.payment_status || 'pending';
@@ -1677,6 +1697,8 @@ async function confirmBooking() {
 
 
 // ═══════════ TRIP DETAILS AND REORDER ═══════════
+let currentTripDetailReceiptUrl = null;
+
 async function showTripDetails(tripId) {
   try {
     const res = await fetch(`${IDIBIA_API_BASE}/trip-feed-api.php?trip_id=${tripId}`, {
@@ -1696,11 +1718,29 @@ async function showTripDetails(tripId) {
       const reorderBtn = document.getElementById('td-reorder-btn');
       if (reorderBtn) reorderBtn.onclick = () => reorderTrip(trip.pickup, trip.dropoff, trip.category || 'package');
 
+      // Receipt & PDF buttons — visible for completed trips that have an approved payment
+      const receiptUrl = trip.payment?.receipt_url || null;
+      currentTripDetailReceiptUrl = receiptUrl;
+      const rb = document.getElementById('td-receipt-btn');
+      const pb = document.getElementById('td-pdf-btn');
+      if (rb) rb.style.display = receiptUrl ? 'block' : 'none';
+      if (pb) pb.style.display = receiptUrl ? 'block' : 'none';
+
       openModal('trip-details');
     }
   } catch (err) {
     showToast('Connection error fetching trip details');
   }
+}
+
+function viewTripDetailReceipt() {
+  if (currentTripDetailReceiptUrl) window.open(currentTripDetailReceiptUrl, '_blank');
+}
+
+function downloadTripDetailPDF() {
+  if (!currentTripDetailReceiptUrl) return;
+  const sep = currentTripDetailReceiptUrl.indexOf('?') === -1 ? '?' : '&';
+  window.location.href = currentTripDetailReceiptUrl + sep + 'format=pdf';
 }
 
 function viewDeliveryPhoto(encodedUrl) {

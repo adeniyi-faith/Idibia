@@ -110,6 +110,12 @@ try {
             idibia_admin_suspend_driver();
             break;
 
+        case 'reset_driver_password':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'suspend_reinstate_driver' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_reset_driver_password();
+            break;
+
         case 'get_customers':
             idibia_require_method( 'GET' );
             if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
