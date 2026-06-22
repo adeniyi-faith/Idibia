@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 18;
+    $target_version = 19;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -586,6 +586,33 @@ function idibia_maybe_create_tables() {
 
         update_option( 'idibia_db_version', 18 );
         $current_version = 18;
+    }
+
+    if ( $current_version < 19 ) {
+        global $wpdb;
+        $charset = $wpdb->get_charset_collate();
+
+        // Add before_state/after_state to audit log for full before-and-after snapshots
+        $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_admin_audit_logs`
+            ADD COLUMN IF NOT EXISTS `before_state` LONGTEXT NULL AFTER `metadata`,
+            ADD COLUMN IF NOT EXISTS `after_state`  LONGTEXT NULL AFTER `before_state`" );
+
+        // Track every settings change: who changed what and when
+        $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$wpdb->prefix}sd_settings_history` (
+            `id`                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `setting_key`         VARCHAR(80)     NOT NULL,
+            `old_value`           TEXT            NULL,
+            `new_value`           TEXT            NULL,
+            `changed_by_admin_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            `changed_at`          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (`id`),
+            KEY `setting_key`         (`setting_key`),
+            KEY `changed_by_admin_id` (`changed_by_admin_id`),
+            KEY `changed_at`          (`changed_at`)
+        ) $charset;" );
+
+        update_option( 'idibia_db_version', 19 );
+        $current_version = 19;
     }
 }
 

@@ -1,8 +1,18 @@
 <!-- SETTINGS -->
   <div class="panel" id="panel-settings">
     <div class="page-header"><h2 class="page-title">Settings</h2><div class="page-sub">Platform configuration and policies</div></div>
+    <div class="settings-section" style="background:rgba(255,204,0,0.06);border:1px solid rgba(255,204,0,0.2);border-radius:8px;padding:14px 18px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-weight:700;font-size:13px;color:var(--text-primary)">Settings Change History</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:3px">Every time a setting is changed, the old and new values are recorded automatically.</div>
+        </div>
+        <button class="btn-primary" style="width:auto;padding:7px 16px;font-size:12px" onclick="openSettingsHistoryModal('')">View Full History</button>
+      </div>
+    </div>
+
     <div class="settings-section">
-      <h4>Email (SMTP)</h4>
+      <h4>Email (SMTP) <button class="scard-action" style="margin-left:10px;font-size:11px" onclick="openSettingsHistoryModal('smtp')">Change History</button></h4>
       <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">
         Connect a real email service so messages actually reach users' inboxes instead of going to spam.
         Leave blank to keep using the server's default mail (not recommended).
@@ -28,7 +38,7 @@
     </div>
 
     <div class="settings-section">
-      <h4>Services & APIs</h4>
+      <h4>Services &amp; APIs <button class="scard-action" style="margin-left:10px;font-size:11px" onclick="openSettingsHistoryModal('api')">Change History</button></h4>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Nominatim URL</label><input class="form-input" data-setting="nominatim_url" placeholder="https://nominatim.openstreetmap.org/search"></div>
         <div class="form-group"><label class="form-label">ORS URL</label><input class="form-input" data-setting="ors_url" placeholder="https://api.openrouteservice.org/v2/directions/driving-car"></div>
@@ -45,7 +55,7 @@
     </div>
 
     <div class="settings-section">
-      <h4>Commission & Pricing</h4>
+      <h4>Commission &amp; Pricing <button class="scard-action" style="margin-left:10px;font-size:11px" onclick="openSettingsHistoryModal('commission')">Change History</button></h4>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Platform commission (%)</label><input class="form-input" type="number" data-setting="platform_commission_pct" value="20" min="1" max="50"></div>
         <div class="form-group"><label class="form-label">Surge multiplier cap (×)</label><input class="form-input" type="number" data-setting="surge_multiplier_cap" value="2.5" min="1" step="0.1"></div>
@@ -55,7 +65,7 @@
     </div>
 
     <div class="settings-section">
-      <h4>Manual Transfer Payments</h4>
+      <h4>Manual Transfer Payments <button class="scard-action" style="margin-left:10px;font-size:11px" onclick="openSettingsHistoryModal('payment')">Change History</button></h4>
       <div class="form-row">
         <div class="form-group"><label class="form-label">Active provider</label><select class="form-input" data-setting="payment_active_provider"><option value="manual_transfer">Manual transfer</option><option value="paystack">Paystack (future)</option><option value="flutterwave">Flutterwave (future)</option></select></div>
         <div class="form-group"><label class="form-label">Bank name</label><input class="form-input" data-setting="manual_bank_name" placeholder="e.g. GTBank"></div>
@@ -105,7 +115,7 @@
       </div>
     </div>
     <div class="settings-section">
-      <h4>Operational Settings</h4>
+      <h4>Operational Settings <button class="scard-action" style="margin-left:10px;font-size:11px" onclick="openSettingsHistoryModal('operational')">Change History</button></h4>
       <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">Controls automated dispatch timing, offer retry behaviour, and the no-driver cancellation timeout.</p>
       <div class="form-row">
         <div class="form-group">
@@ -205,6 +215,99 @@
     var zm=document.getElementById('zoneModal');
     if(zm) zm.addEventListener('click',function(e){if(e.target===this)closeZoneModal();});
   });
+
+  // ── Settings Change History modal ──────────────────────────────────────────
+
+  // Keys that belong to each section (for client-side filtering when keys
+  // don't share a common DB prefix).
+  var _SECT_KEYS = {
+    api: ['nominatim_url','ors_url','ors_api_key','opencage_api_key',
+          'pusher_app_id','pusher_key','pusher_secret','pusher_cluster'],
+    commission: ['platform_commission_pct','surge_multiplier_cap',
+                 'min_fare','max_delivery_radius_km'],
+    payment: ['payment_active_provider','manual_bank_name','manual_account_name',
+              'manual_account_number','manual_payment_instructions',
+              'paystack_public_key','paystack_secret_key',
+              'flutterwave_public_key','flutterwave_secret_key'],
+    operational: ['dispatch_retry_limit','trip_timeout_minutes',
+                  'scheduled_dispatch_advance_minutes']
+  };
+  var _SECT_TITLES = {
+    '':'All Settings', smtp:'Email (SMTP)', api:'Services & APIs',
+    commission:'Commission & Pricing', payment:'Manual Transfer Payments',
+    operational:'Operational Settings'
+  };
+  var _shPage = 1;
+  var _shPrefix = '';
+
+  window.openSettingsHistoryModal = function(prefix){
+    _shPrefix = prefix || '';
+    _shPage   = 1;
+    var title = (_SECT_TITLES[_shPrefix] || 'Settings') + ' — Change History';
+    document.getElementById('settingsHistoryTitle').textContent = title;
+    document.getElementById('settingsHistoryModal').style.display = 'flex';
+    _loadSettingsHistory();
+  };
+
+  window.closeSettingsHistoryModal = function(){
+    document.getElementById('settingsHistoryModal').style.display = 'none';
+  };
+
+  window.settingsHistoryChangePage = function(p){
+    _shPage = p;
+    _loadSettingsHistory();
+  };
+
+  function _loadSettingsHistory(){
+    var body = document.getElementById('settingsHistoryBody');
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</td></tr>';
+    var params = { page: _shPage, per_page: 25 };
+    if(_shPrefix === 'smtp'){
+      // SMTP keys all start with smtp_ → server-side LIKE filter
+      params.key_prefix = 'smtp_';
+    }
+    // All other sections: fetch full page and filter client-side.
+    adminApi('get_settings_history', params).then(function(data){
+      var rows = data.history || [];
+      // Client-side filter for sections without a clean key prefix.
+      if(_shPrefix && _shPrefix !== 'smtp'){
+        var allow = _SECT_KEYS[_shPrefix];
+        if(allow) rows = rows.filter(function(r){ return allow.indexOf(r.setting_key) !== -1; });
+      }
+      if(!rows.length){
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No changes recorded for this section yet.</td></tr>';
+        document.getElementById('settingsHistoryPagination').innerHTML = '';
+        return;
+      }
+      body.innerHTML = rows.map(function(r){
+        var oldV = (r.old_value === null || r.old_value === undefined || r.old_value === '')
+          ? '<em style="color:var(--text-muted)">—</em>'
+          : '<span style="color:#f66;font-family:monospace;font-size:11px">' + escapeHtml(String(r.old_value).slice(0,60) + (r.old_value.length > 60 ? '…' : '')) + '</span>';
+        var newV = (r.new_value === null || r.new_value === undefined || r.new_value === '')
+          ? '<em style="color:var(--text-muted)">—</em>'
+          : '<span style="color:#4caf50;font-family:monospace;font-size:11px">' + escapeHtml(String(r.new_value).slice(0,60) + (r.new_value.length > 60 ? '…' : '')) + '</span>';
+        var who  = r.changed_by_name ? escapeHtml(r.changed_by_name) : 'Admin #' + r.changed_by_admin_id;
+        var when = r.changed_at ? new Date(r.changed_at.replace(' ','T')+'Z').toLocaleString() : '—';
+        return '<tr style="border-bottom:1px solid var(--surface-2)">' +
+          '<td style="padding:8px 10px;font-size:12px;font-family:monospace;white-space:nowrap;color:var(--text-primary)">' + escapeHtml(r.setting_key) + '</td>' +
+          '<td style="padding:8px 10px">' + oldV + '</td>' +
+          '<td style="padding:8px 10px">' + newV + '</td>' +
+          '<td style="padding:8px 10px;font-size:12px;white-space:nowrap">' + who + '</td>' +
+          '<td style="padding:8px 10px;font-size:11px;color:var(--text-muted);white-space:nowrap">' + when + '</td>' +
+          '</tr>';
+      }).join('');
+      // Pagination
+      var total = parseInt(data.total || 0, 10);
+      var perPage = parseInt(data.per_page || 25, 10);
+      var pages = Math.max(1, Math.ceil(total / perPage));
+      document.getElementById('settingsHistoryPagination').innerHTML =
+        '<span style="font-size:12px;color:var(--text-muted)">Page ' + _shPage + ' of ' + pages + ' · ' + total + ' total</span> ' +
+        '<button style="padding:4px 10px;border-radius:6px;border:1px solid var(--surface-2);background:none;font-size:12px;cursor:pointer" ' + (_shPage <= 1 ? 'disabled' : '') + ' onclick="settingsHistoryChangePage(' + (_shPage - 1) + ')">Prev</button> ' +
+        '<button style="padding:4px 10px;border-radius:6px;border:1px solid var(--surface-2);background:none;font-size:12px;cursor:pointer" ' + (_shPage >= pages ? 'disabled' : '') + ' onclick="settingsHistoryChangePage(' + (_shPage + 1) + ')">Next</button>';
+    }).catch(function(e){
+      body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#f44">' + escapeHtml(e.message || 'Failed to load history') + '</td></tr>';
+    });
+  }
 
   window.sendTestEmail = function(){
     var to = document.getElementById('smtpTestEmail').value.trim();

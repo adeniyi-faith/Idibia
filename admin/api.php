@@ -229,6 +229,18 @@ try {
             idibia_admin_credit_customer_wallet();
             break;
 
+        case 'get_audit_log':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_admin_users' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_audit_log();
+            break;
+
+        case 'get_settings_history':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_settings_history();
+            break;
+
         case 'get_settings':
             idibia_require_method( 'GET' );
             if(!idibia_admin_has_permission('view_settings')){ wp_send_json_error(['message'=>'Denied.'],403); }
@@ -274,6 +286,12 @@ try {
             idibia_require_method( 'GET' );
             if ( ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_revenue_analytics();
+            break;
+
+        case 'get_pnl_summary':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_pnl_summary();
             break;
 
         case 'get_payment':

@@ -738,11 +738,23 @@ async function loadReconciliation(page=pageState.reconciliation.page) {
   }
 }
 
+function getRevDateRange(){
+  const fromEl = document.getElementById('revDateFrom');
+  const toEl   = document.getElementById('revDateTo');
+  const params = {};
+  if(fromEl && fromEl.value) params.date_from = fromEl.value;
+  if(toEl   && toEl.value)   params.date_to   = toEl.value;
+  return params;
+}
 async function loadRevenue(){
   const catChart=document.getElementById('revCategoryChart');
   if(catChart) catChart.innerHTML='<div class="loading-state" style="padding:20px 0">'+skeletonRows(3)+'</div>';
+  const dateRange = getRevDateRange();
   try {
-    const data = await adminApi('get_revenue_analytics');
+    const [data, pnl] = await Promise.all([
+      adminApi('get_revenue_analytics', dateRange),
+      adminApi('get_pnl_summary', dateRange).catch(()=>null)
+    ]);
     const el = id => document.getElementById(id);
     if(el('revMonthly')) el('revMonthly').textContent = formatMoney(data.monthly_revenue);
     if(el('revCommission')) el('revCommission').textContent = formatMoney(data.net_commission);
@@ -753,8 +765,27 @@ async function loadRevenue(){
     const ratio = data.monthly_revenue > 0 ? Math.min(100, (data.driver_payouts / data.monthly_revenue * 100)).toFixed(1) : '0.0';
     if(el('revPayoutRatio')) el('revPayoutRatio').textContent = ratio+'%';
     if(el('revMonthlyDelta')) el('revMonthlyDelta').textContent = 'Avg ₦'+Number(data.avg_daily||0).toLocaleString(undefined,{maximumFractionDigits:0})+'/day';
+    if(el('revPeriodLabel')) el('revPeriodLabel').textContent = (data.date_from && data.date_to) ? data.date_from + ' → ' + data.date_to : '';
     renderRevenueWeekChart(data.weekly_chart||[]);
     renderRevenueCategoryChart(data.category_chart||[]);
+    // P&L cards
+    if(pnl){
+      if(el('plGrossRevenue')) el('plGrossRevenue').textContent = formatMoney(pnl.gross_revenue);
+      if(el('plTotalPayouts')) el('plTotalPayouts').textContent = formatMoney(pnl.total_payouts_made);
+      if(el('plTotalRefunds')) el('plTotalRefunds').textContent = formatMoney(pnl.total_refunds_issued);
+      if(el('plTotalBonuses')) el('plTotalBonuses').textContent = formatMoney(pnl.total_bonuses_paid);
+      const np = pnl.net_profit;
+      if(el('plNetProfit')){ el('plNetProfit').textContent = formatMoney(np); el('plNetProfit').style.color = np >= 0 ? 'var(--success)' : 'var(--danger)'; }
+      if(el('plCashPosition')) el('plCashPosition').textContent = formatMoney(pnl.running_balance);
+      if(el('plOutstandingPayouts')) el('plOutstandingPayouts').textContent = formatMoney(pnl.outstanding_payouts);
+      if(el('plPayoutRate')) el('plPayoutRate').textContent = pnl.payout_rate+'% payout rate';
+      if(pnl.revenue_change_pct !== null && el('plRevenueDelta')){
+        const chg = pnl.revenue_change_pct;
+        el('plRevenueDelta').textContent = (chg >= 0 ? '+' : '') + chg + '% vs prior period';
+        el('plRevenueDelta').className = 'metric-delta ' + (chg >= 0 ? 'up' : 'down');
+      }
+      if(el('plPeriodBadge') && pnl.date_from) el('plPeriodBadge').textContent = pnl.date_from + ' → ' + pnl.date_to;
+    }
   } catch(e) {
     ['revMonthly','revCommission','revPayouts','revAvgDaily'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = 'Error'; });
   }
@@ -799,9 +830,27 @@ function renderRevenueCategoryChart(cats){
     </div>`;
   }).join('');
 }
-function exportTaxSummary(){ window.location.href = ADMIN_API_URL + '?action=export_tax_summary'; }
-function exportDriverWht(){ window.location.href = ADMIN_API_URL + '?action=export_driver_wht'; }
-function exportVatSchedule(){ window.location.href = ADMIN_API_URL + '?action=export_vat_schedule'; }
+function exportTaxSummary(){
+  const p = getRevDateRange();
+  let url = ADMIN_API_URL + '?action=export_tax_summary';
+  if(p.date_from) url += '&date_from=' + encodeURIComponent(p.date_from);
+  if(p.date_to)   url += '&date_to='   + encodeURIComponent(p.date_to);
+  window.location.href = url;
+}
+function exportDriverWht(){
+  const p = getRevDateRange();
+  let url = ADMIN_API_URL + '?action=export_driver_wht';
+  if(p.date_from) url += '&date_from=' + encodeURIComponent(p.date_from);
+  if(p.date_to)   url += '&date_to='   + encodeURIComponent(p.date_to);
+  window.location.href = url;
+}
+function exportVatSchedule(){
+  const p = getRevDateRange();
+  let url = ADMIN_API_URL + '?action=export_vat_schedule';
+  if(p.date_from) url += '&date_from=' + encodeURIComponent(p.date_from);
+  if(p.date_to)   url += '&date_to='   + encodeURIComponent(p.date_to);
+  window.location.href = url;
+}
 function exportRevenueCsv(){
   const rows = [];
   const chart = document.getElementById('revWeekChart');
