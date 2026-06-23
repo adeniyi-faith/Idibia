@@ -1,8 +1,8 @@
 <div class="screen <?php echo $driver_initial_context['is_approved'] ? '' : 'active'; ?>" id="screen-driver">
     <div class="driver-header" id="driverHeaderWrap">
       <div>
-        <div style="font-size:11px;color:var(--slate);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;position:relative;z-index:1">Driver Registration</div>
-        <h2 id="driverStepTitle">Account Setup</h2>
+        <div style="font-size:11px;color:var(--slate);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;position:relative;z-index:1"><?php echo esc_html( __t('driver_registration') ); ?></div>
+        <h2 id="driverStepTitle"><?php echo esc_html( __t('account_setup') ); ?></h2>
       </div>
       <div class="step-indicator">Step <strong id="driverStepNum">1</strong>&nbsp;/ 5</div>
     </div>
@@ -19,7 +19,7 @@
         <h3 class="step-title">Let's get you started</h3>
         <p class="step-sub">Select your language and fill in your basic personal information</p>
         <div class="form-group driver-register-only">
-          <label class="form-label">Preferred Language</label>
+          <label class="form-label"><?php echo esc_html( __t('preferred_language') ); ?></label>
           <select class="form-input" id="driverLanguage">
             <option>English</option>
             <option>Hausa</option>
@@ -31,8 +31,8 @@
 
         <div class="driver-auth-card">
           <div class="driver-auth-tabs" role="tablist" aria-label="Driver account access">
-            <button class="driver-auth-tab active" id="driverSignupTab" type="button" role="tab" aria-selected="true" aria-controls="driverSignupPanel" onclick="setDriverAuthMode('signup')">Register</button>
-            <button class="driver-auth-tab" id="driverLoginTab" type="button" role="tab" aria-selected="false" aria-controls="driverLoginPanel" onclick="setDriverAuthMode('login')">Sign in</button>
+            <button class="driver-auth-tab active" id="driverSignupTab" type="button" role="tab" aria-selected="true" aria-controls="driverSignupPanel" onclick="setDriverAuthMode('signup')"><?php echo esc_html( __t('register') ); ?></button>
+            <button class="driver-auth-tab" id="driverLoginTab" type="button" role="tab" aria-selected="false" aria-controls="driverLoginPanel" onclick="setDriverAuthMode('login')"><?php echo esc_html( __t('sign_in') ); ?></button>
           </div>
 
           <div class="driver-auth-panel active" id="driverSignupPanel" role="tabpanel" aria-labelledby="driverSignupTab">

@@ -69,7 +69,7 @@
               </button>
             </div>
             <div class="online-switch-wrap">
-              <span class="online-switch-label" id="onlineLabel"><?php echo $__is_online ? 'Online' : 'Offline'; ?></span>
+              <span class="online-switch-label" id="onlineLabel"><?php echo esc_html( $__is_online ? __t('online') : __t('offline') ); ?></span>
               <button type="button" class="online-switch<?php echo $__is_online ? ' online' : ''; ?>" id="onlineToggle" role="switch" aria-checked="<?php echo $__is_online ? 'true' : 'false'; ?>" aria-label="Toggle online status" onclick="toggleOnline()">
                 <span class="online-switch-thumb"></span>
               </button>
@@ -244,7 +244,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 </div>
                 <div>
-                  <div class="profile-row-label">Personal Info</div>
+                  <div class="profile-row-label"><?php echo esc_html( __t('personal_info') ); ?></div>
                   <div class="profile-row-sub" id="profilePersonalSub">Name, Phone</div>
                 </div>
               </div>
@@ -257,7 +257,7 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
                 </div>
                 <div>
-                  <div class="profile-row-label">Bank Details</div>
+                  <div class="profile-row-label"><?php echo esc_html( __t('bank_details') ); ?></div>
                   <div class="profile-row-sub" id="profileBankSub">Bank Name · Account</div>
                 </div>
               </div>
@@ -283,16 +283,38 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13 19.79 19.79 0 0 1 1.61 4.37 2 2 0 0 1 3.6 2h3a2 2 0 0 1 2 1.72c.127.96.36 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l.97-.86a2 2 0 0 1 2.11-.45c.907.34 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                 </div>
                 <div>
-                  <div class="profile-row-label">Emergency Contact</div>
+                  <div class="profile-row-label"><?php echo esc_html( __t('emergency_contact') ); ?></div>
                   <div class="profile-row-sub" id="profileEmergencySub">Contact Name · Phone</div>
                 </div>
               </div>
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
 
+            <!-- Language Selector -->
+            <div class="profile-row" style="cursor:default;padding-bottom:0">
+              <div class="profile-row-left" style="width:100%;flex-direction:column;align-items:flex-start;gap:8px">
+                <div style="display:flex;align-items:center;gap:10px;width:100%">
+                  <div class="profile-row-icon" style="background:rgba(100,100,100,0.08);color:var(--text-muted);flex-shrink:0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  </div>
+                  <div>
+                    <div class="profile-row-label"><?php echo esc_html( __t('language') ); ?></div>
+                    <div class="profile-row-sub">App display language</div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;padding-left:46px;padding-bottom:14px;width:100%">
+                  <select id="driverLangSelect" class="form-input" style="flex:1;max-width:200px;height:36px;font-size:13px">
+                    <option value="en" <?php echo ( ( get_user_meta(get_current_user_id(),'idibia_driver_language',true) ?: 'en' ) === 'en' ) ? 'selected' : ''; ?>>English</option>
+                    <option value="ha" <?php echo ( get_user_meta(get_current_user_id(),'idibia_driver_language',true) === 'ha' ) ? 'selected' : ''; ?>>Hausa</option>
+                  </select>
+                  <button class="btn-primary" style="height:36px;padding:0 14px;font-size:13px" onclick="saveDriverLanguage()"><?php echo esc_html( __t('save_language') ); ?></button>
+                </div>
+              </div>
+            </div>
+
             <!-- Help & Support -->
             <div class="section-head" style="margin-top:28px;margin-bottom:8px">
-              <div class="section-head-title">Help & Support</div>
+              <div class="section-head-title"><?php echo esc_html( __t('help_support') ); ?></div>
             </div>
             <div class="help-category" onclick="showToast('Opening: Payments & Earnings help')">
               <div class="help-cat-icon" style="background:rgba(34,196,122,0.1);color:var(--success)">
@@ -348,7 +370,7 @@
             <div style="margin-top:20px">
               <button class="global-btn ghost" style="width:100%;justify-content:center" onclick="doDriverLogout()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                Log Out
+                <?php echo esc_html( __t('log_out') ); ?>
               </button>
             </div>
           </div><!-- end panel-profile -->

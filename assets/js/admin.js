@@ -26,8 +26,8 @@ loginForm.addEventListener('submit', async (event) => {
 
 /* Admin App Script */
 
-const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns',notifications:'Notifications'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history'};
+const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns',notifications:'Notifications',system:'System Health'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history',system:'Live platform status · gateways · cron · dispatch pipeline'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -46,6 +46,7 @@ function nav(name,btn){
   closeSubjectRatingsPanel();
 
   // Close sidebar on mobile after navigation
+  if(name === 'system') { if(typeof systemHealthInit==='function') systemHealthInit(); } else { if(typeof systemHealthStop==='function') systemHealthStop(); }
   if(name === 'overview') loadDashboard();
   if(name === 'ops') loadLiveOps();
   if(name === 'trips') loadTrips();

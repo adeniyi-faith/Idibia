@@ -102,6 +102,27 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' ) {
         wp_send_json_success( [ 'message' => 'Emergency contact updated successfully.' ] );
     }
 
+    if ( $action === 'update_language' ) {
+        $language = sanitize_text_field( wp_unslash( $_POST['language'] ?? '' ) );
+        $allowed  = [ 'en', 'ha', 'yo', 'ig', 'pcm' ]; // English, Hausa, Yoruba, Igbo, Pidgin
+        if ( ! in_array( $language, $allowed, true ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid language selection.' ] );
+        }
+
+        update_user_meta( $user_id, 'idibia_driver_language', $language );
+
+        // Also persist to the sd_drivers table so the dispatch system and __t() can read it.
+        $wpdb->update(
+            $wpdb->prefix . 'sd_drivers',
+            [ 'language' => $language ],
+            [ 'id' => $driver_id ],
+            [ '%s' ],
+            [ '%d' ]
+        );
+
+        wp_send_json_success( [ 'message' => 'Language saved successfully.' ] );
+    }
+
     if ( $action === 'upload_avatar' ) {
         if ( empty( $_FILES['selfie'] ) || ! empty( $_FILES['selfie']['error'] ) ) {
             wp_send_json_error( [ 'message' => 'No valid image uploaded.' ] );

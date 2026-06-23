@@ -22,6 +22,7 @@ require_once __DIR__ . '/api/ratings.php';
 require_once __DIR__ . '/api/refunds.php';
 require_once __DIR__ . '/api/notifications.php';
 require_once __DIR__ . '/api/bulk.php';
+require_once __DIR__ . '/api/system-health.php';
 
 // Check auth first
 $admin_id = 0;
@@ -522,14 +523,16 @@ try {
             idibia_admin_get_demand_supply_heatmap();
             break;
 
-        case 'get_admin_notifications':
+        case 'get_system_health':
             idibia_require_method( 'GET' );
-            idibia_admin_get_notifications();
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_system_health();
             break;
 
-        case 'mark_admin_notifications_read':
+        case 'force_drivers_offline':
             idibia_require_method( 'POST' );
-            idibia_admin_mark_notifications_read();
+            if ( ! idibia_admin_has_permission( 'view_settings' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_force_drivers_offline();
             break;
 
         default:
