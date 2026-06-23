@@ -827,7 +827,8 @@ async function loadRevenue(){
     if(el('revAvgDaily')) el('revAvgDaily').textContent = formatMoney(data.avg_daily);
     if(el('revSameDay')) el('revSameDay').textContent = Number(data.same_day_trips||0).toLocaleString();
     if(el('revGateway')) el('revGateway').textContent = Number(data.gateway_success_rate||0).toFixed(1)+'%';
-    const ratio = data.monthly_revenue > 0 ? Math.min(100, (data.driver_payouts / data.monthly_revenue * 100)).toFixed(1) : '0.0';
+    // Use the backend-computed payout_rate (driver payouts as % of driver earnings).
+    const ratio = pnl ? Number(pnl.payout_rate).toFixed(1) : '0.0';
     if(el('revPayoutRatio')) el('revPayoutRatio').textContent = ratio+'%';
     if(el('revMonthlyDelta')) el('revMonthlyDelta').textContent = 'Avg ₦'+Number(data.avg_daily||0).toLocaleString(undefined,{maximumFractionDigits:0})+'/day';
     if(el('revPeriodLabel')) el('revPeriodLabel').textContent = (data.date_from && data.date_to) ? data.date_from + ' → ' + data.date_to : '';
