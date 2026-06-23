@@ -27,7 +27,7 @@ loginForm.addEventListener('submit', async (event) => {
 /* Admin App Script */
 
 const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns',notifications:'Notifications',system:'System Health'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Port Harcourt metro',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history',system:'Live platform status · gateways · cron · dispatch pipeline'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Real-time trip tracking',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history',system:'Live platform status · gateways · cron · dispatch pipeline'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -899,7 +899,53 @@ function setPayoutStatus(v){ pageState.payouts.status=v; loadPayouts(1); }
 function queueDisputeSearch(v){ clearTimeout(searchTimers.disputes); searchTimers.disputes=setTimeout(()=>{pageState.disputes.search=v; loadDisputes(1);},300); }
 function setDisputeStatus(v){ pageState.disputes.status=v; syncDisputeFilterBtns(v); loadDisputes(1); }
 function syncDisputeFilterBtns(v){ document.querySelectorAll('#panel-disputes .filter-btn').forEach(b=>b.classList.toggle('active',b.dataset.status===v)); }
+let opsMap = null;
+let opsDriverMarkers = [];
+
+function initOpsMap() {
+  const el = document.getElementById('opsLeafletMap');
+  if (!el || typeof L === 'undefined') return;
+  if (opsMap) { setTimeout(() => opsMap.invalidateSize(), 120); return; }
+  opsMap = L.map('opsLeafletMap', { zoomControl: true, scrollWheelZoom: false }).setView([4.8156, 7.0498], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(opsMap);
+}
+
+function placeOpsMarkers(drivers) {
+  if (!opsMap) return;
+  opsDriverMarkers.forEach(m => m.remove());
+  opsDriverMarkers = [];
+  const pts = [];
+  (drivers || []).forEach(d => {
+    const lat = parseFloat(d.lat), lng = parseFloat(d.lng);
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) return;
+    const inTrip = !!d.trip_id;
+    const color = inTrip ? '#4A9EFF' : '#22C47A';
+    const svgPaths = {
+      bike: '<path d="M5 16L9 8h5l3 4h3"/><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/>',
+      car:  '<rect x="2" y="9" width="20" height="8" rx="2"/><path d="M5 9l2-4h10l2 4"/><circle cx="7" cy="17" r="1.5"/><circle cx="17" cy="17" r="1.5"/>',
+      van:  '<rect x="1" y="6" width="15" height="12" rx="1"/><path d="M16 9l5 3v6h-5"/><circle cx="5" cy="18" r="1.5"/><circle cx="12" cy="18" r="1.5"/>',
+      keke: '<circle cx="5" cy="17" r="2"/><circle cx="12" cy="17" r="2"/><path d="M5 17V9h7v8"/><path d="M12 12h5v5h-2"/>'
+    }[d.vehicle_type] || '<path d="M5 16L9 8h5l3 4h3"/><circle cx="5" cy="16" r="2"/><circle cx="19" cy="16" r="2"/>';
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:30px;height:30px;background:#0B1628;border:2.5px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35)"><svg viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" width="14" height="14">${svgPaths}</svg></div>`,
+      iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -18]
+    });
+    const m = L.marker([lat, lng], { icon })
+      .bindPopup(`<b>${escapeHtml(d.full_name || d.first_name || 'Driver')}</b><br>${inTrip ? 'In Trip' : 'Online'}<br><small>GPS ${lat.toFixed(5)}, ${lng.toFixed(5)}</small>`)
+      .addTo(opsMap);
+    opsDriverMarkers.push(m);
+    pts.push([lat, lng]);
+  });
+  if (pts.length > 0) opsMap.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 15 });
+  setTimeout(() => opsMap.invalidateSize(), 200);
+}
+
 async function loadLiveOps(){
+  initOpsMap();
   const tripList=document.getElementById('opsTripList');
   const driverList=document.getElementById('opsDriverList');
   if(tripList) tripList.innerHTML=skeletonRows(3);
@@ -973,6 +1019,7 @@ function renderLiveOps(data){
       }).join('');
     }
   }
+  placeOpsMarkers(drivers);
 }
 setInterval(() => {
   if(document.getElementById('panel-ops')?.classList.contains('active')) loadLiveOps();

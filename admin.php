@@ -136,6 +136,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/admin.css?v=<?php echo filemtime( __DIR__ . '/assets/css/admin.css' ); ?>">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 </head>
 <body>
 <div id="app">
@@ -168,6 +169,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 
 <?php require_once __DIR__ . '/components/admin/modals.php'; ?>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 let ADMIN_API_URL = "/admin/api.php";
 </script>
