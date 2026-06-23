@@ -61,16 +61,18 @@ function idibia_admin_revenue_analytics(): void {
     }
     $weekly_chart = array_slice( $daily_breakdown, -7 ); // last 7 days for the bar chart
 
-    // Revenue by service category
-    $cat_rows = $wpdb->get_results( "
+    // Revenue by service category — filtered to the selected date range.
+    $cat_rows = $wpdb->get_results( $wpdb->prepare( "
         SELECT COALESCE(NULLIF(service_category,''), NULLIF(category,''), 'Other') AS cat,
                COALESCE(SUM($commission_expr),0) AS revenue
         FROM `{$wpdb->prefix}sd_trips`
         WHERE status='completed'
+          AND DATE(COALESCE(completed_at,created_at)) >= %s
+          AND DATE(COALESCE(completed_at,created_at)) <= %s
         GROUP BY cat
         ORDER BY revenue DESC
         LIMIT 6
-    ", ARRAY_A ) ?: [];
+    ", $date_from, $date_to ), ARRAY_A ) ?: [];
     $category_chart = array_map( fn($r) => [ 'label' => $r['cat'], 'revenue' => (float) $r['revenue'] ], $cat_rows );
 
     // Gateway success rate (all-time)
@@ -240,9 +242,22 @@ function idibia_admin_get_pnl_summary(): void {
         "SELECT COALESCE(SUM(amount), 0) FROM `{$wpdb->prefix}sd_payouts` WHERE status IN ('pending','processing')"
     );
 
-    $net_profit     = $gross_revenue - $total_payouts - $total_refunds - $total_bonuses;
-    $payout_rate    = $gross_revenue > 0 ? round( $total_payouts / $gross_revenue * 100, 1 ) : 0.0;
-    $running_balance = $gross_revenue - $total_payouts - $total_refunds;
+    // Net profit = platform commission minus what the platform actually spends (refunds +
+    // driver bonuses).  Driver payouts are the drivers' own earned money being transferred to
+    // their bank — they are NOT deducted from the platform's commission here.
+    $net_profit      = $gross_revenue - $total_refunds - $total_bonuses;
+    $running_balance = $gross_revenue - $total_refunds;
+
+    // Payout rate: what percentage of total driver earnings (fares minus commission) has
+    // already been paid out to drivers' bank accounts.
+    $total_fares = (float) $wpdb->get_var( $wpdb->prepare(
+        "SELECT COALESCE(SUM(COALESCE(NULLIF(final_fare,0), NULLIF(fare_estimate,0), fare, 0)), 0)
+         FROM `{$wpdb->prefix}sd_trips`
+         WHERE status='completed' AND DATE(COALESCE(completed_at, created_at)) >= %s AND DATE(COALESCE(completed_at, created_at)) <= %s",
+        $date_from, $date_to
+    ) );
+    $driver_earnings_total = max( 0.0, $total_fares - $gross_revenue );
+    $payout_rate           = $driver_earnings_total > 0 ? round( $total_payouts / $driver_earnings_total * 100, 1 ) : 0.0;
 
     // Compare against the previous period of the same length.
     $from_ts   = strtotime( $date_from );
