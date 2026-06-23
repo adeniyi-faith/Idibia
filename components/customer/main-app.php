@@ -351,7 +351,12 @@
             <div class="stat-label">Rating</div>
           </div>
           <div class="stat-card" onclick="openWalletPanel()" style="cursor:pointer;border-color:rgba(245,200,66,0.3);background:linear-gradient(135deg,#fffdf0 0%,var(--white) 100%)">
-            <div class="stat-value" style="color:var(--gold-dark)">₦<?php echo esc_html($customer_wallet_balance); ?></div>
+            <div class="stat-value" style="color:var(--gold-dark)">₦<?php
+              $w = (float)$customer_wallet_balance;
+              if ($w >= 1000000) { echo number_format($w/1000000, 1) . 'M'; }
+              elseif ($w >= 1000) { echo number_format($w/1000, 1) . 'K'; }
+              else { echo number_format($w, 0); }
+            ?></div>
             <div class="stat-label">Wallet</div>
           </div>
         </div>

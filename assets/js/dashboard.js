@@ -700,6 +700,14 @@ function toggleBookingOptions() {
   const isOpen = panel.style.display !== 'none';
   panel.style.display = isOpen ? 'none' : 'block';
   if (chevron) chevron.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  const scrollEl = document.querySelector('.panel-scroll');
+  if (scrollEl) {
+    if (isOpen) {
+      scrollEl.scrollTop = 0;
+    } else {
+      setTimeout(() => scrollEl.scrollTo({ top: scrollEl.scrollHeight, behavior: 'smooth' }), 50);
+    }
+  }
 }
 
 function updateOptionsLabel() {
@@ -1703,35 +1711,52 @@ async function confirmBooking() {
 let currentTripDetailReceiptUrl = null;
 
 async function showTripDetails(tripId) {
+  // Show modal immediately with a loading state so the user sees feedback at once
+  document.getElementById('td-status').textContent = 'Loading…';
+  document.getElementById('td-pickup').textContent = '—';
+  document.getElementById('td-dropoff').textContent = '—';
+  document.getElementById('td-fare').textContent = '—';
+  const rb = document.getElementById('td-receipt-btn');
+  const pb = document.getElementById('td-pdf-btn');
+  if (rb) rb.style.display = 'none';
+  if (pb) pb.style.display = 'none';
+  openModal('trip-details');
+
   try {
     const res = await fetch(`${IDIBIA_API_BASE}/trip-feed-api.php?trip_id=${tripId}`, {
       credentials: 'same-origin'
     });
-    if (!res.ok) return showToast('Could not fetch trip details');
+    if (!res.ok) {
+      document.getElementById('td-status').textContent = 'Could not load';
+      showToast('Could not fetch trip details');
+      return;
+    }
     const json = await res.json();
     if (json.success) {
       const trip = json.data;
-      currentActiveTripId = trip.id;
+      currentActiveTripId = trip.trip_id || trip.id;
 
-      document.getElementById('td-status').textContent = trip.status;
-      document.getElementById('td-pickup').textContent = trip.pickup;
-      document.getElementById('td-dropoff').textContent = trip.dropoff;
-      document.getElementById('td-fare').textContent = '₦' + parseFloat(trip.fare).toLocaleString();
+      const pickup = trip.pickup || trip.pickup_address || '—';
+      const dropoff = trip.dropoff || trip.dropoff_address || '—';
+
+      document.getElementById('td-status').textContent = trip.status || '—';
+      document.getElementById('td-pickup').textContent = pickup;
+      document.getElementById('td-dropoff').textContent = dropoff;
+      document.getElementById('td-fare').textContent = trip.fare ? '₦' + parseFloat(trip.fare).toLocaleString() : '—';
 
       const reorderBtn = document.getElementById('td-reorder-btn');
-      if (reorderBtn) reorderBtn.onclick = () => reorderTrip(trip.pickup, trip.dropoff, trip.category || 'package');
+      if (reorderBtn) reorderBtn.onclick = () => reorderTrip(pickup, dropoff, trip.category || 'package');
 
       // Receipt & PDF buttons — visible for completed trips that have an approved payment
       const receiptUrl = trip.payment?.receipt_url || null;
       currentTripDetailReceiptUrl = receiptUrl;
-      const rb = document.getElementById('td-receipt-btn');
-      const pb = document.getElementById('td-pdf-btn');
       if (rb) rb.style.display = receiptUrl ? 'block' : 'none';
       if (pb) pb.style.display = receiptUrl ? 'block' : 'none';
-
-      openModal('trip-details');
+    } else {
+      document.getElementById('td-status').textContent = 'Not available';
     }
   } catch (err) {
+    document.getElementById('td-status').textContent = 'Connection error';
     showToast('Connection error fetching trip details');
   }
 }
