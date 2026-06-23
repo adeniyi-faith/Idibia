@@ -290,6 +290,46 @@ function idibia_admin_update_user() {
     wp_send_json_success( [ 'message' => 'User updated successfully.' ] );
 }
 
+function idibia_admin_delete_user() {
+    if ( ! idibia_admin_has_permission('suspend_delete_admin_users') ) {
+        wp_send_json_error( [ 'message' => 'Permission denied.' ], 403 );
+    }
+    global $wpdb, $admin_id;
+
+    $raw  = file_get_contents('php://input');
+    $data = json_decode($raw, true);
+    $id   = (int) ($data['id'] ?? 0);
+
+    if ( ! $id ) wp_send_json_error( [ 'message' => 'Invalid ID.' ] );
+    if ( $id === $admin_id ) wp_send_json_error( [ 'message' => 'You cannot delete your own account.' ], 403 );
+
+    $target = $wpdb->get_row( $wpdb->prepare("
+        SELECT u.*, r.name as role_name
+        FROM `{$wpdb->prefix}sd_admin_users` u
+        JOIN `{$wpdb->prefix}sd_roles` r ON u.role_id = r.id
+        WHERE u.id = %d
+    ", $id) );
+
+    if ( ! $target ) wp_send_json_error( [ 'message' => 'User not found.' ] );
+
+    $current_admin = $wpdb->get_row( $wpdb->prepare( "
+        SELECT r.name FROM `{$wpdb->prefix}sd_admin_users` u
+        JOIN `{$wpdb->prefix}sd_roles` r ON u.role_id = r.id
+        WHERE u.id = %d
+    ", $admin_id ) );
+    $is_current_super = ( $current_admin && $current_admin->name === 'Super Admin' ) || current_user_can('manage_options');
+
+    if ( $target->role_name === 'Super Admin' && ! $is_current_super ) {
+        wp_send_json_error( [ 'message' => 'Cannot delete a Super Admin account.' ], 403 );
+    }
+
+    $wpdb->delete( "{$wpdb->prefix}sd_user_permission_overrides", [ 'admin_id' => $id ], [ '%d' ] );
+    $wpdb->delete( "{$wpdb->prefix}sd_admin_users", [ 'id' => $id ], [ '%d' ] );
+
+    idibia_admin_audit_log('delete', 'admin_user', $id, [ 'email' => $target->email ]);
+    wp_send_json_success( [ 'message' => 'User deleted.' ] );
+}
+
 function idibia_admin_suspend_user() {
     if ( ! idibia_admin_has_permission('suspend_delete_admin_users') ) {
         wp_send_json_error( [ 'message' => 'Permission denied.' ], 403 );

@@ -1524,30 +1524,39 @@ async function loadAdminUsers() {
             const statusClass = u.status === 'active' ? 'success' : (u.status === 'suspended' ? 'danger' : 'warn');
             const statusLabel = u.status.charAt(0).toUpperCase() + u.status.slice(1);
             const overridesCount = u.overrides ? Object.keys(u.overrides).length : 0;
-            const lastLogin = u.last_login ? new Date(u.last_login).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '<span style="color:var(--text-muted);font-style:italic;font-size:11px;">Never</span>';
+            let lastLoginStr = '<span style="color:var(--text-muted);font-style:italic;font-size:11px;">Never</span>';
+            if (u.last_login) {
+                const d = new Date(u.last_login.replace(' ', 'T') + 'Z');
+                lastLoginStr = d.toLocaleString('en-GB', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+            }
             const isSuperAdmin = u.role_name === 'Super Admin';
 
             html += `
-            <tr>
+            <tr class="staff-user-row">
                 <td>
                     <div class="user-cell">
                         ${avatar}
                         <div>
                             <div class="strong">${escapeHtml(u.full_name)}</div>
                             <div class="sub-text">${escapeHtml(u.email)}</div>
+                            <div class="staff-mobile-meta">
+                                <span class="badge ${isSuperAdmin ? 'badge-warn' : 'neutral'}" style="font-size:10px;">${escapeHtml(u.role_name)}</span>
+                                <span class="badge badge-${statusClass}" style="font-size:10px;text-transform:capitalize;">${statusLabel}</span>
+                            </div>
                         </div>
                     </div>
                 </td>
-                <td>
+                <td class="hide-mobile">
                     <span class="badge ${isSuperAdmin ? 'badge-warn' : 'neutral'}">${escapeHtml(u.role_name)}</span>
                     ${overridesCount > 0 ? `<div style="font-size:10px;color:var(--info);margin-top:3px;">${overridesCount} override${overridesCount!==1?'s':''}</div>` : ''}
                 </td>
-                <td><span class="badge badge-${statusClass}" style="text-transform:capitalize;">${statusLabel}</span></td>
-                <td style="font-size:12px;color:var(--text-secondary);">${lastLogin}</td>
+                <td class="hide-mobile"><span class="badge badge-${statusClass}" style="text-transform:capitalize;">${statusLabel}</span></td>
+                <td class="hide-mobile" style="font-size:12px;color:var(--text-secondary);">${lastLoginStr}</td>
                 <td>
-                    <div class="td-actions">
+                    <div class="td-actions staff-actions">
                         <button class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick='editAdminUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Edit</button>
                         ${!isSuperAdmin ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--${u.status==='active'?'danger':'success'});border-color:var(--${u.status==='active'?'danger':'success'});" onclick="toggleAdminUserStatus(${u.id}, '${u.status}')">${u.status === 'active' ? 'Suspend' : 'Activate'}</button>` : ''}
+                        ${!isSuperAdmin ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger);border-color:var(--danger);" onclick="deleteAdminUser(${u.id}, '${escapeHtml(u.full_name).replace(/'/g,"\\'")}')">Delete</button>` : ''}
                     </div>
                 </td>
             </tr>`;
@@ -1852,6 +1861,26 @@ async function toggleAdminUserStatus(id, currentStatus) {
         const json = await res.json();
         if ( json.success ) {
             loadAdminUsers();
+        } else {
+            alert('Error: ' + (json.data?.message || 'Unknown error'));
+        }
+    } catch(err) {
+        alert('Network error.');
+    }
+}
+
+async function deleteAdminUser(id, name) {
+    if ( ! confirm(`Permanently delete ${name}? This cannot be undone.`) ) return;
+    try {
+        const res = await fetch(ADMIN_API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete_admin_user', id })
+        });
+        const json = await res.json();
+        if ( json.success ) {
+            loadAdminUsers();
+            toast('User deleted.');
         } else {
             alert('Error: ' + (json.data?.message || 'Unknown error'));
         }
