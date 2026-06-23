@@ -304,6 +304,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
   <?php require_once __DIR__ . '/components/admin/panel-revenue.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-reconciliation.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-payouts.php'; ?>
+  <?php require_once __DIR__ . '/components/admin/panel-wallet-topups.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-drivers.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-customers.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-disputes.php'; ?>

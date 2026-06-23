@@ -2823,3 +2823,100 @@ async function submitTopUp() {
     if (btn) { btn.disabled = false; btn.textContent = 'Continue to Payment'; }
   }
 }
+
+// ── MANUAL BANK TRANSFER TOP-UP ───────────────────────────────────────────────
+
+function openManualTopUpModal() {
+  const m = document.getElementById('manualTopUpModal');
+  if (m) { m.style.display = 'flex'; loadTopupRequests(); }
+}
+
+function closeManualTopUpModal() {
+  const m = document.getElementById('manualTopUpModal');
+  if (m) m.style.display = 'none';
+}
+
+function copyManualTopupAcctNum() {
+  const el = document.getElementById('manualTopupAcctNum');
+  if (!el) return;
+  const num = el.textContent.trim();
+  navigator.clipboard.writeText(num).then(() => showToast('Account number copied!')).catch(() => showToast(num));
+}
+
+function onTopupFileSelected(input) {
+  const label = document.getElementById('manualTopupFileName');
+  if (!label) return;
+  if (input.files && input.files[0]) {
+    label.textContent = input.files[0].name;
+    label.style.color = 'var(--primary)';
+  } else {
+    label.textContent = 'Tap to upload receipt';
+    label.style.color = '';
+  }
+}
+
+async function submitManualTopUp() {
+  const amount = Number(document.getElementById('manualTopupAmount')?.value || 0);
+  const ref    = document.getElementById('manualTopupRef')?.value || '';
+  const fileEl = document.getElementById('manualTopupProof');
+  const btn    = document.getElementById('manualTopupSubmitBtn');
+
+  if (amount < 100) { showToast('Enter the amount you transferred (min ₦100).'); return; }
+  if (!fileEl || !fileEl.files || !fileEl.files[0]) { showToast('Please upload your transfer receipt.'); return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const fd = new FormData();
+    fd.append('action', 'request_topup_manual');
+    fd.append('amount', amount);
+    fd.append('bank_ref', ref);
+    fd.append('proof', fileEl.files[0]);
+    const resp = await fetch('/wallet-topup-api.php', { method: 'POST', body: fd });
+    const json = await resp.json();
+    if (!json.success) { showToast(json.data?.message || 'Could not submit.'); return; }
+    showToast(json.data?.message || 'Request submitted!');
+    closeManualTopUpModal();
+    document.getElementById('manualTopupAmount').value = '';
+    document.getElementById('manualTopupRef').value    = '';
+    fileEl.value = '';
+    const label = document.getElementById('manualTopupFileName');
+    if (label) { label.textContent = 'Tap to upload receipt'; label.style.color = ''; }
+    loadTopupRequests();
+    loadWalletData();
+  } catch (e) {
+    showToast('Network error. Please try again.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit Top-Up Request'; }
+  }
+}
+
+async function loadTopupRequests() {
+  const el = document.getElementById('topupRequestsList');
+  if (!el) return;
+  try {
+    const resp = await fetch('/wallet-topup-api.php?action=get_topup_requests');
+    const json = await resp.json();
+    const section = document.getElementById('topupRequestsSection');
+    if (!json.success || !json.data.requests?.length) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    if (section) section.style.display = '';
+    const statusColor = { pending:'#f5a623', approved:'#22c47a', rejected:'#e53e3e' };
+    const statusLabel = { pending:'Pending review', approved:'Approved ✓', rejected:'Rejected' };
+    el.innerHTML = json.data.requests.map(r => {
+      const color = statusColor[r.status] || '#888';
+      const label = statusLabel[r.status] || r.status;
+      return `<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">₦${Number(r.amount).toLocaleString('en-NG',{minimumFractionDigits:2})}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:1px">${r.bank_ref?'Ref: '+r.bank_ref+' · ':''}${new Date(r.created_at+'Z').toLocaleDateString()}</div>
+          ${r.admin_notes&&r.status==='rejected'?`<div style="font-size:11px;color:#e53e3e;margin-top:2px">${r.admin_notes}</div>`:''}
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${color};background:${color}18;border:1px solid ${color}30;border-radius:20px;padding:3px 10px;white-space:nowrap;flex-shrink:0">${label}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    // Silent fail — section stays hidden
+  }
+}

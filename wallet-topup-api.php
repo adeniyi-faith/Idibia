@@ -134,6 +134,70 @@ if ( $action === 'init_topup' ) {
         ] );
     }
 
+} elseif ( $action === 'request_topup_manual' ) {
+    if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
+        http_response_code( 405 );
+        wp_send_json_error( [ 'message' => 'POST required.' ] );
+    }
+
+    $amount   = (float) ( $_POST['amount'] ?? 0 );
+    $bank_ref = sanitize_text_field( wp_unslash( $_POST['bank_ref'] ?? '' ) );
+
+    if ( $amount < 100 ) {
+        wp_send_json_error( [ 'message' => 'Minimum top-up amount is ₦100.' ], 400 );
+    }
+    if ( empty( $_FILES['proof'] ) || ! empty( $_FILES['proof']['error'] ) ) {
+        wp_send_json_error( [ 'message' => 'Please upload your bank transfer receipt.' ] );
+    }
+
+    idibia_ensure_wallet_topup_table_customer();
+
+    $proof_path = idibia_save_topup_proof_upload( 'proof', $customer_id );
+    if ( ! $proof_path ) {
+        wp_send_json_error( [ 'message' => 'Could not save receipt. Please try again.' ] );
+    }
+
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_wallet_topup_requests',
+        [
+            'customer_id' => $customer_id,
+            'amount'      => $amount,
+            'bank_ref'    => $bank_ref ?: null,
+            'proof_path'  => $proof_path,
+            'status'      => 'pending',
+            'created_at'  => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%d', '%f', '%s', '%s', '%s', '%s' ]
+    );
+    if ( false === $inserted ) {
+        wp_send_json_error( [ 'message' => 'Could not submit request. Please try again.' ] );
+    }
+
+    wp_send_json_success( [ 'message' => 'Receipt received! We will review and credit your wallet shortly.' ] );
+
+} elseif ( $action === 'get_topup_requests' ) {
+    if ( $_SERVER['REQUEST_METHOD'] !== 'GET' ) {
+        http_response_code( 405 );
+        wp_send_json_error( [ 'message' => 'GET required.' ] );
+    }
+
+    idibia_ensure_wallet_topup_table_customer();
+
+    $requests = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, amount, bank_ref, status, admin_notes, created_at
+         FROM `{$wpdb->prefix}sd_wallet_topup_requests`
+         WHERE customer_id = %d ORDER BY created_at DESC LIMIT 10",
+        $customer_id
+    ), ARRAY_A ) ?: [];
+
+    foreach ( $requests as &$row ) {
+        $row['id']     = (int) $row['id'];
+        $row['amount'] = (float) $row['amount'];
+    }
+    unset( $row );
+
+    wp_send_json_success( [ 'requests' => $requests ] );
+
 } elseif ( $action === 'get_wallet' ) {
     if ( $_SERVER['REQUEST_METHOD'] !== 'GET' ) {
         http_response_code( 405 );
@@ -159,4 +223,51 @@ if ( $action === 'init_topup' ) {
 
 } else {
     wp_send_json_error( [ 'message' => 'Unknown action.' ], 400 );
+}
+
+function idibia_ensure_wallet_topup_table_customer(): void {
+    global $wpdb;
+    static $checked = false;
+    if ( $checked ) return;
+    $checked = true;
+    $table = $wpdb->prefix . 'sd_wallet_topup_requests';
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table ) return;
+    $charset = $wpdb->get_charset_collate();
+    $wpdb->query( "CREATE TABLE IF NOT EXISTS `{$table}` (
+        `id` bigint(20) NOT NULL AUTO_INCREMENT,
+        `customer_id` bigint(20) NOT NULL,
+        `amount` decimal(10,2) NOT NULL,
+        `bank_ref` varchar(100) DEFAULT NULL,
+        `proof_path` varchar(500) NOT NULL,
+        `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+        `admin_notes` text DEFAULT NULL,
+        `reviewed_by` bigint(20) DEFAULT NULL,
+        `reviewed_at` datetime DEFAULT NULL,
+        `created_at` datetime NOT NULL,
+        PRIMARY KEY (`id`),
+        KEY `customer_id` (`customer_id`),
+        KEY `status` (`status`)
+    ) {$charset}" );
+}
+
+function idibia_save_topup_proof_upload( string $field, int $customer_id ): ?string {
+    $file = $_FILES[ $field ];
+    if ( ! is_uploaded_file( $file['tmp_name'] ) ) return null;
+    if ( (int) $file['size'] > 8 * 1024 * 1024 ) {
+        wp_send_json_error( [ 'message' => 'Receipt must be 8MB or smaller.' ] );
+    }
+    $allowed_mimes = [ 'image/jpeg', 'image/png', 'application/pdf' ];
+    $filetype = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'] );
+    if ( empty( $filetype['type'] ) || ! in_array( $filetype['type'], $allowed_mimes, true ) ) {
+        wp_send_json_error( [ 'message' => 'Upload only JPG, PNG, or PDF receipts.' ] );
+    }
+    $upload = wp_upload_dir();
+    if ( ! empty( $upload['error'] ) ) return null;
+    $target_dir = trailingslashit( $upload['basedir'] ) . 'idibia-topups/' . $customer_id;
+    if ( ! wp_mkdir_p( $target_dir ) ) return null;
+    $original = sanitize_file_name( wp_unslash( $file['name'] ) );
+    $filename = wp_unique_filename( $target_dir, 'topup-' . time() . '-' . $original );
+    $target   = trailingslashit( $target_dir ) . $filename;
+    if ( ! move_uploaded_file( $file['tmp_name'], $target ) ) return null;
+    return 'idibia-topups/' . $customer_id . '/' . $filename;
 }

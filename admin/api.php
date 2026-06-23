@@ -25,6 +25,7 @@ require_once __DIR__ . '/api/notifications.php';
 require_once __DIR__ . '/api/bulk.php';
 require_once __DIR__ . '/api/system-health.php';
 require_once __DIR__ . '/api/campaigns.php';
+require_once __DIR__ . '/api/wallet-topups.php';
 
 // Check auth first
 $admin_id = 0;
@@ -582,6 +583,18 @@ try {
             idibia_require_method( 'POST' );
             if ( ! idibia_admin_has_permission( 'edit_customer_details' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_edit_customer_details();
+            break;
+
+        case 'get_wallet_topups':
+            idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'execute_payouts' ) && ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_get_wallet_topups();
+            break;
+
+        case 'review_wallet_topup':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'execute_payouts' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_review_wallet_topup();
             break;
 
         default:
