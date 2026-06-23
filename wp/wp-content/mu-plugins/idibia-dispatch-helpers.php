@@ -398,3 +398,68 @@ function idibia_cron_trip_timeout(): void {
         }
     }
 }
+
+/**
+ * Expires trips that have been open (still searching) for longer than trip_expiry_hours.
+ * Skips scheduled trips whose scheduled_time is still in the future.
+ * Called by WP cron every 2 minutes and by the external cron runner.
+ */
+function idibia_cron_trip_expiry(): void {
+    global $wpdb;
+    $expiry_hours = max( 1, (int) idibia_get_setting( 'trip_expiry_hours', 24 ) );
+
+    $trips = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, payment_status FROM `{$wpdb->prefix}sd_trips`
+         WHERE dispatch_status IN ('searching', 'offered', 'no_driver')
+           AND driver_id IS NULL
+           AND status NOT IN ('cancelled', 'completed')
+           AND (scheduled_time IS NULL OR scheduled_time <= NOW())
+           AND created_at < DATE_SUB(NOW(), INTERVAL %d HOUR)",
+        $expiry_hours
+    ), ARRAY_A );
+
+    foreach ( $trips as $trip ) {
+        $trip_id        = (int) $trip['id'];
+        $payment_status = $trip['payment_status'];
+
+        $wpdb->update(
+            $wpdb->prefix . 'sd_trips',
+            [
+                'status'              => 'cancelled',
+                'dispatch_status'     => 'expired',
+                'cancellation_reason' => 'trip_expired',
+            ],
+            [ 'id' => $trip_id ],
+            [ '%s', '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        idibia_log_event( $trip_id, 'trip_expired', [
+            'reason'       => 'trip_expired',
+            'expiry_hours' => $expiry_hours,
+        ] );
+
+        idibia_notify_trip_participants( $trip_id, 'trip_cancelled', [
+            'body' => 'Your trip request has expired because no driver was found in time. Please book a new trip.',
+        ] );
+
+        if ( in_array( $payment_status, [ 'captured', 'approved' ], true ) ) {
+            $wpdb->update(
+                $wpdb->prefix . 'sd_trips',
+                [ 'payment_status' => 'refunded' ],
+                [ 'id' => $trip_id ],
+                [ '%s' ], [ '%d' ]
+            );
+            $wpdb->query( $wpdb->prepare(
+                "UPDATE `{$wpdb->prefix}sd_payments`
+                 SET status = 'refunded', updated_at = NOW()
+                 WHERE trip_id = %d AND status IN ('captured', 'approved')",
+                $trip_id
+            ) );
+            idibia_log_event( $trip_id, 'payment_refund_initiated', [
+                'reason' => 'trip_expired',
+            ] );
+            idibia_notify_trip_participants( $trip_id, 'payment_refunded' );
+        }
+    }
+}

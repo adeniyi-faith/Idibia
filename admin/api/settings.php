@@ -26,7 +26,7 @@ function idibia_admin_save_settings(): void {
                 wp_send_json_error( [ 'message' => "Invalid value for {$sanitized_key}. Must be a positive number." ] );
             }
         }
-        if ( in_array( $sanitized_key, [ 'dispatch_retry_limit', 'trip_timeout_minutes', 'scheduled_dispatch_advance_minutes' ] ) ) {
+        if ( in_array( $sanitized_key, [ 'dispatch_retry_limit', 'trip_timeout_minutes', 'scheduled_dispatch_advance_minutes', 'trip_expiry_hours' ] ) ) {
             if ( ! ctype_digit( $sanitized_value ) || (int) $sanitized_value < 1 ) {
                 wp_send_json_error( [ 'message' => "Invalid value for {$sanitized_key}. Must be a positive integer." ] );
             }

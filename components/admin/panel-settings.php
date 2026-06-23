@@ -133,6 +133,11 @@
           <input class="form-input" type="number" data-setting="scheduled_dispatch_advance_minutes" value="10" min="1" max="60" placeholder="10">
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">How many minutes before scheduled_time to begin dispatching (default: 10)</div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Trip expiry (hours)</label>
+          <input class="form-input" type="number" data-setting="trip_expiry_hours" value="24" min="1" max="720" placeholder="24">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Hours after creation before a still-searching trip is marked expired. Scheduled trips waiting for their time are never expired early (default: 24)</div>
+        </div>
       </div>
       <button class="btn-primary" style="font-size:12px;padding:8px 14px;width:auto" onclick="savePaymentSettings()">Save operational settings</button>
     </div>
@@ -230,7 +235,7 @@
               'paystack_public_key','paystack_secret_key',
               'flutterwave_public_key','flutterwave_secret_key'],
     operational: ['dispatch_retry_limit','trip_timeout_minutes',
-                  'scheduled_dispatch_advance_minutes']
+                  'scheduled_dispatch_advance_minutes','trip_expiry_hours']
   };
   var _SECT_TITLES = {
     '':'All Settings', smtp:'Email (SMTP)', api:'Services & APIs',
