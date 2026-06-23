@@ -1710,7 +1710,25 @@ async function confirmBooking() {
 // ═══════════ TRIP DETAILS AND REORDER ═══════════
 let currentTripDetailReceiptUrl = null;
 
+const _tripStatusLabels = {
+  completed:  'Delivered',
+  cancelled:  'Cancelled',
+  searching:  'Searching',
+  offered:    'Searching',
+  accepted:   'Driver assigned',
+  arriving:   'Driver arriving',
+  arrived_pickup:   'Driver at pickup',
+  picked_up:        'In transit',
+  arrived_dropoff:  'Arriving at drop-off',
+  expired:    'Expired',
+  no_driver:  'No driver found',
+};
+
+let _currentTripDetailId = null;
+
 async function showTripDetails(tripId) {
+  _currentTripDetailId = tripId;
+
   // Show modal immediately with a loading state so the user sees feedback at once
   document.getElementById('td-status').textContent = 'Loading…';
   document.getElementById('td-pickup').textContent = '—';
@@ -1727,22 +1745,34 @@ async function showTripDetails(tripId) {
       credentials: 'same-origin'
     });
     if (!res.ok) {
-      document.getElementById('td-status').textContent = 'Could not load';
+      document.getElementById('td-status').textContent = 'Could not load — tap to retry';
+      document.getElementById('td-status').style.cursor = 'pointer';
+      document.getElementById('td-status').onclick = () => showTripDetails(_currentTripDetailId);
       showToast('Could not fetch trip details');
       return;
     }
     const json = await res.json();
+
+    const statusEl = document.getElementById('td-status');
+    statusEl.style.cursor = '';
+    statusEl.onclick = null;
+
     if (json.success) {
       const trip = json.data;
       currentActiveTripId = trip.trip_id || trip.id;
 
-      const pickup = trip.pickup || trip.pickup_address || '—';
+      const pickup  = trip.pickup  || trip.pickup_address  || '—';
       const dropoff = trip.dropoff || trip.dropoff_address || '—';
 
-      document.getElementById('td-status').textContent = trip.status || '—';
-      document.getElementById('td-pickup').textContent = pickup;
+      const fStatus = _tripFilterStatus(trip);
+      const fStatusLabels = { delivered: 'Delivered', cancelled: 'Cancelled', expired: 'Expired', 'in-transit': 'In transit', searching: 'Searching', scheduled: 'Scheduled' };
+      statusEl.textContent = fStatusLabels[fStatus] || trip.status || '—';
+
+      document.getElementById('td-pickup').textContent  = pickup;
       document.getElementById('td-dropoff').textContent = dropoff;
-      document.getElementById('td-fare').textContent = trip.fare ? '₦' + parseFloat(trip.fare).toLocaleString() : '—';
+      document.getElementById('td-fare').textContent    = trip.fare
+        ? '₦' + parseFloat(trip.fare).toLocaleString()
+        : '—';
 
       const reorderBtn = document.getElementById('td-reorder-btn');
       if (reorderBtn) reorderBtn.onclick = () => reorderTrip(pickup, dropoff, trip.category || 'package');
@@ -1753,10 +1783,13 @@ async function showTripDetails(tripId) {
       if (rb) rb.style.display = receiptUrl ? 'block' : 'none';
       if (pb) pb.style.display = receiptUrl ? 'block' : 'none';
     } else {
-      document.getElementById('td-status').textContent = 'Not available';
+      statusEl.textContent = 'Not available';
     }
   } catch (err) {
-    document.getElementById('td-status').textContent = 'Connection error';
+    const statusEl = document.getElementById('td-status');
+    statusEl.textContent = 'Connection error — tap to retry';
+    statusEl.style.cursor = 'pointer';
+    statusEl.onclick = () => showTripDetails(_currentTripDetailId);
     showToast('Connection error fetching trip details');
   }
 }
@@ -2080,16 +2113,22 @@ async function fetchRecentActivity() {
 
         let iconHtml = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>';
 
-        const isTerm = trip.status === 'completed' || trip.status === 'cancelled';
+        const filterStatus = _tripFilterStatus(trip);
+        const isTerm = filterStatus === 'delivered' || filterStatus === 'cancelled' || filterStatus === 'expired';
         const clickAction = isTerm ? `showTripDetails(${trip.id})` : `startLiveTracking(${trip.id})`;
+        const fareText = trip.fare
+          ? '₦' + parseFloat(trip.fare).toLocaleString()
+          : (trip.fare_estimate ? '~₦' + parseFloat(trip.fare_estimate).toLocaleString() : '—');
+        const rawStatus = trip.dispatch_status || trip.status || '';
+        const displayStatus = _tripStatusLabels[rawStatus] || _tripStatusLabels[trip.status] || trip.status || '—';
         tripsHtml += `
         <div class="activity-card" onclick="${clickAction}">
           <div class="ac-icon">${iconHtml}</div>
           <div class="ac-details">
-            <strong>${trip.dropoff_address || trip.dropoff || 'Delivery'}</strong>
-            <p>${date} • ${trip.status}</p>
+            <strong>${escapeHtml(trip.dropoff_address || trip.dropoff || 'Delivery')}</strong>
+            <p>${date} • ${escapeHtml(displayStatus)}</p>
           </div>
-          <div class="ac-amt">₦${parseFloat(trip.fare).toLocaleString()}</div>
+          <div class="ac-amt">${escapeHtml(fareText)}</div>
         </div>`;
       });
 
