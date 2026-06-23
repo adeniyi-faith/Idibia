@@ -2084,14 +2084,21 @@ function _tripFilterStatus(trip) {
   const s = (trip.status || '').toLowerCase();
   const d = (trip.dispatch_status || '').toLowerCase();
   if (s === 'completed' || d === 'completed') return 'delivered';
+  if (d === 'expired') return 'expired';
   if (s === 'cancelled' || d === 'cancelled') return 'cancelled';
   if (['accepted','arriving','arrived_pickup','picked_up','arrived_dropoff'].includes(d)) return 'in-transit';
-  return 'scheduled';
+  if (['searching','offered','no_driver'].includes(d)) return 'searching';
+  // Only show as scheduled if the trip has a future scheduled time not yet dispatched
+  if (trip.scheduled_time) {
+    const t = new Date(trip.scheduled_time.replace(' ', 'T'));
+    if (t > new Date()) return 'scheduled';
+  }
+  return 'searching';
 }
 
 function _buildTripCard(trip) {
   const filterStatus = _tripFilterStatus(trip);
-  const statusLabels = { 'delivered': 'Delivered', 'in-transit': 'In Transit', 'cancelled': 'Cancelled', 'scheduled': 'Scheduled' };
+  const statusLabels = { 'delivered': 'Delivered', 'in-transit': 'In Transit', 'cancelled': 'Cancelled', 'scheduled': 'Scheduled', 'searching': 'Searching', 'expired': 'Expired' };
   const label = statusLabels[filterStatus] || filterStatus;
   const isTerm = filterStatus === 'delivered' || filterStatus === 'cancelled';
   const clickFn = isTerm ? `showTripDetails(${trip.id})` : `startLiveTracking(${trip.id})`;

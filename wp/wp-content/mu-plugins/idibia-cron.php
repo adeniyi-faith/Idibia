@@ -31,8 +31,12 @@ function idibia_schedule_cron_events(): void {
     if ( ! wp_next_scheduled( 'idibia_cron_trip_timeout' ) ) {
         wp_schedule_event( time(), 'idibia_every_two_minutes', 'idibia_cron_trip_timeout' );
     }
+    if ( ! wp_next_scheduled( 'idibia_cron_trip_expiry' ) ) {
+        wp_schedule_event( time(), 'idibia_every_two_minutes', 'idibia_cron_trip_expiry' );
+    }
 }
 
 add_action( 'idibia_cron_scheduled_dispatch', 'idibia_cron_scheduled_dispatch' );
 add_action( 'idibia_cron_offer_expiry',       'idibia_cron_offer_expiry' );
 add_action( 'idibia_cron_trip_timeout',       'idibia_cron_trip_timeout' );
+add_action( 'idibia_cron_trip_expiry',        'idibia_cron_trip_expiry' );

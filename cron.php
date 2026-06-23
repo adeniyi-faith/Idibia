@@ -22,7 +22,10 @@ idibia_cron_scheduled_dispatch();
 // 3. Auto-cancel trips that have been searching too long with no driver
 idibia_cron_trip_timeout();
 
-// 4. Take stale drivers offline (location not updated in 10 minutes)
+// 4. Expire trips that have been open longer than trip_expiry_hours (safety net for stale trips)
+idibia_cron_trip_expiry();
+
+// 5. Take stale drivers offline (location not updated in 10 minutes)
 // We find them first so we can log each one, then update all at once.
 global $wpdb;
 $stale_threshold = gmdate('Y-m-d H:i:s', time() - 600);
@@ -60,7 +63,7 @@ if ( ! empty( $stale_driver_ids ) ) {
     }
 }
 
-// 5. Record when the cron last ran so the System Health panel can display it.
+// 6. Record when the cron last ran so the System Health panel can display it.
 $wpdb->query( $wpdb->prepare(
     "REPLACE INTO `{$wpdb->prefix}sd_settings` (setting_key, setting_value) VALUES ('last_cron_run', %s)",
     gmdate( 'Y-m-d H:i:s' )

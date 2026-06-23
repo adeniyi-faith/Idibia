@@ -372,6 +372,10 @@ a { color: inherit; }
 .trip-status.cancelled::before { background:var(--danger); }
 .trip-status.scheduled { background:rgba(155,89,255,0.1); color:var(--purple); }
 .trip-status.scheduled::before { background:var(--purple); }
+.trip-status.searching { background:rgba(245,200,66,0.15); color:var(--gold-dark); }
+.trip-status.searching::before { background:var(--gold-dark); animation:blipPulse 1.5s ease-in-out infinite; }
+.trip-status.expired { background:rgba(120,120,120,0.1); color:var(--text-muted); }
+.trip-status.expired::before { background:var(--text-muted); }
 .trip-route { display:flex; flex-direction:column; gap:8px; }
 .trip-point { display:flex; align-items:center; gap:10px; font-size:13.5px; color:var(--text-primary); }
 .trip-point-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
