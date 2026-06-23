@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 19;
+    $target_version = 21;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
