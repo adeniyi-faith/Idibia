@@ -37,11 +37,14 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
             // Assuming we don't have an sd_admin_sessions table, we'll store it as a secure transient.
             // Better yet, just use a signed cookie containing the ID, since wp_salt('auth') is available.
 
-            $payload = json_encode(['id' => $admin->id, 'time' => time()]);
+            $remember_me     = ! empty( $_POST['remember_me'] );
+            $cookie_lifetime = $remember_me ? ( 30 * DAY_IN_SECONDS ) : ( 12 * HOUR_IN_SECONDS );
+
+            $payload = json_encode(['id' => $admin->id, 'time' => time(), 'remember' => $remember_me]);
             $hash = hash_hmac('sha256', $payload, wp_salt('auth'));
             $cookie_val = base64_encode($payload . '|' . $hash);
 
-            setcookie('idibia_admin_auth', $cookie_val, time() + 12 * HOUR_IN_SECONDS, '/', '', is_ssl(), true);
+            setcookie('idibia_admin_auth', $cookie_val, time() + $cookie_lifetime, '/', '', is_ssl(), true);
 
             // Update last login
             $wpdb->update(
@@ -54,10 +57,11 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
             );
         } else {
             // Fallback to legacy WP admin
+            $remember_me = ! empty( $_POST['remember_me'] );
             $user = wp_signon( [
                 'user_login'    => idibia_find_user_login_by_identifier( $identifier ),
                 'user_password' => $password,
-                'remember'      => true,
+                'remember'      => $remember_me,
             ], is_ssl() );
 
             if ( is_wp_error( $user ) ) {

@@ -2,29 +2,67 @@
 const loginForm = document.getElementById('adminLoginForm');
 if (loginForm) {
 
-loginForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const btn = document.getElementById('adminLoginBtn');
-  const err = document.getElementById('adminLoginError');
-  err.classList.remove('show');
-  btn.disabled = true;
-  btn.textContent = 'Signing in…';
-  try {
-    const body = new FormData(event.currentTarget);
-    body.append('action', 'admin_login');
-    const response = await fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' });
-    const rawText = await response.text();
-    let data;
-    try { data = JSON.parse(rawText); } catch (e) { console.error('Raw response:', rawText); throw new Error('Invalid server response'); }
-    if (data.success) window.location.href = data.data.redirect || '/admin.php';
-    else { err.textContent = data.data?.message || 'Login failed.'; err.classList.add('show'); }
-  } catch (e) { err.textContent = 'Could not reach Idibia right now. Please try again.'; err.classList.add('show'); }
-  finally { btn.disabled = false; btn.textContent = 'Sign In'; }
-});
+  // Show session-expired or kicked message if redirected here
+  const _urlParams = new URLSearchParams(window.location.search);
+  if (_urlParams.get('session') === 'expired') {
+    const _err = document.getElementById('adminLoginError');
+    _err.textContent = 'Your session expired. Please sign in again.';
+    _err.classList.add('show');
+  }
+
+  // Password eye toggle
+  const toggleBtn = document.getElementById('togglePassword');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const input = document.getElementById('adminPassword');
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggleBtn.querySelector('.eye-open').style.display  = show ? 'none'  : '';
+      toggleBtn.querySelector('.eye-closed').style.display = show ? '' : 'none';
+      toggleBtn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    });
+  }
+
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const btn = document.getElementById('adminLoginBtn');
+    const err = document.getElementById('adminLoginError');
+    err.classList.remove('show');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+    try {
+      const body = new FormData(event.currentTarget);
+      body.append('action', 'admin_login');
+      const response = await fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' });
+      const rawText = await response.text();
+      let data;
+      try { data = JSON.parse(rawText); } catch (e) { console.error('Raw response:', rawText); throw new Error('Invalid server response'); }
+      if (data.success) window.location.href = data.data.redirect || '/admin.php';
+      else { err.textContent = data.data?.message || 'Login failed.'; err.classList.add('show'); }
+    } catch (e) { err.textContent = 'Could not reach Idibia right now. Please try again.'; err.classList.add('show'); }
+    finally { btn.disabled = false; btn.textContent = 'Sign In'; }
+  });
+
 }
 
 
 /* Admin App Script */
+
+// Intercept every fetch call to the admin API.
+// If the server says "403 Forbidden" (meaning the session expired or the
+// user has no admin rights), immediately send them back to the login page.
+(function () {
+  const _origFetch = window.fetch.bind(window);
+  window.fetch = async function (url, opts) {
+    const res = await _origFetch(url, opts);
+    if (res.status === 403 && String(url).includes('/admin/api')) {
+      window.location.replace('/admin.php?session=expired');
+      // Throw so callers don't try to parse the response
+      throw new Error('Session expired — redirecting to login.');
+    }
+    return res;
+  };
+})();
 
 const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',reconciliation:'Reconciliation',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns',notifications:'Notifications',system:'System Health'};
 const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Real-time trip tracking',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',reconciliation:'Finance payment verification',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history',system:'Live platform status · gateways · cron · dispatch pipeline'};
