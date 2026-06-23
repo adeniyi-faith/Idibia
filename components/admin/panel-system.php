@@ -39,7 +39,7 @@
   </div>
 
   <!-- Stale Driver Sessions + Quick Counters -->
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+  <div class="metrics-grid four" style="margin-bottom:16px">
 
     <div class="metric-card" style="cursor:default">
       <div class="metric-label">STALE DRIVER SESSIONS</div>
@@ -86,7 +86,7 @@
   <!-- Trips Stuck Searching -->
   <div class="scard" style="margin-bottom:16px">
     <div class="scard-header"><h3>Infrastructure</h3></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 16px 16px">
+    <div class="metrics-grid" style="padding:0 16px 16px">
       <div class="metric-card" style="cursor:default">
         <div class="metric-label">TRIPS STUCK IN SEARCHING</div>
         <div class="metric-value" id="shStuckSearching" style="color:var(--danger)">--</div>
@@ -105,7 +105,7 @@
     <div class="scard-header"><h3>Scheduled Tasks (Cron)</h3></div>
     <div style="padding:0 16px 20px">
       <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px">The cron job runs every few minutes to expire offers, dispatch scheduled trips, cancel timed-out searches, and take stale drivers offline.</div>
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
         <span style="font-size:13px;font-weight:600">Last cron run:</span>
         <span id="shLastCron" style="font-size:13px;color:var(--text-muted)">--</span>
         <span id="shCronAgeWarn" style="display:none;background:var(--danger);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px">OVERDUE</span>
