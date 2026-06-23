@@ -306,3 +306,195 @@ function idibia_admin_suspend_driver(): void {
     idibia_admin_audit_log( 'suspend_driver', 'driver', $driver_id, [ 'reason' => $reason ] );
     wp_send_json_success( [ 'message' => 'Driver suspended.' ] );
 }
+
+function idibia_admin_create_driver_account(): void {
+    global $wpdb, $admin_id;
+
+    $raw  = file_get_contents( 'php://input' );
+    $data = json_decode( $raw, true ) ?: [];
+
+    $full_name    = sanitize_text_field( $data['full_name'] ?? '' );
+    $email        = sanitize_email( $data['email'] ?? '' );
+    $phone        = preg_replace( '/[\s\-()]/', '', sanitize_text_field( $data['phone'] ?? '' ) );
+    $password     = (string) ( $data['password'] ?? '' );
+    $vehicle_type = sanitize_key( $data['vehicle_type'] ?? 'bike' );
+    $middle_name  = sanitize_text_field( $data['middle_name'] ?? '' );
+    $dob          = sanitize_text_field( $data['date_of_birth'] ?? '' );
+    $gender       = sanitize_text_field( $data['gender'] ?? '' );
+    $state        = sanitize_text_field( $data['state_of_origin'] ?? '' );
+    $language     = sanitize_text_field( $data['language'] ?? 'English' );
+
+    if ( strlen( $full_name ) < 2 ) {
+        wp_send_json_error( [ 'message' => 'Full name is required.' ], 400 );
+    }
+    if ( ! is_email( $email ) ) {
+        wp_send_json_error( [ 'message' => 'A valid email address is required.' ], 400 );
+    }
+    if ( ! $phone ) {
+        wp_send_json_error( [ 'message' => 'Phone number is required.' ], 400 );
+    }
+    if ( strlen( $password ) < 6 ) {
+        wp_send_json_error( [ 'message' => 'Password must be at least 6 characters.' ], 400 );
+    }
+    if ( ! in_array( $vehicle_type, [ 'bike', 'car', 'van', 'keke' ], true ) ) {
+        wp_send_json_error( [ 'message' => 'Invalid vehicle type.' ], 400 );
+    }
+
+    if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_drivers` WHERE email = %s LIMIT 1", $email ) ) ) {
+        wp_send_json_error( [ 'message' => 'A driver account with this email already exists.' ], 409 );
+    }
+    if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_drivers` WHERE phone = %s LIMIT 1", $phone ) ) ) {
+        wp_send_json_error( [ 'message' => 'A driver account with this phone number already exists.' ], 409 );
+    }
+
+    // Create WordPress user if one doesn't already exist for this email.
+    $wp_user = get_user_by( 'email', $email );
+    if ( ! $wp_user ) {
+        [ $first, $last ] = idibia_split_full_name( $full_name );
+        $user_id = wp_insert_user( [
+            'user_login'   => $phone,
+            'user_pass'    => $password,
+            'user_email'   => $email,
+            'first_name'   => $first,
+            'last_name'    => $last,
+            'display_name' => $full_name,
+            'role'         => 'subscriber',
+        ] );
+        if ( is_wp_error( $user_id ) ) {
+            wp_send_json_error( [ 'message' => $user_id->get_error_message() ?: 'Could not create WordPress user.' ] );
+        }
+        update_user_meta( $user_id, 'idibia_account_type', 'driver' );
+        update_user_meta( $user_id, 'idibia_account_status', 'pending' );
+        update_user_meta( $user_id, 'idibia_kyc_status', 'pending' );
+        update_user_meta( $user_id, 'idibia_phone', $phone );
+        update_user_meta( $user_id, 'idibia_driver_language', $language );
+        update_user_meta( $user_id, 'idibia_driver_middle_name', $middle_name );
+        update_user_meta( $user_id, 'idibia_driver_date_of_birth', $dob );
+        update_user_meta( $user_id, 'idibia_driver_gender', $gender );
+        update_user_meta( $user_id, 'idibia_driver_state_of_origin', $state );
+    }
+
+    $password_hash = wp_hash_password( $password );
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_drivers',
+        [
+            'full_name'     => $full_name,
+            'email'         => $email,
+            'phone'         => $phone,
+            'password_hash' => $password_hash,
+            'vehicle_type'  => $vehicle_type,
+            'kyc_status'    => 'pending',
+            'status'        => 'pending',
+            'created_at'    => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
+    );
+
+    if ( ! $inserted ) {
+        wp_send_json_error( [ 'message' => 'Could not create driver record.' ] );
+    }
+
+    $new_driver_id = (int) $wpdb->insert_id;
+
+    idibia_admin_audit_log( 'create_driver_account', 'driver', $new_driver_id, [
+        'created_by' => $admin_id,
+        'email'      => $email,
+        'phone'      => $phone,
+    ] );
+
+    wp_send_json_success( [ 'message' => 'Driver account created.', 'driver_id' => $new_driver_id ] );
+}
+
+function idibia_admin_edit_driver_details(): void {
+    global $wpdb, $admin_id;
+
+    $raw  = file_get_contents( 'php://input' );
+    $data = json_decode( $raw, true ) ?: [];
+
+    $driver_id = absint( $data['driver_id'] ?? 0 );
+    if ( ! $driver_id ) {
+        wp_send_json_error( [ 'message' => 'driver_id is required.' ], 400 );
+    }
+
+    $driver = $wpdb->get_row(
+        $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_drivers` WHERE id = %d LIMIT 1", $driver_id ),
+        ARRAY_A
+    );
+    if ( ! $driver ) {
+        wp_send_json_error( [ 'message' => 'Driver not found.' ], 404 );
+    }
+
+    $allowed_fields = [
+        'full_name'     => '%s',
+        'phone'         => '%s',
+        'vehicle_type'  => '%s',
+        'vehicle_year'  => '%s',
+        'vehicle_plate' => '%s',
+        'vehicle_model' => '%s',
+        'vehicle_color' => '%s',
+        'bank_name'     => '%s',
+        'account_holder_name' => '%s',
+        'account_number'      => '%s',
+        'emergency_name'      => '%s',
+        'emergency_relationship' => '%s',
+        'emergency_phone'     => '%s',
+        'emergency_address'   => '%s',
+    ];
+
+    $update_data   = [];
+    $update_format = [];
+    $changed       = [];
+
+    foreach ( $allowed_fields as $field => $fmt ) {
+        if ( ! array_key_exists( $field, $data ) ) {
+            continue;
+        }
+        $new_val = sanitize_text_field( (string) $data[ $field ] );
+        if ( $new_val !== (string) ( $driver[ $field ] ?? '' ) ) {
+            $update_data[ $field ]   = $new_val;
+            $update_format[]         = $fmt;
+            $changed[ $field ]       = [ 'from' => $driver[ $field ], 'to' => $new_val ];
+        }
+    }
+
+    if ( empty( $update_data ) ) {
+        wp_send_json_error( [ 'message' => 'No changes provided.' ], 400 );
+    }
+
+    $update_data['updated_at'] = gmdate( 'Y-m-d H:i:s' );
+    $update_format[]           = '%s';
+
+    $result = $wpdb->update(
+        $wpdb->prefix . 'sd_drivers',
+        $update_data,
+        [ 'id' => $driver_id ],
+        $update_format,
+        [ '%d' ]
+    );
+
+    if ( false === $result ) {
+        wp_send_json_error( [ 'message' => 'Could not update driver.' ] );
+    }
+
+    // Sync editable WP user meta fields.
+    $wp_user_meta_map = [
+        'full_name' => [ 'display_name' ],
+    ];
+    $wp_user = get_user_by( 'email', $driver['email'] );
+    if ( $wp_user instanceof WP_User ) {
+        if ( isset( $changed['full_name'] ) ) {
+            [ $first, $last ] = idibia_split_full_name( $update_data['full_name'] );
+            wp_update_user( [ 'ID' => $wp_user->ID, 'display_name' => $update_data['full_name'], 'first_name' => $first, 'last_name' => $last ] );
+        }
+        if ( isset( $changed['phone'] ) ) {
+            update_user_meta( $wp_user->ID, 'idibia_phone', $update_data['phone'] );
+        }
+    }
+
+    idibia_admin_audit_log( 'edit_driver_details', 'driver', $driver_id, [
+        'edited_by' => $admin_id,
+        'changes'   => $changed,
+    ] );
+
+    wp_send_json_success( [ 'message' => 'Driver details updated.', 'changed' => array_keys( $changed ) ] );
+}
