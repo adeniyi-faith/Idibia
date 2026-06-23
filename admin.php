@@ -1,4 +1,6 @@
-<?php ob_start();
+<?php
+ini_set( 'display_errors', '0' );
+ob_start();
 require_once __DIR__ . '/wp-auth-config.php';
 
 if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
@@ -44,7 +46,13 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
             $hash = hash_hmac('sha256', $payload, wp_salt('auth'));
             $cookie_val = base64_encode($payload . '|' . $hash);
 
-            setcookie('idibia_admin_auth', $cookie_val, time() + $cookie_lifetime, '/', '', is_ssl(), true);
+            setcookie( 'idibia_admin_auth', $cookie_val, [
+                'expires'  => time() + $cookie_lifetime,
+                'path'     => '/',
+                'secure'   => is_ssl(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ] );
 
             // Update last login
             $wpdb->update(
@@ -56,27 +64,7 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
                 [ 'id' => $admin->id ]
             );
         } else {
-            // Fallback to legacy WP admin
-            $remember_me = ! empty( $_POST['remember_me'] );
-            $user = wp_signon( [
-                'user_login'    => idibia_find_user_login_by_identifier( $identifier ),
-                'user_password' => $password,
-                'remember'      => $remember_me,
-            ], is_ssl() );
-
-            if ( is_wp_error( $user ) ) {
-                wp_send_json_error( [ 'message' => 'Invalid admin login details.' ] );
-            }
-
-            idibia_finish_wordpress_login( $user );
-
-            if ( ! current_user_can( 'manage_options' ) ) {
-                wp_logout();
-                wp_send_json_error( [ 'message' => 'This account does not have admin access.' ] );
-            }
-
-            // Clear any custom admin cookie
-            setcookie('idibia_admin_auth', '', time() - 3600, '/', '', is_ssl(), true);
+            wp_send_json_error( [ 'message' => 'Invalid admin login details.' ] );
         }
 
         wp_send_json_success( [ 'redirect' => '/admin.php' ] );
@@ -86,7 +74,13 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
         // Simple nonce check. We might not have WP nonce if logged in via custom cookie
         // For simplicity we omit nonce check on logout or fallback to it
         wp_logout();
-        setcookie('idibia_admin_auth', '', time() - 3600, '/', '', is_ssl(), true);
+        setcookie( 'idibia_admin_auth', '', [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'secure'   => is_ssl(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ] );
         wp_send_json_success( [ 'redirect' => '/admin.php' ] );
     }
 

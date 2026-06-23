@@ -1,5 +1,5 @@
 <div class="admin-login-body">
-<form class="login-card" id="adminLoginForm" novalidate>
+<form class="login-card" id="adminLoginForm" method="post" novalidate>
 
   <div class="login-brand">
     <div class="brand-badge">
