@@ -2,7 +2,7 @@
   <div class="panel active" id="panel-overview">
     <div class="page-header">
       <h2 class="page-title">Platform Overview</h2>
-      <div class="page-sub">Live snapshot · Port Harcourt metro</div>
+      <div class="page-sub">Live snapshot</div>
     </div>
     <div class="metrics-grid four">
       <div class="metric-card"><div class="metric-label">ACTIVE RIDERS</div><div class="metric-value" id="overviewActiveDrivers">--</div><div class="metric-delta neutral" id="overviewOnlineDrivers">Loading…</div></div>

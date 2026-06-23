@@ -1,6 +1,6 @@
 <!-- LIVE OPS -->
   <div class="panel" id="panel-ops">
-    <div class="page-header"><h2 class="page-title">Live Operations</h2><div class="page-sub">Port Harcourt metro · Real-time driver tracking</div></div>
+    <div class="page-header"><h2 class="page-title">Live Operations</h2><div class="page-sub">Real-time driver tracking</div></div>
     <div class="ops-map">
       <div class="ops-map-grid"></div>
       <svg viewBox="0 0 400 220" style="position:absolute;inset:0;width:100%;height:100%" preserveAspectRatio="none">
