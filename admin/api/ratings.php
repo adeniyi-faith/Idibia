@@ -77,6 +77,10 @@ function idibia_admin_get_ratings(): void {
         ? $wpdb->get_results( $wpdb->prepare( $rows_sql, ...$rows_params ), ARRAY_A )
         : $wpdb->get_results( $rows_sql, ARRAY_A );
 
+    if ( $wpdb->last_error ) {
+        wp_send_json_error( [ 'message' => 'Ratings query error: ' . $wpdb->last_error ] );
+    }
+
     wp_send_json_success( [ 'ratings' => $rows ?: [], 'total' => $total, 'page' => $page, 'per_page' => $per_page ] );
 }
 

@@ -260,52 +260,55 @@
 
   function _loadSettingsHistory(){
     var body = document.getElementById('settingsHistoryBody');
-    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</td></tr>';
+    body.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">Loading…</div>';
     var params = { page: _shPage, per_page: 25 };
     if(_shPrefix === 'smtp'){
-      // SMTP keys all start with smtp_ → server-side LIKE filter
       params.key_prefix = 'smtp_';
     }
-    // All other sections: fetch full page and filter client-side.
     adminApi('get_settings_history', params).then(function(data){
       var rows = data.history || [];
-      // Client-side filter for sections without a clean key prefix.
       if(_shPrefix && _shPrefix !== 'smtp'){
         var allow = _SECT_KEYS[_shPrefix];
         if(allow) rows = rows.filter(function(r){ return allow.indexOf(r.setting_key) !== -1; });
       }
       if(!rows.length){
-        body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No changes recorded for this section yet.</td></tr>';
+        body.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">No changes recorded for this section yet.</div>';
         document.getElementById('settingsHistoryPagination').innerHTML = '';
         return;
       }
       body.innerHTML = rows.map(function(r){
+        var changed = r.old_value !== r.new_value;
         var oldV = (r.old_value === null || r.old_value === undefined || r.old_value === '')
-          ? '<em style="color:var(--text-muted)">—</em>'
-          : '<span style="color:#f66;font-family:monospace;font-size:11px">' + escapeHtml(String(r.old_value).slice(0,60) + (r.old_value.length > 60 ? '…' : '')) + '</span>';
+          ? '<span style="color:var(--text-muted)">—</span>'
+          : '<code style="background:rgba(239,68,68,0.08);color:#dc2626;padding:2px 5px;border-radius:4px;font-size:11px;word-break:break-all">' + escapeHtml(String(r.old_value).slice(0,80) + (String(r.old_value).length > 80 ? '…' : '')) + '</code>';
         var newV = (r.new_value === null || r.new_value === undefined || r.new_value === '')
-          ? '<em style="color:var(--text-muted)">—</em>'
-          : '<span style="color:#4caf50;font-family:monospace;font-size:11px">' + escapeHtml(String(r.new_value).slice(0,60) + (r.new_value.length > 60 ? '…' : '')) + '</span>';
+          ? '<span style="color:var(--text-muted)">—</span>'
+          : '<code style="background:rgba(34,197,94,0.08);color:#16a34a;padding:2px 5px;border-radius:4px;font-size:11px;word-break:break-all">' + escapeHtml(String(r.new_value).slice(0,80) + (String(r.new_value).length > 80 ? '…' : '')) + '</code>';
         var who  = r.changed_by_name ? escapeHtml(r.changed_by_name) : 'Admin #' + r.changed_by_admin_id;
         var when = r.changed_at ? new Date(r.changed_at.replace(' ','T')+'Z').toLocaleString() : '—';
-        return '<tr style="border-bottom:1px solid var(--surface-2)">' +
-          '<td style="padding:8px 10px;font-size:12px;font-family:monospace;white-space:nowrap;color:var(--text-primary)">' + escapeHtml(r.setting_key) + '</td>' +
-          '<td style="padding:8px 10px">' + oldV + '</td>' +
-          '<td style="padding:8px 10px">' + newV + '</td>' +
-          '<td style="padding:8px 10px;font-size:12px;white-space:nowrap">' + who + '</td>' +
-          '<td style="padding:8px 10px;font-size:11px;color:var(--text-muted);white-space:nowrap">' + when + '</td>' +
-          '</tr>';
+        return '<div style="padding:12px 16px;border-bottom:1px solid var(--surface-2)">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap">' +
+            '<code style="font-size:12px;font-weight:600;color:var(--text)">' + escapeHtml(r.setting_key) + '</code>' +
+            '<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">' + who + ' · ' + when + '</span>' +
+          '</div>' +
+          (changed
+            ? '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px">' +
+                '<span style="color:var(--text-muted);font-size:11px;flex-shrink:0">was</span>' + oldV +
+                '<span style="color:var(--text-muted);font-size:11px;flex-shrink:0">→ now</span>' + newV +
+              '</div>'
+            : '<div style="font-size:11px;color:var(--text-muted)">Value unchanged (recorded on save)</div>'
+          ) +
+        '</div>';
       }).join('');
-      // Pagination
       var total = parseInt(data.total || 0, 10);
       var perPage = parseInt(data.per_page || 25, 10);
       var pages = Math.max(1, Math.ceil(total / perPage));
       document.getElementById('settingsHistoryPagination').innerHTML =
-        '<span style="font-size:12px;color:var(--text-muted)">Page ' + _shPage + ' of ' + pages + ' · ' + total + ' total</span> ' +
+        '<span>Page ' + _shPage + ' of ' + pages + ' · ' + total + ' total</span> ' +
         '<button style="padding:4px 10px;border-radius:6px;border:1px solid var(--surface-2);background:none;font-size:12px;cursor:pointer" ' + (_shPage <= 1 ? 'disabled' : '') + ' onclick="settingsHistoryChangePage(' + (_shPage - 1) + ')">Prev</button> ' +
         '<button style="padding:4px 10px;border-radius:6px;border:1px solid var(--surface-2);background:none;font-size:12px;cursor:pointer" ' + (_shPage >= pages ? 'disabled' : '') + ' onclick="settingsHistoryChangePage(' + (_shPage + 1) + ')">Next</button>';
     }).catch(function(e){
-      body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:#f44">' + escapeHtml(e.message || 'Failed to load history') + '</td></tr>';
+      body.innerHTML = '<div style="text-align:center;padding:24px;color:var(--danger);font-size:13px">' + escapeHtml(e.message || 'Failed to load history') + '</div>';
     });
   }
 

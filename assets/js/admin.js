@@ -658,7 +658,8 @@ function renderDriverDirectoryItem(driver){
   const status = driver.status || 'active';
   const id = Number(driver.id);
   const checked = _selectedDriverIds.has(id) ? 'checked' : '';
-  const meta = [vehicleIcon(driver.vehicle_type)+' '+vehicleLabel(driver.vehicle_type), driver.kyc_status ? 'KYC '+formatStatusLabel(driver.kyc_status) : null, Number(driver.is_online)===1?'Online':'Offline', (driver.rating?Number(driver.rating).toFixed(1)+'★':null), Number(driver.total_trips||0).toLocaleString()+' trips'].filter(Boolean).map(escapeHtml).join(' · ');
+  const textMeta = [vehicleLabel(driver.vehicle_type), driver.kyc_status ? 'KYC '+formatStatusLabel(driver.kyc_status) : null, Number(driver.is_online)===1?'Online':'Offline', (driver.rating?Number(driver.rating).toFixed(1)+'★':null), Number(driver.total_trips||0).toLocaleString()+' trips'].filter(Boolean).map(escapeHtml).join(' · ');
+  const meta = vehicleIcon(driver.vehicle_type) + ' ' + textMeta;
   return `<div class="list-item"><label style="display:flex;align-items:center;padding:0 8px 0 12px;cursor:pointer;flex-shrink:0"><input type="checkbox" class="driver-check" data-id="${id}" ${checked} onchange="toggleDriverSelect(${id},this.checked)" style="width:15px;height:15px;cursor:pointer"></label><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name||'Unnamed driver')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadDriverDetail(${id})">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendDriverFromDirectory(${id}, '${escapeHtml(driver.full_name||'Driver').replace(/'/g,'&#39;')}')">Suspend</button>`}</div></div>`;
 }
 async function suspendDriverFromDirectory(driverId, name){
@@ -1268,9 +1269,47 @@ async function resolveDispute(){
 function confirmSuspend(name){
   if(confirm('Suspend '+name+'? They will be notified and go offline immediately.')){toast('⚠ '+name+' suspended');}
 }
-function toggleNotif(){document.getElementById('notifPanel').classList.toggle('open');}
-function markAllRead(){
-  showUnavailableFeature('Notification read state', 'Notification inbox APIs are not connected yet, so read/unread state cannot be changed.');
+function toggleNotif(){
+  const panel = document.getElementById('notifPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) loadAdminNotifications();
+}
+async function loadAdminNotifications() {
+  const panel = document.getElementById('notifPanel');
+  const body  = document.getElementById('notifBody');
+  if (!body) return;
+  body.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--text-muted)">Loading…</div>';
+  try {
+    const data = await adminApi('get_admin_notifications');
+    const notifs = data.notifications || [];
+    const badge = document.getElementById('notifBadge');
+    if (badge) { badge.textContent = data.unread_count > 0 ? String(data.unread_count) : ''; badge.style.display = data.unread_count > 0 ? 'inline-block' : 'none'; }
+    if (!notifs.length) {
+      body.innerHTML = '<div style="padding:20px 16px;text-align:center;font-size:12px;color:var(--text-muted)">No notifications yet.</div>';
+      return;
+    }
+    body.innerHTML = notifs.map(n => {
+      const isUnread = !n.is_read;
+      return `<div class="notif-item${isUnread ? ' notif-unread' : ''}" style="${isUnread ? 'background:rgba(74,158,255,0.06);' : ''}">
+        <div class="notif-icon" style="background:rgba(74,158,255,0.1);flex-shrink:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--info)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8"/><line x1="12" y1="12" x2="12" y2="16"/></svg></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${escapeHtml(n.title)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4">${escapeHtml(n.body)}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${dateLabel(n.created_at)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    body.innerHTML = '<div style="padding:16px;font-size:12px;color:var(--danger)">Could not load notifications.</div>';
+  }
+}
+async function markAllRead(){
+  try {
+    await adminApi('mark_admin_notifications_read', {}, 'POST');
+    document.querySelectorAll('.notif-unread').forEach(el => { el.classList.remove('notif-unread'); el.style.background = ''; });
+    const badge = document.getElementById('notifBadge');
+    if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
+  } catch(e) { toast('Could not mark notifications as read.'); }
 }
 function handleSearch(val){
   if(val.length>2) showUnavailableFeature('Global search', 'Cross-entity search needs a backend search endpoint before results can be opened.');
@@ -2108,7 +2147,9 @@ async function loadRatings(page = pageStateRatings.page) {
     document.getElementById('ratingsFlaggedCount').textContent = ratings.filter(r => Number(r.flagged)).length.toString();
     document.getElementById('ratingsOneStarCount').textContent = ratings.filter(r => Number(r.rating) === 1).length.toString();
 
-    if (!ratings.length) {
+    if (!ratings.length && total > 0) {
+      list.innerHTML = emptyState('⚠️', 'Ratings found but could not be loaded', 'The server returned a count of ' + total + ' but no rows. Check server logs or try refreshing.');
+    } else if (!ratings.length) {
       list.innerHTML = emptyState('⭐', 'No ratings match your filters', 'Try adjusting the filters above.');
     } else {
       list.innerHTML = `<div class="table-responsive"><table class="data-table"><thead><tr>

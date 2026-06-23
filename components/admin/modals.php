@@ -285,30 +285,19 @@
 
 <!-- SETTINGS CHANGE HISTORY MODAL -->
 <div class="modal-overlay" id="settingsHistoryModal" style="display:none" onclick="if(event.target===this)closeSettingsHistoryModal()">
-  <div class="modal" style="max-width:740px;max-height:85vh;display:flex;flex-direction:column">
+  <div class="modal" style="max-width:700px;max-height:90vh;display:flex;flex-direction:column;width:calc(100vw - 32px)">
     <div class="modal-header" style="flex-shrink:0">
-      <h3 style="font-size:15px" id="settingsHistoryTitle">Settings Change History</h3>
-      <button aria-label="Close" onclick="closeSettingsHistoryModal()" style="background:none;border:none;font-size:18px;color:var(--text-muted)">×</button>
+      <h3 style="font-size:15px" id="settingsHistoryTitle">Settings — Change History</h3>
+      <button aria-label="Close" onclick="closeSettingsHistoryModal()" style="background:none;border:none;font-size:20px;color:var(--text-muted);line-height:1;cursor:pointer">×</button>
     </div>
-    <div class="modal-body" style="flex:1;overflow-y:auto;padding:0">
-      <table style="width:100%;border-collapse:collapse">
-        <thead style="position:sticky;top:0;background:var(--surface-1);z-index:1">
-          <tr>
-            <th style="padding:10px;font-size:11px;font-weight:700;color:var(--text-muted);text-align:left;border-bottom:1px solid var(--surface-2)">SETTING KEY</th>
-            <th style="padding:10px;font-size:11px;font-weight:700;color:var(--text-muted);text-align:left;border-bottom:1px solid var(--surface-2)">OLD VALUE</th>
-            <th style="padding:10px;font-size:11px;font-weight:700;color:var(--text-muted);text-align:left;border-bottom:1px solid var(--surface-2)">NEW VALUE</th>
-            <th style="padding:10px;font-size:11px;font-weight:700;color:var(--text-muted);text-align:left;border-bottom:1px solid var(--surface-2)">CHANGED BY</th>
-            <th style="padding:10px;font-size:11px;font-weight:700;color:var(--text-muted);text-align:left;border-bottom:1px solid var(--surface-2)">WHEN</th>
-          </tr>
-        </thead>
-        <tbody id="settingsHistoryBody">
-          <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">Loading…</td></tr>
-        </tbody>
-      </table>
+    <div class="modal-body" style="flex:1;overflow:auto;padding:0">
+      <div id="settingsHistoryBody" style="padding:4px 0">
+        <div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px">Loading…</div>
+      </div>
     </div>
     <div class="modal-footer" style="flex-shrink:0;justify-content:space-between;flex-wrap:wrap;gap:8px">
-      <div id="settingsHistoryPagination" style="display:flex;gap:6px;align-items:center"></div>
-      <button onclick="closeSettingsHistoryModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px">Close</button>
+      <div id="settingsHistoryPagination" style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-muted)"></div>
+      <button onclick="closeSettingsHistoryModal()" style="padding:9px 18px;border-radius:9px;border:1.5px solid var(--surface-2);background:none;font-size:13px;cursor:pointer">Close</button>
     </div>
   </div>
 </div>
