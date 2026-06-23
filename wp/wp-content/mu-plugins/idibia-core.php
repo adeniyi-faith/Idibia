@@ -11,7 +11,7 @@ add_action( 'init', 'idibia_maybe_create_tables' );
 
 function idibia_maybe_create_tables() {
     $current_version = (int) get_option( 'idibia_db_version', 0 );
-    $target_version = 21;
+    $target_version = 22;
 
     // Handle legacy v1/v2 options if they exist
     $has_v1 = (bool) get_option( 'idibia_tables_v1' );
@@ -632,6 +632,19 @@ function idibia_maybe_create_tables() {
             ADD COLUMN IF NOT EXISTS `wallet_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER `total_trips`" );
         update_option( 'idibia_db_version', 21 );
         $current_version = 21;
+    }
+
+    if ( $current_version < 22 ) {
+        global $wpdb;
+        // ADD COLUMN IF NOT EXISTS is MariaDB-only and silently fails on MySQL,
+        // so check explicitly before altering.
+        $cols = $wpdb->get_col( "SHOW COLUMNS FROM `{$wpdb->prefix}sd_ratings`", 0 );
+        if ( is_array( $cols ) && ! in_array( 'flagged', $cols, true ) ) {
+            $wpdb->query( "ALTER TABLE `{$wpdb->prefix}sd_ratings`
+                ADD COLUMN `flagged` TINYINT(1) NOT NULL DEFAULT 0 AFTER `comment`" );
+        }
+        update_option( 'idibia_db_version', 22 );
+        $current_version = 22;
     }
 }
 
