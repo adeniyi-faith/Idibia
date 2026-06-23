@@ -26,6 +26,7 @@
       <div class="form-group">
         <label class="form-label">Audience</label>
         <select class="form-input" id="bc-target-type" onchange="bcAudienceChanged()">
+          <option value="all_both">Everyone (Customers &amp; Drivers)</option>
           <option value="all_customers">All Customers</option>
           <option value="all_drivers">All Drivers</option>
           <option value="online_drivers">Online Drivers Only</option>
@@ -138,6 +139,7 @@
 
   function audienceLabel(type, value){
     var map = {
+      all_both:      'Everyone (Customers & Drivers)',
       all_customers: 'All Customers',
       all_drivers:   'All Drivers',
       online_drivers:'Online Drivers',

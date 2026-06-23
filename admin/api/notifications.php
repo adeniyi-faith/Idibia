@@ -14,7 +14,7 @@ function idibia_admin_send_broadcast(): void {
     $send_email   = ! empty( $body['send_email'] ?? $_POST['send_email'] ?? false );
     $scheduled_at = sanitize_text_field( $body['scheduled_at'] ?? $_POST['scheduled_at'] ?? '' );
 
-    $valid_targets = [ 'all_drivers', 'all_customers', 'online_drivers', 'vehicle_type', 'specific_ids' ];
+    $valid_targets = [ 'all_both', 'all_drivers', 'all_customers', 'online_drivers', 'vehicle_type', 'specific_ids' ];
     if ( ! $title || ! $msg || ! in_array( $target_type, $valid_targets, true ) ) {
         wp_send_json_error( [ 'message' => 'title, body and target_type are required.' ] );
     }
@@ -23,6 +23,13 @@ function idibia_admin_send_broadcast(): void {
     $recipients = [];
 
     switch ( $target_type ) {
+        case 'all_both':
+            $crows = $wpdb->get_results( "SELECT id FROM `{$wpdb->prefix}sd_customers` WHERE status = 'active'", ARRAY_A );
+            foreach ( $crows as $r ) $recipients[] = [ 'id' => (int) $r['id'], 'type' => 'customer' ];
+            $drows = $wpdb->get_results( "SELECT id FROM `{$wpdb->prefix}sd_drivers` WHERE status = 'active'", ARRAY_A );
+            foreach ( $drows as $r ) $recipients[] = [ 'id' => (int) $r['id'], 'type' => 'driver' ];
+            break;
+
         case 'all_customers':
             $rows = $wpdb->get_results( "SELECT id FROM `{$wpdb->prefix}sd_customers` WHERE status = 'active'", ARRAY_A );
             foreach ( $rows as $r ) $recipients[] = [ 'id' => (int) $r['id'], 'type' => 'customer' ];
