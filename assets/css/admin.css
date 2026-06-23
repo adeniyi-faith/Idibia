@@ -513,6 +513,16 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 .staff-stat-label{font-size:11px;color:var(--text-muted);font-weight:500;margin-bottom:6px;}
 .staff-stat-value{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary);}
 
+/* Hide table columns on mobile; show inline badges in user cell instead */
+@media(max-width:640px){
+  .hide-mobile{display:none !important;}
+  .staff-mobile-meta{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
+  .staff-actions{flex-wrap:wrap;}
+}
+@media(min-width:641px){
+  .staff-mobile-meta{display:none;}
+}
+
 /* PERMISSION TOGGLES IN SLIDE PANEL */
 .perm-category{margin-bottom:20px;}
 .perm-category-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--surface-2);}

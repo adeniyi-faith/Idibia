@@ -119,7 +119,7 @@ function idibia_admin_send_broadcast(): void {
 function idibia_admin_get_broadcasts(): void {
     global $wpdb;
     $rows = $wpdb->get_results(
-        "SELECT b.*, a.display_name AS sent_by_name
+        "SELECT b.*, a.full_name AS sent_by_name
          FROM `{$wpdb->prefix}sd_broadcasts` b
          LEFT JOIN `{$wpdb->prefix}sd_admin_users` a ON a.id = b.created_by
          ORDER BY b.created_at DESC

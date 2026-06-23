@@ -45,9 +45,9 @@
         <thead>
           <tr>
             <th>User</th>
-            <th>Role</th>
-            <th>Status</th>
-            <th>Last Login</th>
+            <th class="hide-mobile">Role</th>
+            <th class="hide-mobile">Status</th>
+            <th class="hide-mobile">Last Login</th>
             <th>Actions</th>
           </tr>
         </thead>
