@@ -109,6 +109,7 @@ try {
 
         case 'suspend_driver':
             idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'suspend_reinstate_driver' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_suspend_driver();
             break;
 
@@ -132,13 +133,13 @@ try {
 
         case 'suspend_customer':
             idibia_require_method( 'POST' );
-            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            if(!idibia_admin_has_permission('suspend_customer')){ wp_send_json_error(['message'=>'Denied.'],403); }
             idibia_admin_suspend_customer();
             break;
 
         case 'reinstate_customer':
             idibia_require_method( 'POST' );
-            if(!idibia_admin_has_permission('view_customers')){ wp_send_json_error(['message'=>'Denied.'],403); }
+            if(!idibia_admin_has_permission('suspend_customer')){ wp_send_json_error(['message'=>'Denied.'],403); }
             idibia_admin_reinstate_customer();
             break;
 
@@ -150,6 +151,7 @@ try {
 
         case 'get_live_ops':
             idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_live_map' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_live_ops();
             break;
 
@@ -266,16 +268,19 @@ try {
 
         case 'export_tax_summary':
             idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_export_tax_summary();
             break;
 
         case 'export_driver_wht':
             idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_export_driver_wht();
             break;
 
         case 'export_vat_schedule':
             idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_export_vat_schedule();
             break;
 
@@ -287,6 +292,7 @@ try {
 
         case 'get_reconciliation_data':
             idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_export_revenue' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_reconciliation_data();
             break;
 
@@ -304,6 +310,7 @@ try {
 
         case 'get_payment':
             idibia_require_method( 'GET' );
+            if ( ! idibia_admin_has_permission( 'view_payments' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             $payment_id = absint( $_GET['payment_id'] ?? 0 );
             $payment = $wpdb->get_row( $wpdb->prepare( "SELECT p.*, t.trip_ref, t.status AS trip_status, c.full_name AS customer_name FROM `{$wpdb->prefix}sd_payments` p LEFT JOIN `{$wpdb->prefix}sd_trips` t ON t.id = p.trip_id LEFT JOIN `{$wpdb->prefix}sd_customers` c ON c.id = p.customer_id WHERE p.id = %d LIMIT 1", $payment_id ), ARRAY_A );
             if ( $payment ) {
@@ -333,6 +340,7 @@ try {
 
         case 'admin_force_cancel_trip':
             idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'force_cancel_trip' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_force_cancel_trip();
             break;
 
@@ -534,6 +542,30 @@ try {
             idibia_require_method( 'POST' );
             if ( ! idibia_admin_has_permission( 'view_settings' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
             idibia_admin_force_drivers_offline();
+            break;
+
+        case 'create_driver_account':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'create_driver_accounts' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_create_driver_account();
+            break;
+
+        case 'edit_driver_details':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_driver_details' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_edit_driver_details();
+            break;
+
+        case 'create_customer_account':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'create_customer_accounts' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_create_customer_account();
+            break;
+
+        case 'edit_customer_details':
+            idibia_require_method( 'POST' );
+            if ( ! idibia_admin_has_permission( 'edit_customer_details' ) ) { wp_send_json_error( [ 'message' => 'Denied.' ], 403 ); }
+            idibia_admin_edit_customer_details();
             break;
 
         default:

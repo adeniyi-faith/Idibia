@@ -66,6 +66,137 @@ function idibia_admin_reinstate_customer(): void {
     wp_send_json_success( [ 'message' => 'Customer reinstated.' ] );
 }
 
+function idibia_admin_create_customer_account(): void {
+    global $wpdb, $admin_id;
+
+    $raw  = file_get_contents( 'php://input' );
+    $data = json_decode( $raw, true ) ?: [];
+
+    $full_name = sanitize_text_field( $data['full_name'] ?? '' );
+    $email     = sanitize_email( $data['email'] ?? '' );
+    $phone     = preg_replace( '/[\s\-()]/', '', sanitize_text_field( $data['phone'] ?? '' ) );
+    $password  = (string) ( $data['password'] ?? '' );
+
+    if ( strlen( $full_name ) < 2 ) {
+        wp_send_json_error( [ 'message' => 'Full name is required.' ], 400 );
+    }
+    if ( ! is_email( $email ) ) {
+        wp_send_json_error( [ 'message' => 'A valid email address is required.' ], 400 );
+    }
+    if ( ! $phone ) {
+        wp_send_json_error( [ 'message' => 'Phone number is required.' ], 400 );
+    }
+    if ( strlen( $password ) < 6 ) {
+        wp_send_json_error( [ 'message' => 'Password must be at least 6 characters.' ], 400 );
+    }
+
+    if ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_customers` WHERE email = %s LIMIT 1", $email ) ) ) {
+        wp_send_json_error( [ 'message' => 'A customer account with this email already exists.' ], 409 );
+    }
+
+    // Generate a unique referral code.
+    do {
+        $referral_code = strtoupper( substr( md5( $email . microtime() ), 0, 8 ) );
+    } while ( $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_customers` WHERE referral_code = %s LIMIT 1", $referral_code ) ) );
+
+    $password_hash = wp_hash_password( $password );
+    $inserted = $wpdb->insert(
+        $wpdb->prefix . 'sd_customers',
+        [
+            'full_name'      => $full_name,
+            'email'          => $email,
+            'phone'          => $phone,
+            'password_hash'  => $password_hash,
+            'email_verified' => 1,
+            'referral_code'  => $referral_code,
+            'status'         => 'active',
+            'created_at'     => gmdate( 'Y-m-d H:i:s' ),
+        ],
+        [ '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s' ]
+    );
+
+    if ( ! $inserted ) {
+        wp_send_json_error( [ 'message' => 'Could not create customer record.' ] );
+    }
+
+    $new_customer_id = (int) $wpdb->insert_id;
+
+    idibia_admin_audit_log( 'create_customer_account', 'customer', $new_customer_id, [
+        'created_by' => $admin_id,
+        'email'      => $email,
+        'phone'      => $phone,
+    ] );
+
+    wp_send_json_success( [ 'message' => 'Customer account created.', 'customer_id' => $new_customer_id ] );
+}
+
+function idibia_admin_edit_customer_details(): void {
+    global $wpdb, $admin_id;
+
+    $raw  = file_get_contents( 'php://input' );
+    $data = json_decode( $raw, true ) ?: [];
+
+    $customer_id = absint( $data['customer_id'] ?? 0 );
+    if ( ! $customer_id ) {
+        wp_send_json_error( [ 'message' => 'customer_id is required.' ], 400 );
+    }
+
+    $customer = $wpdb->get_row(
+        $wpdb->prepare( "SELECT * FROM `{$wpdb->prefix}sd_customers` WHERE id = %d LIMIT 1", $customer_id ),
+        ARRAY_A
+    );
+    if ( ! $customer ) {
+        wp_send_json_error( [ 'message' => 'Customer not found.' ], 404 );
+    }
+
+    $allowed_fields = [
+        'full_name' => '%s',
+        'phone'     => '%s',
+    ];
+
+    $update_data   = [];
+    $update_format = [];
+    $changed       = [];
+
+    foreach ( $allowed_fields as $field => $fmt ) {
+        if ( ! array_key_exists( $field, $data ) ) {
+            continue;
+        }
+        $new_val = sanitize_text_field( (string) $data[ $field ] );
+        if ( $new_val !== (string) ( $customer[ $field ] ?? '' ) ) {
+            $update_data[ $field ] = $new_val;
+            $update_format[]       = $fmt;
+            $changed[ $field ]     = [ 'from' => $customer[ $field ], 'to' => $new_val ];
+        }
+    }
+
+    if ( empty( $update_data ) ) {
+        wp_send_json_error( [ 'message' => 'No changes provided.' ], 400 );
+    }
+
+    $update_data['updated_at'] = gmdate( 'Y-m-d H:i:s' );
+    $update_format[]           = '%s';
+
+    $result = $wpdb->update(
+        $wpdb->prefix . 'sd_customers',
+        $update_data,
+        [ 'id' => $customer_id ],
+        $update_format,
+        [ '%d' ]
+    );
+
+    if ( false === $result ) {
+        wp_send_json_error( [ 'message' => 'Could not update customer.' ] );
+    }
+
+    idibia_admin_audit_log( 'edit_customer_details', 'customer', $customer_id, [
+        'edited_by' => $admin_id,
+        'changes'   => $changed,
+    ] );
+
+    wp_send_json_success( [ 'message' => 'Customer details updated.', 'changed' => array_keys( $changed ) ] );
+}
+
 // -------------------------------------------------------------------------
 // CUSTOMER DETAIL (admin)
 // -------------------------------------------------------------------------
