@@ -49,7 +49,8 @@ if ( ! $admin_id ) {
 }
 
 global $wpdb;
-$action = sanitize_key( $_POST['action'] ?? $_GET['action'] ?? '' );
+$_json_body  = json_decode( file_get_contents('php://input'), true ) ?: [];
+$action = sanitize_key( $_POST['action'] ?? $_GET['action'] ?? ( $_json_body['action'] ?? '' ) );
 
 try {
     switch ( $action ) {
