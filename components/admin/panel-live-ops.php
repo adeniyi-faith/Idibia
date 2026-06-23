@@ -3,7 +3,7 @@
     <div class="page-header"><h2 class="page-title">Live Operations</h2><div class="page-sub">Real-time trip tracking · Auto-refreshes every 15s</div></div>
     <div style="position:relative;margin-bottom:18px">
       <div id="opsLeafletMap" class="ops-map"></div>
-      <div class="map-legend" id="opsMapLegend" style="z-index:1000"><span style="color:var(--success)">●</span> Loading live operations…</div>
+      <div class="map-legend" id="opsMapLegend" style="z-index:800"><span style="color:var(--success)">●</span> Loading live operations…</div>
     </div>
     <div class="filter-row">
       <button class="filter-btn active" onclick="filterOps('all',this)">All</button>

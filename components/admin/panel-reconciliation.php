@@ -1,5 +1,5 @@
 <!-- RECONCILIATION -->
-  <div class="panel" id="panel-reconciliation" style="display:none;">
+  <div class="panel" id="panel-reconciliation">
     <div class="page-header"><h2 class="page-title">Reconciliation</h2><div class="page-sub">Finance payment verification</div></div>
 
     <div class="filter-row">
