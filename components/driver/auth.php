@@ -1,4 +1,4 @@
-<div class="screen <?php echo $driver_initial_context['is_approved'] ? '' : 'active'; ?>" id="screen-driver">
+<div class="screen <?php echo ($driver_initial_context['logged_in'] && !$driver_initial_context['is_approved']) ? 'active' : ''; ?>" id="screen-driver">
     <div class="driver-header" id="driverHeaderWrap">
       <div>
         <div style="font-size:11px;color:var(--slate);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;position:relative;z-index:1"><?php echo esc_html( __t('driver_registration') ); ?></div>
