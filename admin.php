@@ -108,7 +108,7 @@ if ( isset($_COOKIE['idibia_admin_auth']) ) {
     }
 }
 
-if ( ! $custom_admin_id && ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) ) {
+if ( ! $custom_admin_id ) {
     if ( ob_get_level() > 0 ) ob_end_flush();
     ?>
 <!DOCTYPE html>

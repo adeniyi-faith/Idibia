@@ -41,8 +41,8 @@ if ( isset($_COOKIE['idibia_admin_auth']) ) {
     }
 }
 
-// They must either have an admin_id from the secure cookie, or be a legacy WP admin
-if ( ! $admin_id && ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) ) {
+// They must have an admin_id from the secure cookie
+if ( ! $admin_id ) {
     http_response_code( 403 );
     wp_send_json_error( [ 'message' => 'Unauthorized access.' ] );
 }

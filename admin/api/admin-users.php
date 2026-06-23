@@ -31,11 +31,6 @@ function idibia_admin_get_my_permissions() {
     global $wpdb, $admin_id;
     $perms = [];
 
-    // Legacy WP admin bypass
-    if ( ! $admin_id && current_user_can('manage_options') ) {
-        wp_send_json_success( ['is_super' => true, 'permissions' => []] );
-    }
-
     if ( ! $admin_id ) {
         wp_send_json_error( ['message' => 'Not authenticated as admin'] );
     }

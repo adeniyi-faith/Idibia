@@ -1032,12 +1032,6 @@ function idibia_payment_public_payload( int $trip_id ): array {
 function idibia_admin_has_permission( string $permission, int $admin_id = 0 ): bool {
     global $wpdb;
 
-    // Special rule for system bootstrap: Legacy WP admins with 'manage_options' bypass all checks
-    // This ensures they can set up the first custom admin users.
-    if ( ! $admin_id && current_user_can('manage_options') && ! isset($_COOKIE['idibia_admin_auth']) ) {
-        return true;
-    }
-
     // If no specific admin_id passed, try to figure it out from cookie
     if ( ! $admin_id && isset($_COOKIE['idibia_admin_auth']) ) {
         $decoded = base64_decode($_COOKIE['idibia_admin_auth']);
