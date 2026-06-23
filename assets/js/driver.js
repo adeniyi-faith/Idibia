@@ -1,4 +1,55 @@
-// ===== ONBOARDING =====
+// ===== WELCOME ONBOARDING SLIDES =====
+let driverOnbSlide = 0;
+
+function driverOnbNext() {
+  const slides = document.getElementById('driverOnbSlides');
+  const dots   = document.querySelectorAll('.donb-dot');
+  const btnText = document.getElementById('driverOnbBtnText');
+  if (driverOnbSlide < 2) {
+    driverOnbSlide++;
+    slides.style.transform = `translateX(-${driverOnbSlide * 100}%)`;
+    dots.forEach((d, i) => d.classList.toggle('active', i === driverOnbSlide));
+    btnText.textContent = driverOnbSlide === 2 ? 'Get Started' : 'Next';
+  } else {
+    driverOnbSkip();
+  }
+}
+
+function driverOnbPrev() {
+  const slides  = document.getElementById('driverOnbSlides');
+  const dots    = document.querySelectorAll('.donb-dot');
+  const btnText = document.getElementById('driverOnbBtnText');
+  if (driverOnbSlide > 0) {
+    driverOnbSlide--;
+    slides.style.transform = `translateX(-${driverOnbSlide * 100}%)`;
+    dots.forEach((d, i) => d.classList.toggle('active', i === driverOnbSlide));
+    btnText.textContent = 'Next';
+  }
+}
+
+function driverOnbSkip() {
+  const onbScreen = document.getElementById('screen-driver-onboarding');
+  const regScreen = document.getElementById('screen-driver');
+  if (!onbScreen || !regScreen) return;
+  onbScreen.classList.remove('active');
+  onbScreen.classList.add('slide-out');
+  setTimeout(() => onbScreen.classList.remove('slide-out'), 400);
+  regScreen.classList.add('active');
+}
+
+(function initDriverOnboardingSwipe() {
+  const wrap = document.getElementById('driverOnbSlides');
+  if (!wrap) return;
+  let startX = 0;
+  wrap.addEventListener('touchstart', e => { startX = e.changedTouches[0].screenX; }, { passive: true });
+  wrap.addEventListener('touchend',   e => {
+    const diff = startX - e.changedTouches[0].screenX;
+    if (diff > 50)       driverOnbNext();
+    else if (diff < -50) driverOnbPrev();
+  }, { passive: true });
+})();
+
+// ===== APP STATE =====
 const driverInitialContext = window.driverInitialContext;
 const IDIBIA_PUSHER_CONFIG = window.idibiaPusherConfig;
 

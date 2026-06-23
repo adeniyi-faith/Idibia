@@ -145,7 +145,9 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <body>
 <div id="app">
 
-  <!-- ===== DRIVER ONBOARDING ===== -->
+  <!-- ===== DRIVER WELCOME ONBOARDING ===== -->
+  <?php require_once __DIR__ . '/components/driver/onboarding.php'; ?>
+  <!-- ===== DRIVER REGISTRATION ===== -->
   <?php require_once __DIR__ . '/components/driver/auth.php'; ?>
   <?php require_once __DIR__ . '/components/driver/main-app.php'; ?>
   <?php require_once __DIR__ . '/components/customer/modal-sos.php'; ?>
