@@ -77,6 +77,19 @@ function idibia_admin_get_customer_detail(): void {
         wp_send_json_error( [ 'message' => 'customer_id required.' ], 400 );
     }
 
+    // Guard for columns added in DB migrations 20/21 that may not exist yet.
+    $table   = $wpdb->prefix . 'sd_customers';
+    $columns = $wpdb->get_col( "SHOW COLUMNS FROM `$table`", 0 ) ?: [];
+    if ( ! in_array( 'rating', $columns, true ) ) {
+        $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `rating` DECIMAL(3,2) NOT NULL DEFAULT 0.00 AFTER `status`" );
+    }
+    if ( ! in_array( 'total_trips', $columns, true ) ) {
+        $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `total_trips` INT UNSIGNED NOT NULL DEFAULT 0" );
+    }
+    if ( ! in_array( 'wallet_balance', $columns, true ) ) {
+        $wpdb->query( "ALTER TABLE `$table` ADD COLUMN `wallet_balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00" );
+    }
+
     $customer = $wpdb->get_row(
         $wpdb->prepare(
             "SELECT id, full_name, email, phone, email_verified, status, wallet_balance, rating, total_trips, created_at

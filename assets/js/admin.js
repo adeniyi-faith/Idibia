@@ -1984,9 +1984,13 @@ async function loadKycPolicy(){
     policies.forEach(p => { byType[p.vehicle_type] = p; });
     let html = '';
     vtypes.forEach(vt => {
-      const p = byType[vt] || { required_documents: '[]', selfie_required: 1, min_age: 18 };
+      const p = byType[vt] || { required_documents: [], selfie_required: 1, min_age: 18 };
       let reqDocs = [];
-      try { reqDocs = JSON.parse(p.required_documents || '[]'); } catch(_) {}
+      if (Array.isArray(p.required_documents)) {
+        reqDocs = p.required_documents;
+      } else {
+        try { reqDocs = JSON.parse(p.required_documents || '[]'); } catch(_) {}
+      }
       html += `<div style="margin-bottom:16px;background:var(--surface);border-radius:10px;padding:14px 16px">`;
       html += `<div style="font-weight:700;font-size:13px;margin-bottom:12px">${vehicleIcon(vt)} ${escapeHtml(vlabels[vt])}</div>`;
       html += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;margin-bottom:12px">`;

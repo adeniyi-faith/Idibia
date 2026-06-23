@@ -89,7 +89,8 @@ function idibia_admin_get_kyc_policy(): void {
     $rows = $wpdb->get_results( "SELECT vehicle_type, required_documents, selfie_required, min_age FROM `$table`", ARRAY_A ) ?: [];
     $policies = [];
     foreach ( $rows as $row ) {
-        $policies[ $row['vehicle_type'] ] = [
+        $policies[] = [
+            'vehicle_type'       => $row['vehicle_type'],
             'required_documents' => json_decode( $row['required_documents'] ?? '[]', true ) ?: [],
             'selfie_required'    => (bool) $row['selfie_required'],
             'min_age'            => (int) $row['min_age'],
@@ -112,8 +113,14 @@ function idibia_admin_save_kyc_policy(): void {
     $table        = $wpdb->prefix . 'sd_kyc_policy';
     $valid_types  = [ 'bike', 'car', 'van', 'keke' ];
     $valid_docs   = [ 'government_id', 'drivers_license', 'vehicle_insurance', 'vehicle_registration', 'proof_of_ownership' ];
-    foreach ( $policies as $vehicle_type => $policy ) {
-        $vehicle_type = sanitize_key( $vehicle_type );
+    $saved_types  = [];
+    foreach ( $policies as $key => $policy ) {
+        // Accept both array-of-objects [{vehicle_type:'bike',...}] and associative {bike:{...}}.
+        if ( isset( $policy['vehicle_type'] ) ) {
+            $vehicle_type = sanitize_key( $policy['vehicle_type'] );
+        } else {
+            $vehicle_type = sanitize_key( (string) $key );
+        }
         if ( ! in_array( $vehicle_type, $valid_types, true ) ) continue;
         $docs = is_array( $policy['required_documents'] ?? null )
             ? array_values( array_filter( $policy['required_documents'], fn( $d ) => in_array( $d, $valid_docs, true ) ) )
@@ -126,8 +133,9 @@ function idibia_admin_save_kyc_policy(): void {
              ON DUPLICATE KEY UPDATE required_documents = VALUES(required_documents), selfie_required = VALUES(selfie_required), min_age = VALUES(min_age), updated_at = NOW()",
             $vehicle_type, wp_json_encode( $docs ), $selfie, $min_age
         ) );
+        $saved_types[] = $vehicle_type;
     }
-    idibia_admin_audit_log( 'save_kyc_policy', 'settings', 0, array_keys( $policies ) );
+    idibia_admin_audit_log( 'save_kyc_policy', 'settings', 0, $saved_types );
     wp_send_json_success( [ 'message' => 'KYC policy saved.' ] );
 }
 

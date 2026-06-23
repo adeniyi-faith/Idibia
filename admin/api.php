@@ -1,4 +1,5 @@
 <?php ob_start();
+ini_set( 'display_errors', '0' );
 /** Idibia — Admin API Router */
 
 require_once __DIR__ . '/../wp-auth-config.php';
