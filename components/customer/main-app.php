@@ -350,28 +350,38 @@
             <div class="stat-value"><?php echo esc_html($customer_rating); ?></div>
             <div class="stat-label">Rating</div>
           </div>
-          <div class="stat-card" onclick="openWalletPanel()" style="cursor:pointer">
-            <div class="stat-value">₦<?php echo esc_html($customer_wallet_balance); ?></div>
+          <div class="stat-card" onclick="openWalletPanel()" style="cursor:pointer;border-color:rgba(245,200,66,0.3);background:linear-gradient(135deg,#fffdf0 0%,var(--white) 100%)">
+            <div class="stat-value" style="color:var(--gold-dark)">₦<?php echo esc_html($customer_wallet_balance); ?></div>
             <div class="stat-label">Wallet</div>
           </div>
         </div>
 
-        <!-- Wallet Panel (shown when user taps the wallet stat) -->
-        <div id="walletPanel" style="display:none;margin:0 16px 16px">
-          <div class="account-card">
-            <div class="account-card-title" style="display:flex;justify-content:space-between;align-items:center">
-              <span>My Wallet</span>
-              <button onclick="closeWalletPanel()" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:18px;line-height:1">×</button>
+        <!-- Wallet Panel (always visible) -->
+        <div id="walletPanel" style="margin:0 16px 16px">
+          <!-- Dark premium wallet header -->
+          <div style="background:linear-gradient(135deg,var(--navy) 0%,#1a2a4a 100%);border-radius:16px 16px 0 0;padding:20px 20px 24px;border:1.5px solid rgba(245,200,66,0.15);border-bottom:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+              <div style="display:flex;align-items:center;gap:9px">
+                <div style="width:34px;height:34px;background:rgba(245,200,66,0.1);border:1px solid rgba(245,200,66,0.2);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" width="17" height="17"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                </div>
+                <span style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.55)">My Wallet</span>
+              </div>
+              <div style="background:rgba(34,196,122,0.12);border:1px solid rgba(34,196,122,0.25);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:#22c47a;letter-spacing:0.5px">ACTIVE</div>
             </div>
-            <div style="text-align:center;padding:12px 0 8px">
-              <div style="font-size:10px;color:var(--text-muted);letter-spacing:.6px;text-transform:uppercase">Balance</div>
-              <div id="walletBalanceDisplay" style="font-size:28px;font-weight:700;color:var(--primary)">₦<?php echo esc_html(number_format((float)$customer_wallet_balance, 2)); ?></div>
+            <div style="margin-bottom:20px">
+              <div style="font-size:11px;color:rgba(255,255,255,0.4);letter-spacing:0.6px;text-transform:uppercase;margin-bottom:6px">Available Balance</div>
+              <div id="walletBalanceDisplay" style="font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--white);letter-spacing:-1px;line-height:1.1">₦<?php echo esc_html(number_format((float)$customer_wallet_balance, 2)); ?></div>
             </div>
-            <button onclick="openTopUpModal()" class="btn-primary" style="width:100%;margin:8px 0 4px;padding:12px;border-radius:10px;font-size:14px;font-weight:600">
-              + Top Up Wallet
+            <button onclick="openTopUpModal()" style="width:100%;padding:14px;background:var(--gold);color:var(--navy);border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;box-sizing:border-box;transition:opacity 0.2s;" onmouseenter="this.style.opacity='0.88'" onmouseleave="this.style.opacity='1'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Top Up Wallet
             </button>
-            <div id="walletLedger" style="margin-top:12px">
-              <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px">RECENT TRANSACTIONS</div>
+          </div>
+          <!-- Transactions section on white background -->
+          <div style="background:var(--white);border:1.5px solid rgba(245,200,66,0.15);border-top:1px solid var(--surface-2);border-radius:0 0 16px 16px;padding:16px 20px;box-shadow:0 4px 20px rgba(11,22,40,0.08)">
+            <div id="walletLedger">
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Recent Transactions</div>
               <div id="walletLedgerList" style="font-size:13px;color:var(--text-secondary)">Loading...</div>
             </div>
           </div>

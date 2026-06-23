@@ -98,6 +98,15 @@
           <div class="t-step-info"><h4>Delivered</h4><p style="color:var(--text-muted)">Awaiting delivery confirmation</p></div>
         </div>
       </div>
+
+      <!-- Cancel Trip — shown by JS only for pre-pickup statuses -->
+      <div id="cancelBtnContainer" style="display:none;margin-top:18px;padding-top:18px;border-top:1px solid var(--surface-2)">
+        <p style="font-size:12px;color:var(--text-muted);text-align:center;margin:0 0 10px">Driver hasn't picked up yet? You can cancel below.</p>
+        <button onclick="cancelTrip()" class="trip-cancel-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Cancel Trip
+        </button>
+      </div>
     </div>
     <!-- Safety panel -->
     <div class="safety-panel">

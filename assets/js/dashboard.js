@@ -302,6 +302,9 @@ function switchTab(name, sideBtn, bnavId) {
   if (name === 'activity') {
     fetchActivityTrips();
   }
+  if (name === 'account') {
+    loadWalletData();
+  }
 }
 
 // ═══════════ PHOTON AUTOCOMPLETE ═══════════
@@ -2665,13 +2668,12 @@ async function openPreferencesModal() {
 async function openWalletPanel() {
   const panel = document.getElementById('walletPanel');
   if (!panel) return;
-  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   loadWalletData();
 }
 
 function closeWalletPanel() {
-  const panel = document.getElementById('walletPanel');
-  if (panel) panel.style.display = 'none';
+  // Panel is always visible; kept for compatibility.
 }
 
 async function loadWalletData() {
