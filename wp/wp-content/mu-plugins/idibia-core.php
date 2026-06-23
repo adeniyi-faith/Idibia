@@ -646,6 +646,31 @@ function idibia_maybe_create_tables() {
         update_option( 'idibia_db_version', 22 );
         $current_version = 22;
     }
+
+    if ( $current_version < 23 ) {
+        global $wpdb;
+        // Seed new user-management permissions into existing roles.
+        // Super Admin and Admin can create/edit driver and customer accounts.
+        // Moderator can edit details but not create.
+        $new_perms = [
+            'Super Admin' => [ 'create_driver_accounts', 'edit_driver_details', 'create_customer_accounts', 'edit_customer_details' ],
+            'Admin'       => [ 'create_driver_accounts', 'edit_driver_details', 'create_customer_accounts', 'edit_customer_details' ],
+            'Moderator'   => [ 'edit_driver_details', 'edit_customer_details' ],
+        ];
+        foreach ( $new_perms as $role_name => $perms ) {
+            $role_id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_roles` WHERE name = %s", $role_name ) );
+            if ( $role_id ) {
+                foreach ( $perms as $perm ) {
+                    $wpdb->query( $wpdb->prepare(
+                        "INSERT IGNORE INTO `{$wpdb->prefix}sd_role_permissions` (role_id, permission) VALUES (%d, %s)",
+                        $role_id, $perm
+                    ) );
+                }
+            }
+        }
+        update_option( 'idibia_db_version', 23 );
+        $current_version = 23;
+    }
 }
 
 function idibia_add_customer_rating_and_prefs_columns(): void {
