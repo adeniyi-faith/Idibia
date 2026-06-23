@@ -486,6 +486,21 @@ button{cursor:pointer;font-family:'DM Sans',sans-serif;}
 .form-hint{font-size:11px;color:var(--text-muted);margin-top:4px;}
 .btn-secondary{background:var(--surface);color:var(--text-primary);padding:10px 22px;border-radius:10px;border:1.5px solid var(--surface-2);font-size:13px;font-weight:600;transition:all 0.15s;cursor:pointer;}
 .btn-secondary:hover{background:var(--surface-2);}
+.btn-edit{background:rgba(120,200,120,0.12);color:#1a7a2e;}
+.btn-edit:hover{background:#1a7a2e;color:#fff;}
+/* Slide-panel section label */
+.slide-section-label{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.6px;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--surface-2);}
+/* Password input wrapper */
+.pw-input-wrap{position:relative;display:flex;align-items:center;}
+.pw-input-wrap .form-input{padding-right:38px;}
+.pw-toggle-btn{position:absolute;right:10px;background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:2px;display:flex;align-items:center;}
+.pw-toggle-btn:hover{color:var(--text-primary);}
+/* Required field star */
+.req-star{color:var(--danger);margin-left:1px;}
+/* Mobile: make slide panel full-screen on small viewports */
+@media(max-width:520px){.slide-panel{max-width:100%;border-radius:0;}}
+/* Slide-panel footer: stack on very small screens */
+@media(max-width:380px){.slide-panel-footer{flex-direction:column-reverse;}.slide-panel-footer .btn-secondary,.slide-panel-footer .btn-primary{width:100%;text-align:center;}}
 
 /* DATA TABLE */
 .data-table{width:100%;border-collapse:collapse;font-size:13px;}

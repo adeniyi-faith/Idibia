@@ -676,6 +676,8 @@ function renderPayoutItem(p){
 async function processPayout(id,status){ try{ const data=await adminApi('process_payout',{payout_id:id,status},'POST'); toast(data.message||'Payout updated'); loadPayouts(); }catch(e){ toast(e.message||'Could not update payout'); } }
 function releaseVisiblePayouts(){ showUnavailableFeature('Bulk payout release', 'Payout release is disabled until a real transfer provider or manual transfer reference flow is connected.'); }
 
+let _driverDataCache = {};
+
 async function loadDrivers(page=pageState.drivers.page){
   const st=pageState.drivers; st.page=page;
   const list=document.getElementById('driverDirectory'); if(!list) return;
@@ -683,6 +685,8 @@ async function loadDrivers(page=pageState.drivers.page){
   try{
     const data=await adminApi('get_drivers', st);
     const drivers=data.drivers||[];
+    _driverDataCache = {};
+    drivers.forEach(d => { _driverDataCache[Number(d.id)] = d; });
     document.getElementById('driversTotalCount').textContent=Number(data.total||0).toLocaleString();
     document.getElementById('driversOnlineCount').textContent=drivers.filter(d=>Number(d.is_online)===1).length.toLocaleString();
     document.getElementById('driversSuspendedCount').textContent=drivers.filter(d=>d.status==='suspended').length.toLocaleString();
@@ -698,7 +702,7 @@ function renderDriverDirectoryItem(driver){
   const checked = _selectedDriverIds.has(id) ? 'checked' : '';
   const textMeta = [vehicleLabel(driver.vehicle_type), driver.kyc_status ? 'KYC '+formatStatusLabel(driver.kyc_status) : null, Number(driver.is_online)===1?'Online':'Offline', (driver.rating?Number(driver.rating).toFixed(1)+'★':null), Number(driver.total_trips||0).toLocaleString()+' trips'].filter(Boolean).map(escapeHtml).join(' · ');
   const meta = vehicleIcon(driver.vehicle_type) + ' ' + textMeta;
-  return `<div class="list-item"><label style="display:flex;align-items:center;padding:0 8px 0 12px;cursor:pointer;flex-shrink:0"><input type="checkbox" class="driver-check" data-id="${id}" ${checked} onchange="toggleDriverSelect(${id},this.checked)" style="width:15px;height:15px;cursor:pointer"></label><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name||'Unnamed driver')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadDriverDetail(${id})">Profile</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendDriverFromDirectory(${id}, '${escapeHtml(driver.full_name||'Driver').replace(/'/g,'&#39;')}')">Suspend</button>`}</div></div>`;
+  return `<div class="list-item"><label style="display:flex;align-items:center;padding:0 8px 0 12px;cursor:pointer;flex-shrink:0"><input type="checkbox" class="driver-check" data-id="${id}" ${checked} onchange="toggleDriverSelect(${id},this.checked)" style="width:15px;height:15px;cursor:pointer"></label><div class="avatar" style="background:rgba(74,158,255,0.1);color:var(--info)">${escapeHtml(initials(driver.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(driver.full_name||'Unnamed driver')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadDriverDetail(${id})">Profile</button><button class="btn-sm btn-edit" onclick="editDriver(${id})">Edit</button>${status==='suspended'?'<span class="badge badge-danger">Suspended</span>':`<button class="btn-sm btn-suspend" onclick="suspendDriverFromDirectory(${id}, '${escapeHtml(driver.full_name||'Driver').replace(/'/g,'&#39;')}')">Suspend</button>`}</div></div>`;
 }
 async function suspendDriverFromDirectory(driverId, name){
   const reason = await showConfirmDialog({
@@ -735,6 +739,8 @@ function setDriverStatusFilter(value){
   loadDrivers(1);
 }
 
+let _customerDataCache = {};
+
 async function loadCustomers(page=pageState.customers.page){
   const st=pageState.customers; st.page=page;
   const list=document.getElementById('customerDirectory'); if(!list) return;
@@ -742,6 +748,8 @@ async function loadCustomers(page=pageState.customers.page){
   try{
     const data=await adminApi('get_customers', st);
     const customers=data.customers||[];
+    _customerDataCache = {};
+    customers.forEach(c => { _customerDataCache[Number(c.id)] = c; });
     document.getElementById('customersTotalCount').textContent=Number(data.total||0).toLocaleString();
     document.getElementById('customersVerifiedCount').textContent=customers.filter(c=>Number(c.email_verified)===1).length.toLocaleString();
     document.getElementById('customersSuspendedCount').textContent=customers.filter(c=>c.status==='suspended').length.toLocaleString();
@@ -756,7 +764,7 @@ function renderCustomerDirectoryItem(customer){
   const verified = Number(customer.email_verified)===1 ? 'Email verified' : 'Email pending';
   const meta = [customer.email||'No email', customer.phone||'No phone', verified, dateLabel(customer.created_at)].map(escapeHtml).join(' · ');
   const safeCustomerName = escapeHtml(customer.full_name || 'Customer').replace(/'/g,'&#39;');
-  return `<div class="list-item"><label style="display:flex;align-items:center;padding:0 8px 0 12px;cursor:pointer;flex-shrink:0"><input type="checkbox" class="customer-check" data-id="${id}" ${checked} onchange="toggleCustomerSelect(${id},this.checked)" style="width:15px;height:15px;cursor:pointer"></label><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadCustomerDetail(${id})">Profile</button><button class="btn-sm" onclick="openSubjectRatings('customer',${id},'${safeCustomerName}')">Ratings</button></div></div>`;
+  return `<div class="list-item"><label style="display:flex;align-items:center;padding:0 8px 0 12px;cursor:pointer;flex-shrink:0"><input type="checkbox" class="customer-check" data-id="${id}" ${checked} onchange="toggleCustomerSelect(${id},this.checked)" style="width:15px;height:15px;cursor:pointer"></label><div class="avatar" style="background:rgba(245,200,66,0.12);color:var(--gold-dark)">${escapeHtml(initials(customer.full_name))}</div><div class="item-info"><div class="item-name">${escapeHtml(customer.full_name||'Unnamed customer')} · ${escapeHtml(status)}</div><div class="item-meta">${meta}</div></div><div class="item-actions"><button class="btn-sm btn-view" onclick="loadCustomerDetail(${id})">Profile</button><button class="btn-sm btn-edit" onclick="editCustomer(${id})">Edit</button><button class="btn-sm" onclick="openSubjectRatings('customer',${id},'${safeCustomerName}')">Ratings</button></div></div>`;
 }
 function queueCustomerSearch(v){ clearTimeout(searchTimers.customers); searchTimers.customers=setTimeout(()=>{pageState.customers.search=v; loadCustomers(1);},300); }
 
@@ -1463,6 +1471,257 @@ function animateRiders(){
   });
 }
 setInterval(animateRiders,4000);
+
+// ── Password visibility toggle (shared across slide panels) ────────────────
+function togglePwVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const isText = input.type === 'text';
+  input.type = isText ? 'password' : 'text';
+  btn.querySelector('.eye-open').style.display  = isText ? '' : 'none';
+  btn.querySelector('.eye-closed').style.display = isText ? 'none' : '';
+  btn.setAttribute('aria-label', isText ? 'Show password' : 'Hide password');
+}
+
+// ── Driver Create / Edit slide panel ───────────────────────────────────────
+function _openDriverSlidePanelRaw() {
+  const panel = document.getElementById('driverSlidePanel');
+  const overlay = document.getElementById('driverSlidePanelOverlay');
+  if (!panel || !overlay) return;
+  panel.style.display = 'flex';
+  overlay.style.display = 'block';
+  requestAnimationFrame(() => { panel.classList.add('open'); overlay.classList.add('open'); });
+}
+
+function openDriverPanel() {
+  document.getElementById('driverEditId').value = '';
+  document.getElementById('driverFormFullName').value = '';
+  document.getElementById('driverFormEmail').value = '';
+  document.getElementById('driverFormPhone').value = '';
+  document.getElementById('driverFormPassword').value = '';
+  document.getElementById('driverFormVehicleType').value = 'bike';
+  document.getElementById('driverFormMiddleName').value = '';
+  document.getElementById('driverFormDob').value = '';
+  document.getElementById('driverFormGender').value = '';
+  document.getElementById('driverFormState').value = '';
+  document.getElementById('driverFormLanguage').value = 'English';
+  document.getElementById('driverFormEmailGroup').style.display = '';
+  document.getElementById('driverFormPasswordGroup').style.display = '';
+  document.getElementById('driverFormVehicleSection').style.display = 'none';
+  document.getElementById('driverFormBankSection').style.display = 'none';
+  document.getElementById('driverFormEmergencySection').style.display = 'none';
+  document.getElementById('driverSlideTitle').textContent = 'Add Driver Account';
+  document.getElementById('driverSlideSubtitle').textContent = 'Fill in the details below';
+  document.getElementById('driverSaveBtn').textContent = 'Add Driver';
+  _openDriverSlidePanelRaw();
+}
+
+function editDriver(driverId) {
+  const d = _driverDataCache[Number(driverId)];
+  if (!d) { toast('Refresh the driver list then try again.'); return; }
+  document.getElementById('driverEditId').value = d.id;
+  document.getElementById('driverFormFullName').value = d.full_name || '';
+  document.getElementById('driverFormEmail').value = d.email || '';
+  document.getElementById('driverFormPhone').value = d.phone || '';
+  document.getElementById('driverFormVehicleType').value = d.vehicle_type || 'bike';
+  document.getElementById('driverFormMiddleName').value = d.middle_name || '';
+  document.getElementById('driverFormDob').value = d.date_of_birth || '';
+  document.getElementById('driverFormGender').value = d.gender || '';
+  document.getElementById('driverFormState').value = d.state_of_origin || '';
+  document.getElementById('driverFormLanguage').value = d.language || 'English';
+  document.getElementById('driverFormVehicleModel').value = d.vehicle_model || '';
+  document.getElementById('driverFormVehicleYear').value = d.vehicle_year || '';
+  document.getElementById('driverFormVehiclePlate').value = d.vehicle_plate || '';
+  document.getElementById('driverFormVehicleColor').value = d.vehicle_color || '';
+  document.getElementById('driverFormBankName').value = d.bank_name || '';
+  document.getElementById('driverFormAccountHolder').value = d.account_holder_name || '';
+  document.getElementById('driverFormAccountNumber').value = d.account_number || '';
+  document.getElementById('driverFormEmergencyName').value = d.emergency_name || '';
+  document.getElementById('driverFormEmergencyRelationship').value = d.emergency_relationship || '';
+  document.getElementById('driverFormEmergencyPhone').value = d.emergency_phone || '';
+  document.getElementById('driverFormEmergencyAddress').value = d.emergency_address || '';
+  document.getElementById('driverFormEmailGroup').style.display = 'none';
+  document.getElementById('driverFormPasswordGroup').style.display = 'none';
+  document.getElementById('driverFormVehicleSection').style.display = '';
+  document.getElementById('driverFormBankSection').style.display = '';
+  document.getElementById('driverFormEmergencySection').style.display = '';
+  document.getElementById('driverSlideTitle').textContent = 'Edit ' + escapeHtml(d.full_name || 'Driver');
+  document.getElementById('driverSlideSubtitle').textContent = d.email || '';
+  document.getElementById('driverSaveBtn').textContent = 'Save Changes';
+  _openDriverSlidePanelRaw();
+}
+
+function closeDriverPanel() {
+  const panel = document.getElementById('driverSlidePanel');
+  const overlay = document.getElementById('driverSlidePanelOverlay');
+  if (!panel || !overlay) return;
+  panel.classList.remove('open'); overlay.classList.remove('open');
+  setTimeout(() => { panel.style.display = 'none'; overlay.style.display = 'none'; }, 300);
+}
+
+async function saveDriver(e) {
+  e.preventDefault();
+  const btn = document.getElementById('driverSaveBtn');
+  const origText = btn.textContent;
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  const driverId = document.getElementById('driverEditId').value;
+  const isEdit = !!driverId;
+  let payload, action;
+
+  if (isEdit) {
+    action = 'edit_driver_details';
+    payload = {
+      driver_id: Number(driverId),
+      full_name: document.getElementById('driverFormFullName').value.trim(),
+      phone: document.getElementById('driverFormPhone').value.trim(),
+      vehicle_type: document.getElementById('driverFormVehicleType').value,
+      vehicle_model: document.getElementById('driverFormVehicleModel').value.trim(),
+      vehicle_year: document.getElementById('driverFormVehicleYear').value.trim(),
+      vehicle_plate: document.getElementById('driverFormVehiclePlate').value.trim().toUpperCase(),
+      vehicle_color: document.getElementById('driverFormVehicleColor').value.trim(),
+      bank_name: document.getElementById('driverFormBankName').value.trim(),
+      account_holder_name: document.getElementById('driverFormAccountHolder').value.trim(),
+      account_number: document.getElementById('driverFormAccountNumber').value.trim(),
+      emergency_name: document.getElementById('driverFormEmergencyName').value.trim(),
+      emergency_relationship: document.getElementById('driverFormEmergencyRelationship').value.trim(),
+      emergency_phone: document.getElementById('driverFormEmergencyPhone').value.trim(),
+      emergency_address: document.getElementById('driverFormEmergencyAddress').value.trim(),
+    };
+  } else {
+    const fullName = document.getElementById('driverFormFullName').value.trim();
+    const email = document.getElementById('driverFormEmail').value.trim();
+    const phone = document.getElementById('driverFormPhone').value.trim();
+    const password = document.getElementById('driverFormPassword').value;
+    if (!fullName) { toast('Full name is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('A valid email address is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    if (!phone) { toast('Phone number is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    if (password.length < 6) { toast('Password must be at least 6 characters.'); btn.textContent = origText; btn.disabled = false; return; }
+    action = 'create_driver_account';
+    payload = {
+      full_name: fullName, email, phone, password,
+      vehicle_type: document.getElementById('driverFormVehicleType').value,
+      middle_name: document.getElementById('driverFormMiddleName').value.trim(),
+      date_of_birth: document.getElementById('driverFormDob').value,
+      gender: document.getElementById('driverFormGender').value,
+      state_of_origin: document.getElementById('driverFormState').value,
+      language: document.getElementById('driverFormLanguage').value,
+    };
+  }
+
+  try {
+    const res = await fetch(ADMIN_API_URL + '?action=' + action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.data?.message || 'Request failed.');
+    toast(json.data?.message || (isEdit ? 'Driver updated.' : 'Driver account created.'));
+    closeDriverPanel();
+    loadDrivers();
+  } catch (err) {
+    toast('Error: ' + err.message);
+  } finally {
+    btn.textContent = origText; btn.disabled = false;
+  }
+}
+
+// ── Customer Create / Edit slide panel ────────────────────────────────────
+function _openCustomerSlidePanelRaw() {
+  const panel = document.getElementById('customerSlidePanel');
+  const overlay = document.getElementById('customerSlidePanelOverlay');
+  if (!panel || !overlay) return;
+  panel.style.display = 'flex';
+  overlay.style.display = 'block';
+  requestAnimationFrame(() => { panel.classList.add('open'); overlay.classList.add('open'); });
+}
+
+function openCustomerPanel() {
+  document.getElementById('customerEditId').value = '';
+  document.getElementById('customerFormFullName').value = '';
+  document.getElementById('customerFormEmail').value = '';
+  document.getElementById('customerFormPhone').value = '';
+  document.getElementById('customerFormPassword').value = '';
+  document.getElementById('customerFormEmailGroup').style.display = '';
+  document.getElementById('customerFormPasswordGroup').style.display = '';
+  document.getElementById('customerSlideTitle').textContent = 'Add Customer Account';
+  document.getElementById('customerSlideSubtitle').textContent = 'Fill in the details below';
+  document.getElementById('customerSaveBtn').textContent = 'Add Customer';
+  _openCustomerSlidePanelRaw();
+}
+
+function editCustomer(customerId) {
+  const c = _customerDataCache[Number(customerId)];
+  if (!c) { toast('Refresh the customer list then try again.'); return; }
+  document.getElementById('customerEditId').value = c.id;
+  document.getElementById('customerFormFullName').value = c.full_name || '';
+  document.getElementById('customerFormEmail').value = c.email || '';
+  document.getElementById('customerFormPhone').value = c.phone || '';
+  document.getElementById('customerFormEmailGroup').style.display = 'none';
+  document.getElementById('customerFormPasswordGroup').style.display = 'none';
+  document.getElementById('customerSlideTitle').textContent = 'Edit ' + escapeHtml(c.full_name || 'Customer');
+  document.getElementById('customerSlideSubtitle').textContent = c.email || '';
+  document.getElementById('customerSaveBtn').textContent = 'Save Changes';
+  _openCustomerSlidePanelRaw();
+}
+
+function closeCustomerPanel() {
+  const panel = document.getElementById('customerSlidePanel');
+  const overlay = document.getElementById('customerSlidePanelOverlay');
+  if (!panel || !overlay) return;
+  panel.classList.remove('open'); overlay.classList.remove('open');
+  setTimeout(() => { panel.style.display = 'none'; overlay.style.display = 'none'; }, 300);
+}
+
+async function saveCustomer(e) {
+  e.preventDefault();
+  const btn = document.getElementById('customerSaveBtn');
+  const origText = btn.textContent;
+  btn.textContent = 'Saving…'; btn.disabled = true;
+
+  const customerId = document.getElementById('customerEditId').value;
+  const isEdit = !!customerId;
+  let payload, action;
+
+  if (isEdit) {
+    const fullName = document.getElementById('customerFormFullName').value.trim();
+    const phone = document.getElementById('customerFormPhone').value.trim();
+    if (!fullName) { toast('Full name is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    if (!phone) { toast('Phone number is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    action = 'edit_customer_details';
+    payload = { customer_id: Number(customerId), full_name: fullName, phone };
+  } else {
+    const fullName = document.getElementById('customerFormFullName').value.trim();
+    const email = document.getElementById('customerFormEmail').value.trim();
+    const phone = document.getElementById('customerFormPhone').value.trim();
+    const password = document.getElementById('customerFormPassword').value;
+    if (!fullName) { toast('Full name is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('A valid email address is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    if (!phone) { toast('Phone number is required.'); btn.textContent = origText; btn.disabled = false; return; }
+    if (password.length < 6) { toast('Password must be at least 6 characters.'); btn.textContent = origText; btn.disabled = false; return; }
+    action = 'create_customer_account';
+    payload = { full_name: fullName, email, phone, password };
+  }
+
+  try {
+    const res = await fetch(ADMIN_API_URL + '?action=' + action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.data?.message || 'Request failed.');
+    toast(json.data?.message || (isEdit ? 'Customer updated.' : 'Customer account created.'));
+    closeCustomerPanel();
+    loadCustomers();
+  } catch (err) {
+    toast('Error: ' + err.message);
+  } finally {
+    btn.textContent = origText; btn.disabled = false;
+  }
+}
 
 // --- ADMIN USERS (RBAC) ---
 
