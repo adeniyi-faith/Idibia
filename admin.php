@@ -53,26 +53,7 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
                 [ 'id' => $admin->id ]
             );
         } else {
-            // Fallback to legacy WP admin
-            $user = wp_signon( [
-                'user_login'    => idibia_find_user_login_by_identifier( $identifier ),
-                'user_password' => $password,
-                'remember'      => true,
-            ], is_ssl() );
-
-            if ( is_wp_error( $user ) ) {
-                wp_send_json_error( [ 'message' => 'Invalid admin login details.' ] );
-            }
-
-            idibia_finish_wordpress_login( $user );
-
-            if ( ! current_user_can( 'manage_options' ) ) {
-                wp_logout();
-                wp_send_json_error( [ 'message' => 'This account does not have admin access.' ] );
-            }
-
-            // Clear any custom admin cookie
-            setcookie('idibia_admin_auth', '', time() - 3600, '/', '', is_ssl(), true);
+            wp_send_json_error( [ 'message' => 'Invalid admin login details.' ] );
         }
 
         wp_send_json_success( [ 'redirect' => '/admin.php' ] );
@@ -104,7 +85,7 @@ if ( isset($_COOKIE['idibia_admin_auth']) ) {
     }
 }
 
-if ( ! $custom_admin_id && ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) ) {
+if ( ! $custom_admin_id ) {
     if ( ob_get_level() > 0 ) ob_end_flush();
     ?>
 <!DOCTYPE html>
