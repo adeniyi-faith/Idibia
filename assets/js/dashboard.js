@@ -905,7 +905,7 @@ async function submitSosReport() {
     const json = await idibiaPost('support-api.php', body);
     if (json.success) {
         showToast(json.data?.message || 'Safety report sent.');
-        closeModal('modal-sos');
+        closeModal(null, 'sos');
         if (descEl) descEl.value = '';
     } else {
         showToast(json.data?.message || 'Could not send safety report.');
@@ -2719,7 +2719,8 @@ async function savePreferences() {
 async function openPreferencesModal() {
   openModal('preferences');
   try {
-    const json = await idibiaPost('/preferences-api.php', new FormData(), { method: 'GET' });
+    const res = await fetch(IDIBIA_API_BASE + '/preferences-api.php', { credentials: 'same-origin' });
+    const json = await res.json();
     if (json.success && json.data?.preferences) {
       const prefs = json.data.preferences;
       const tripUpdatesEl = document.getElementById('pref_trip_updates');
