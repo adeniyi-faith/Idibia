@@ -68,9 +68,10 @@ if (loginForm) {
         return res;
       } catch (e) {
         if (e.message === 'Session expired — redirecting to login.') throw e;
-        // JSON parse failed or unexpected error — treat as authentication failure.
-        window.location.replace('/admin.php?session=expired');
-        throw new Error('Session expired — redirecting to login.');
+        // JSON parse failed — this is a server-level block (HTML 403 from Apache/Nginx),
+        // not an app auth failure. Return the response so callers can handle it gracefully
+        // rather than looping forever via window.location.replace.
+        return res;
       }
     }
     return res;
