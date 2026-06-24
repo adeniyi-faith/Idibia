@@ -732,11 +732,6 @@ function swapLocations() {
   showToast('Locations swapped');
 }
 
-function setSched(btn, mode) {
-  document.querySelectorAll('.sched-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
 function selCat(el, name) {
   document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
@@ -753,21 +748,6 @@ function toggleFlag(el) {
   const on = toggle.classList.contains('on');
   showToast(on ? `"${title}" enabled` : `"${title}" disabled`);
   updateOptionsLabel();
-}
-
-function findRider() {
-  const pickup = document.getElementById('pickupInput').value;
-  const dropoff = document.getElementById('dropoffInput').value;
-  if (!dropoff.trim()) {
-    showToast('Please enter a drop-off location');
-    document.getElementById('dropoffInput').focus();
-    return;
-  }
-  showToast('Searching for nearby riders...');
-  setTimeout(() => {
-    showToast('Amina K. is on the way! ETA: 4 min');
-    setTimeout(() => startLiveTracking(1), 1500);
-  }, 2000);
 }
 
 // ═══════════ ACTIVITY FILTERS ═══════════
@@ -976,7 +956,7 @@ function showPostTripModal(trip) {
   // Payment method label
   const payLabel = document.querySelector('#modal-post-trip .receipt-payment');
   if (payLabel) {
-    const method = payment.settings?.active_provider || record?.payment_method || 'payment';
+    const method = record?.payment_method || payment.settings?.active_provider || 'payment';
     const methodLabel = method === 'manual_transfer' ? 'bank transfer — payment verified' : method === 'card' ? 'card' : method;
     const textNode = payLabel.firstChild;
     if (textNode && textNode.nodeType === Node.TEXT_NODE) textNode.textContent = `Paid by ${methodLabel}`;
