@@ -264,7 +264,7 @@
               <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
             </div>
 
-            <div class="profile-row" onclick="showToast('Vehicle documents can only be updated via support at this time.')">
+            <div class="profile-row" onclick="showUnavailableFeature('Vehicle Documents', 'Can only be updated via support at this time.')">
               <div class="profile-row-left">
                 <div class="profile-row-icon" style="background:var(--gold-pale);color:var(--gold-dark)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><rect x="1" y="6" width="15" height="10" rx="2"/><polygon points="16 9 20 9 23 13 23 16 16 16 16 9"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>

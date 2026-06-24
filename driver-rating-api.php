@@ -11,19 +11,10 @@ if ( $_SERVER['REQUEST_METHOD'] !== 'POST' ) {
     wp_send_json_error( [ 'message' => 'Method not allowed.' ] );
 }
 
-if ( ! is_user_logged_in() ) {
-    http_response_code( 401 );
-    wp_send_json_error( [ 'message' => 'Unauthenticated.' ] );
-}
+$auth_type = 'driver';
+require_once __DIR__ . '/auth-helper.php';
 
-$user_id = get_current_user_id();
-$account_type = get_user_meta( $user_id, 'idibia_account_type', true );
-if ( $account_type !== 'driver' ) {
-    http_response_code( 403 );
-    wp_send_json_error( [ 'message' => 'Only drivers can use this endpoint.' ] );
-}
-
-$driver_id = idibia_find_or_create_profile_row( $user_id, 'driver' );
+$driver_id = (int) $GLOBALS['auth_driver_id'];
 $trip_id   = absint( $_POST['trip_id'] ?? 0 );
 $rating    = absint( $_POST['rating'] ?? 0 );
 $comment   = sanitize_textarea_field( wp_unslash( $_POST['comment'] ?? '' ) );
