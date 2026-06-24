@@ -82,6 +82,17 @@ function subscribeToDriverRealtime() {
     if (data?.event_type === 'dispatch_offers_created') showToast('New delivery request available');
     fetchDriverOffers();
   });
+  channel.bind('offer_expired', () => {
+    showToast('That offer has expired. Looking for new ones...');
+    fetchDriverOffers();
+  });
+  channel.bind('offer_accepted', () => {
+    showToast('Another driver accepted that offer.');
+    fetchDriverOffers();
+  });
+  channel.bind('offer_declined', () => {
+    fetchDriverOffers();
+  });
 }
 
 function setAppHeight() {
