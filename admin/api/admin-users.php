@@ -227,7 +227,7 @@ function idibia_admin_update_user() {
         WHERE u.id = %d
     ", $current_admin_id ) );
 
-    $is_current_super = ($current_admin && $current_admin->name === 'Super Admin') || current_user_can('manage_options');
+    $is_current_super = ($current_admin && $current_admin->name === 'Super Admin');
 
     if ( $target->role_name === 'Super Admin' && ! $is_current_super ) {
         wp_send_json_error( [ 'message' => 'Cannot modify a Super Admin account.' ], 403 );
@@ -317,7 +317,7 @@ function idibia_admin_delete_user() {
         JOIN `{$wpdb->prefix}sd_roles` r ON u.role_id = r.id
         WHERE u.id = %d
     ", $admin_id ) );
-    $is_current_super = ( $current_admin && $current_admin->name === 'Super Admin' ) || current_user_can('manage_options');
+    $is_current_super = ( $current_admin && $current_admin->name === 'Super Admin' );
 
     if ( $target->role_name === 'Super Admin' && ! $is_current_super ) {
         wp_send_json_error( [ 'message' => 'Cannot delete a Super Admin account.' ], 403 );
@@ -366,7 +366,7 @@ function idibia_admin_suspend_user() {
         JOIN `{$wpdb->prefix}sd_roles` r ON u.role_id = r.id
         WHERE u.id = %d
     ", $current_admin_id ) );
-    $is_current_super = ($current_admin && $current_admin->name === 'Super Admin') || current_user_can('manage_options');
+    $is_current_super = ($current_admin && $current_admin->name === 'Super Admin');
 
     if ( $target->role_name === 'Super Admin' && ! $is_current_super ) {
         wp_send_json_error( [ 'message' => 'Cannot suspend a Super Admin.' ], 403 );
