@@ -49,16 +49,29 @@ if (loginForm) {
 /* Admin App Script */
 
 // Intercept every fetch call to the admin API.
-// If the server says "403 Forbidden" (meaning the session expired or the
-// user has no admin rights), immediately send them back to the login page.
+// Only redirect to login on genuine authentication failures (no valid session).
+// Permission-denied 403s are returned to the caller to handle gracefully.
 (function () {
   const _origFetch = window.fetch.bind(window);
   window.fetch = async function (url, opts) {
     const res = await _origFetch(url, opts);
     if (res.status === 403 && String(url).includes('/admin/api')) {
-      window.location.replace('/admin.php?session=expired');
-      // Throw so callers don't try to parse the response
-      throw new Error('Session expired — redirecting to login.');
+      try {
+        const clone = res.clone();
+        const json = await clone.json();
+        const msg = (json && json.data && json.data.message) ? json.data.message : '';
+        if (msg === 'Unauthorized access.' || msg === 'Not authenticated as admin') {
+          window.location.replace('/admin.php?session=expired');
+          throw new Error('Session expired — redirecting to login.');
+        }
+        // Permission denied — return the original response so callers can handle it.
+        return res;
+      } catch (e) {
+        if (e.message === 'Session expired — redirecting to login.') throw e;
+        // JSON parse failed or unexpected error — treat as authentication failure.
+        window.location.replace('/admin.php?session=expired');
+        throw new Error('Session expired — redirecting to login.');
+      }
     }
     return res;
   };
@@ -543,11 +556,13 @@ async function kycDetailAction(action){
   closeKycDetail();
 }
 if (document.getElementById('app')) {
-  loadKycQueue('under_review');
-  loadDashboard();
-  loadTrips();
-  loadPayouts();
-  loadDisputes();
+  loadMyPermissions().then(() => {
+    if (iHavePermission('view_live_map')) loadDashboard();
+    if (iHavePermission('view_drivers') || iHavePermission('view_kyc') || iHavePermission('approve_reject_kyc')) loadKycQueue('under_review');
+    if (iHavePermission('view_trips')) loadTrips();
+    if (iHavePermission('execute_payouts') || iHavePermission('view_export_revenue')) loadPayouts();
+    if (iHavePermission('view_disputes')) loadDisputes();
+  });
 }
 
 
@@ -1737,6 +1752,10 @@ async function loadAdminUsers() {
     if (!tbody) return;
     tbody.innerHTML = skeletonTableRows(5,5);
 
+    await loadMyPermissions();
+    const canEditUsers         = iHavePermission('edit_admin_users');
+    const canSuspendDeleteUsers = iHavePermission('suspend_delete_admin_users');
+
     try {
         const res = await fetch(ADMIN_API_URL + '?action=list_admin_users');
         const json = await res.json();
@@ -1815,9 +1834,9 @@ async function loadAdminUsers() {
                 <td class="hide-mobile" style="font-size:12px;color:var(--text-secondary);">${lastLoginStr}</td>
                 <td>
                     <div class="td-actions staff-actions">
-                        <button class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick='editAdminUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Edit</button>
-                        ${!isSuperAdmin ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--${u.status==='active'?'danger':'success'});border-color:var(--${u.status==='active'?'danger':'success'});" onclick="toggleAdminUserStatus(${u.id}, '${u.status}')">${u.status === 'active' ? 'Suspend' : 'Activate'}</button>` : ''}
-                        ${!isSuperAdmin ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger);border-color:var(--danger);" onclick="deleteAdminUser(${u.id}, '${escapeHtml(u.full_name).replace(/'/g,"\\'")}')">Delete</button>` : ''}
+                        ${canEditUsers ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick='editAdminUser(${JSON.stringify(u).replace(/'/g, "&apos;")})'>Edit</button>` : ''}
+                        ${!isSuperAdmin && canSuspendDeleteUsers ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--${u.status==='active'?'danger':'success'});border-color:var(--${u.status==='active'?'danger':'success'});" onclick="toggleAdminUserStatus(${u.id}, '${u.status}')">${u.status === 'active' ? 'Suspend' : 'Activate'}</button>` : ''}
+                        ${!isSuperAdmin && canSuspendDeleteUsers ? `<button class="btn-secondary" style="padding:5px 12px;font-size:12px;color:var(--danger);border-color:var(--danger);" onclick="deleteAdminUser(${u.id}, '${escapeHtml(u.full_name).replace(/'/g,"\\'")}')">Delete</button>` : ''}
                     </div>
                 </td>
             </tr>`;

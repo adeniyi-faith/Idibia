@@ -151,6 +151,54 @@ if ( $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['action'] ) ) {
         wp_send_json_success( [ 'redirect' => '/admin.php' ] );
     }
 
+    if ( $action === 'admin_change_password' ) {
+        if ( ! isset( $_COOKIE['idibia_admin_auth'] ) ) {
+            wp_send_json_error( [ 'message' => 'Not authenticated.' ] );
+        }
+        $decoded = base64_decode( $_COOKIE['idibia_admin_auth'] );
+        $parts   = explode( '|', $decoded );
+        if ( count( $parts ) !== 2 ) {
+            wp_send_json_error( [ 'message' => 'Invalid session.' ] );
+        }
+        $hash = hash_hmac( 'sha256', $parts[0], wp_salt( 'auth' ) );
+        if ( ! hash_equals( $hash, $parts[1] ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session.' ] );
+        }
+        $payload = json_decode( $parts[0], true );
+        if ( ! $payload || ! isset( $payload['id'] ) ) {
+            wp_send_json_error( [ 'message' => 'Invalid session.' ] );
+        }
+        $uid          = (int) $payload['id'];
+        $new_password = (string) ( $_POST['new_password'] ?? '' );
+        $confirm      = (string) ( $_POST['confirm_password'] ?? '' );
+
+        if ( strlen( $new_password ) < 8 ) {
+            wp_send_json_error( [ 'message' => 'Password must be at least 8 characters.' ] );
+        }
+        if ( $new_password !== $confirm ) {
+            wp_send_json_error( [ 'message' => 'Passwords do not match.' ] );
+        }
+
+        global $wpdb;
+        $updated = $wpdb->update(
+            "{$wpdb->prefix}sd_admin_users",
+            [
+                'password_hash'        => wp_hash_password( $new_password ),
+                'force_password_change' => 0,
+                'updated_at'           => gmdate( 'Y-m-d H:i:s' ),
+            ],
+            [ 'id' => $uid ],
+            [ '%s', '%d', '%s' ],
+            [ '%d' ]
+        );
+
+        if ( $updated === false ) {
+            wp_send_json_error( [ 'message' => 'Failed to update password. Please try again.' ] );
+        }
+
+        wp_send_json_success( [ 'redirect' => '/admin.php' ] );
+    }
+
     wp_send_json_error( [ 'message' => 'Unknown action.' ] );
 }
 
@@ -166,6 +214,113 @@ if ( isset($_COOKIE['idibia_admin_auth']) ) {
                 $custom_admin_id = (int) $payload['id'];
             }
         }
+    }
+}
+
+// Validate the admin row and enforce forced password change
+if ( $custom_admin_id ) {
+    global $wpdb;
+    $admin_row = $wpdb->get_row( $wpdb->prepare(
+        "SELECT status, force_password_change FROM `{$wpdb->prefix}sd_admin_users` WHERE id = %d LIMIT 1",
+        $custom_admin_id
+    ) );
+
+    if ( ! $admin_row || $admin_row->status !== 'active' ) {
+        // Stale or suspended session — clear the cookie and redirect to login.
+        setcookie( 'idibia_admin_auth', '', [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'secure'   => is_ssl(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ] );
+        if ( ob_get_level() > 0 ) ob_end_flush();
+        header( 'Location: /admin.php' );
+        exit;
+    }
+
+    if ( ! empty( $admin_row->force_password_change ) ) {
+        if ( ob_get_level() > 0 ) ob_end_flush();
+        ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Idibia — Set Your Password</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/admin.css?v=<?php echo filemtime( __DIR__ . '/assets/css/admin.css' ); ?>">
+</head>
+<body class="admin-login-body">
+<form class="login-card" id="changePasswordForm" novalidate>
+  <div class="login-brand">
+    <div class="brand-badge">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+  </div>
+  <h1 class="login-title">Set Your Password</h1>
+  <p class="login-sub">Your account requires a new password before you can continue.</p>
+  <div class="err" id="changePwError"></div>
+  <div class="login-field">
+    <label for="newPassword">New Password</label>
+    <div class="pw-wrap">
+      <input id="newPassword" name="new_password" type="password" autocomplete="new-password" placeholder="At least 8 characters" required>
+      <button type="button" class="eye-btn" id="toggleNewPw" aria-label="Show password">
+        <svg class="eye-icon eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="eye-icon eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="login-field">
+    <label for="confirmPassword">Confirm Password</label>
+    <input id="confirmPassword" name="confirm_password" type="password" autocomplete="new-password" placeholder="Repeat your new password" required>
+  </div>
+  <button class="login-btn" id="changePwBtn">Update Password &amp; Continue</button>
+</form>
+<script>
+(function () {
+  document.getElementById('toggleNewPw').addEventListener('click', function () {
+    const input = document.getElementById('newPassword');
+    const show  = input.type === 'password';
+    input.type  = show ? 'text' : 'password';
+    this.querySelector('.eye-open').style.display  = show ? 'none' : '';
+    this.querySelector('.eye-closed').style.display = show ? '' : 'none';
+  });
+
+  document.getElementById('changePasswordForm').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const btn = document.getElementById('changePwBtn');
+    const err = document.getElementById('changePwError');
+    err.classList.remove('show');
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+    try {
+      const body = new FormData(this);
+      body.append('action', 'admin_change_password');
+      const res = await fetch(window.location.href, { method: 'POST', body, credentials: 'same-origin' });
+      const raw = await res.text();
+      let data;
+      try { data = JSON.parse(raw); } catch (ex) { throw new Error('Invalid server response'); }
+      if (data.success) {
+        window.location.href = data.data.redirect || '/admin.php';
+      } else {
+        err.textContent = data.data?.message || 'Failed to update password.';
+        err.classList.add('show');
+      }
+    } catch (ex) {
+      err.textContent = 'Could not reach the server. Please try again.';
+      err.classList.add('show');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Update Password & Continue';
+    }
+  });
+})();
+</script>
+</body>
+</html>
+        <?php exit;
     }
 }
 
