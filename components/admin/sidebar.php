@@ -41,6 +41,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
     Payouts
   </button>
+  <button class="nav-btn" onclick="nav('wallet-topups',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    Wallet Top-Ups <span class="nav-badge" id="topup-badge">0</span>
+  </button>
 
   <div class="nav-section-label" style="margin-top:8px">People</div>
   <button class="nav-btn" onclick="nav('drivers',this)">

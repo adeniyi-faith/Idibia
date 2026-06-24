@@ -383,12 +383,20 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Top Up Wallet
             </button>
+            <button onclick="openManualTopUpModal()" style="width:100%;margin-top:8px;padding:11px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.75);border:1px solid rgba(255,255,255,0.15);border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;box-sizing:border-box;transition:opacity 0.2s;" onmouseenter="this.style.opacity='0.7'" onmouseleave="this.style.opacity='1'">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Fund by Bank Transfer
+            </button>
           </div>
           <!-- Transactions section on white background -->
           <div style="background:var(--white);border:1.5px solid rgba(245,200,66,0.15);border-top:1px solid var(--surface-2);border-radius:0 0 16px 16px;padding:16px 20px;box-shadow:0 4px 20px rgba(11,22,40,0.08)">
             <div id="walletLedger">
               <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Recent Transactions</div>
               <div id="walletLedgerList" style="font-size:13px;color:var(--text-secondary)">Loading...</div>
+            </div>
+            <div id="topupRequestsSection" style="margin-top:14px;display:none">
+              <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Transfer Requests</div>
+              <div id="topupRequestsList" style="font-size:13px;color:var(--text-secondary)"></div>
             </div>
           </div>
         </div>
@@ -421,6 +429,68 @@
               Continue to Payment
             </button>
             <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">Funds appear in your wallet instantly after payment.</p>
+          </div>
+        </div>
+
+        <!-- Manual Bank Transfer Top-Up Modal -->
+        <div id="manualTopUpModal" onclick="if(event.target===this)closeManualTopUpModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-end;justify-content:center">
+          <div style="background:var(--white);border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;box-sizing:border-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <h3 style="font-size:16px;font-weight:700;margin:0;color:var(--text-primary)">Fund Wallet by Bank Transfer</h3>
+              <button onclick="closeManualTopUpModal()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text-secondary);line-height:1;padding:0">×</button>
+            </div>
+
+            <!-- Bank account box -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px">
+              <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-bottom:12px">Transfer to this account</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Bank</div>
+                  <div style="font-size:14px;font-weight:600;color:var(--text-primary)"><?php echo esc_html( $company_bank_name ); ?></div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Account Name</div>
+                  <div style="font-size:14px;font-weight:600;color:var(--text-primary)"><?php echo esc_html( $company_account_name ); ?></div>
+                </div>
+              </div>
+              <div style="margin-bottom:12px">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">Account Number</div>
+                <div id="manualTopupAcctNum" style="font-size:22px;font-weight:800;color:var(--primary);font-family:monospace;letter-spacing:3px"><?php echo esc_html( $company_account_number ); ?></div>
+              </div>
+              <button onclick="copyManualTopupAcctNum()" style="width:100%;padding:10px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-sizing:border-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy Account Number
+              </button>
+            </div>
+
+            <!-- Amount -->
+            <div style="margin-bottom:14px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Amount You Transferred (₦)</label>
+              <input id="manualTopupAmount" type="number" min="100" step="50" placeholder="e.g. 5000" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;font-size:15px;box-sizing:border-box;background:var(--surface);color:var(--text-primary)">
+            </div>
+
+            <!-- Bank reference -->
+            <div style="margin-bottom:14px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Bank Transfer Reference <span style="font-weight:400;text-transform:none">(optional)</span></label>
+              <input id="manualTopupRef" type="text" placeholder="e.g. TRF230012345" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;box-sizing:border-box;background:var(--surface);color:var(--text-primary)">
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px">The reference number shown in your bank app after the transfer.</div>
+            </div>
+
+            <!-- Receipt upload -->
+            <div style="margin-bottom:20px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Upload Transfer Receipt</label>
+              <label for="manualTopupProof" style="display:flex;flex-direction:column;align-items:center;padding:20px 16px;border:2px dashed var(--border);border-radius:10px;cursor:pointer;background:var(--surface);transition:border-color 0.2s;text-align:center" onmouseenter="this.style.borderColor='var(--primary)'" onmouseleave="this.style.borderColor='var(--border)'">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" width="28" height="28" style="margin-bottom:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <div id="manualTopupFileName" style="font-size:13px;font-weight:600;color:var(--text-secondary)">Tap to upload receipt</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Screenshot, photo, or PDF · max 8MB</div>
+              </label>
+              <input type="file" id="manualTopupProof" accept=".jpg,.jpeg,.png,.pdf" style="display:none" onchange="onTopupFileSelected(this)">
+            </div>
+
+            <button onclick="submitManualTopUp()" id="manualTopupSubmitBtn" style="width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;box-sizing:border-box">
+              Submit Top-Up Request
+            </button>
+            <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px">We'll review your receipt and credit your wallet — usually within a few hours.</p>
           </div>
         </div>
 

@@ -64,8 +64,8 @@ if (loginForm) {
   };
 })();
 
-const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',reconciliation:'Reconciliation',payouts:'Driver Payouts',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns',notifications:'Notifications',system:'System Health'};
-const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Real-time trip tracking',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',reconciliation:'Finance payment verification',payouts:'Earnings management',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history',system:'Live platform status · gateways · cron · dispatch pipeline'};
+const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',reconciliation:'Reconciliation',payouts:'Driver Payouts','wallet-topups':'Wallet Top-Ups',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns',notifications:'Notifications',system:'System Health'};
+const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Real-time trip tracking',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',reconciliation:'Finance payment verification',payouts:'Earnings management','wallet-topups':'Customer bank transfer funding requests — approve to credit wallets',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history',system:'Live platform status · gateways · cron · dispatch pipeline'};
 
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
@@ -89,6 +89,7 @@ function nav(name,btn){
   if(name === 'ops') loadLiveOps();
   if(name === 'trips') loadTrips();
   if(name === 'payouts') { loadPayouts(); loadManualPaymentsPayouts(); }
+  if(name === 'wallet-topups') loadWalletTopups(1);
   if(name === 'drivers') { driverPanelTab('drivers', document.getElementById('driverTabDrivers')); loadDrivers(); }
   if(name === 'customers') loadCustomers();
   if(name === 'disputes') loadDisputes();
@@ -112,7 +113,7 @@ let currentKycTab = 'under_review';
 let currentKycFilter = 'all';
 let kycDrivers = [];
 let kycUploadBaseUrl = '';
-const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:'', status:''}, customers:{page:1, per_page:10, search:''}, reconciliation:{page:1, per_page:10, search:'', status:'all', start_date:'', end_date:''} };
+const pageState = { trips:{page:1, per_page:10, search:'', status:'', category:''}, payouts:{page:1, per_page:10, search:'', status:'pending'}, disputes:{page:1, per_page:10, search:'', status:'all'}, drivers:{page:1, per_page:10, search:'', status:''}, customers:{page:1, per_page:10, search:''}, reconciliation:{page:1, per_page:10, search:'', status:'all', start_date:'', end_date:''}, walletTopups:{page:1, per_page:20} };
 let searchTimers = {};
 let currentDisputeId = 0;
 
@@ -3227,4 +3228,87 @@ function renderDemandHeatmap(zones) {
       <span class="badge" style="background:${color}20;color:${color};border:1px solid ${color}40;white-space:nowrap">${escapeHtml(z.demand_level.charAt(0).toUpperCase() + z.demand_level.slice(1))}</span>
     </div>`;
   }).join('');
+}
+
+// ── WALLET TOP-UPS ────────────────────────────────────────────────────────────
+
+let topupSearchTimer;
+function queueTopupSearch(v){ clearTimeout(topupSearchTimer); topupSearchTimer = setTimeout(()=>loadWalletTopups(1), 350); }
+
+async function loadWalletTopups(page=1){
+  pageState.walletTopups.page = page;
+  const list = document.getElementById('topupList');
+  if(!list) return;
+  list.innerHTML = skeletonRows(5);
+  const status = document.getElementById('topupStatus')?.value || 'pending';
+  const search = document.getElementById('topupSearch')?.value || '';
+  try {
+    const data = await adminApi('get_wallet_topups', { page, per_page:20, status, search });
+    const m = data.metrics || {};
+    const setEl = (id, val) => { const el=document.getElementById(id); if(el) el.textContent=val; };
+    setEl('topupPendingAmount',       formatMoney(m.pending_amount || 0));
+    setEl('topupPendingCount',        (m.pending_count||0) + ' request' + ((m.pending_count||0)===1?'':'s'));
+    setEl('topupApprovedTodayAmount', formatMoney(m.approved_today_amount || 0));
+    setEl('topupApprovedTodayCount',  (m.approved_today||0) + ' approved');
+    setEl('topupWeekAmount',          formatMoney(m.week_amount || 0));
+    setEl('topupRejectedCount',       m.rejected_count || 0);
+    const badge = document.getElementById('topup-badge');
+    if(badge) badge.textContent = m.pending_count || 0;
+    const requests = data.requests || [];
+    list.innerHTML = requests.length
+      ? requests.map(renderWalletTopupItem).join('')
+      : emptyState('🏦', 'No top-up requests', status==='pending' ? 'No pending transfer requests at the moment.' : 'No requests match the current filter.');
+    renderPagination('topupPagination', pageState.walletTopups, data.total, 'loadWalletTopups');
+  } catch(e) {
+    list.innerHTML = emptyState('⚠️', 'Could not load', escapeHtml(e.message));
+  }
+}
+
+function renderWalletTopupItem(r){
+  const statusColors = { pending:'badge-warn', approved:'badge-success', rejected:'badge-danger' };
+  const badge = `<span class="badge ${statusColors[r.status]||'badge-info'}" style="margin-left:4px">${escapeHtml(r.status)}</span>`;
+  const isPending = r.status === 'pending';
+  const proofBtn = r.proof_url
+    ? `<button onclick="viewProofImage('${escapeHtml(r.proof_url)}','Transfer Receipt — ${escapeHtml(r.customer_name||'')} ₦${Number(r.amount).toLocaleString()}')" style="background:none;border:none;padding:0;font-size:12px;color:var(--info);font-weight:700;cursor:pointer;text-decoration:underline;margin-top:4px;display:block">View Receipt</button>`
+    : '<span style="font-size:12px;color:var(--danger);margin-top:4px;display:block">No receipt uploaded</span>';
+  const noteHtml = r.admin_notes
+    ? `<div style="font-size:11px;color:var(--text-secondary);margin-top:4px;padding:4px 8px;background:var(--surface);border-radius:6px">Note: ${escapeHtml(r.admin_notes)}</div>`
+    : '';
+  return `<div class="list-item" style="align-items:flex-start">
+    <div class="avatar" style="background:rgba(34,196,122,0.1);color:#22c47a;font-size:14px;flex-shrink:0">₦</div>
+    <div class="item-info" style="flex:1;min-width:0">
+      <div class="item-name">${escapeHtml(r.customer_name||'Customer')} · ${formatMoney(r.amount)} ${badge}</div>
+      <div class="item-meta">${escapeHtml(r.customer_email||'')}${r.customer_phone?' · '+escapeHtml(r.customer_phone):''} · ${dateLabel(r.created_at)}</div>
+      <div class="item-meta" style="margin-top:2px">Bank ref: <strong>${escapeHtml(r.bank_ref||'—')}</strong></div>
+      ${proofBtn}${noteHtml}
+    </div>
+    <div class="item-actions" style="flex-shrink:0">
+      ${isPending ? `<button class="btn-sm btn-approve" onclick="reviewWalletTopup(${r.id},'approved')">Approve</button><button class="btn-sm btn-reject" onclick="reviewWalletTopup(${r.id},'rejected')">Reject</button>` : ''}
+    </div>
+  </div>`;
+}
+
+async function reviewWalletTopup(id, action){
+  if(action === 'rejected'){
+    const reason = await showConfirmDialog({
+      title: 'Reject Top-Up Request',
+      desc: 'Reject this top-up request? The customer will not receive wallet credit.',
+      reasonLabel: 'Reason for rejection (optional)',
+      reasonRequired: false,
+      confirmLabel: 'Reject Request',
+      confirmClass: 'danger',
+    });
+    if(reason === null) return;
+    try {
+      const data = await adminApi('review_wallet_topup', { request_id:id, review_action:'rejected', admin_notes:reason }, 'POST');
+      toast(data.message || 'Request rejected.');
+      loadWalletTopups(pageState.walletTopups.page);
+    } catch(e) { toast(e.message || 'Could not reject request.'); }
+  } else {
+    try {
+      const data = await adminApi('review_wallet_topup', { request_id:id, review_action:'approved', admin_notes:'' }, 'POST');
+      toast(data.message || 'Top-up approved!');
+      loadWalletTopups(pageState.walletTopups.page);
+    } catch(e) { toast(e.message || 'Could not approve top-up.'); }
+  }
 }
