@@ -352,7 +352,15 @@
             <div class="stat-label">Rating</div>
           </div>
           <div class="stat-card" onclick="openWalletPanel()" style="cursor:pointer;border-color:rgba(245,200,66,0.3);background:linear-gradient(135deg,#fffdf0 0%,var(--white) 100%)">
-            <div class="stat-value" style="color:var(--gold-dark)">₦<?php echo number_format($customer_wallet_balance, 2); ?></div>
+            <div class="stat-value" style="color:var(--gold-dark)"><?php
+              if ($customer_wallet_balance >= 1000000) {
+                  echo '₦' . rtrim(rtrim(number_format($customer_wallet_balance / 1000000, 1), '0'), '.') . 'M';
+              } elseif ($customer_wallet_balance >= 1000) {
+                  echo '₦' . rtrim(rtrim(number_format($customer_wallet_balance / 1000, 1), '0'), '.') . 'K';
+              } else {
+                  echo '₦' . number_format($customer_wallet_balance, 0);
+              }
+            ?></div>
             <div class="stat-label">Wallet</div>
           </div>
         </div>
