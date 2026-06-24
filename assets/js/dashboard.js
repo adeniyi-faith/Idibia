@@ -2920,3 +2920,105 @@ async function loadTopupRequests() {
     // Silent fail — section stays hidden
   }
 }
+
+// ═══════════ CUSTOMER NOTIFICATIONS ═══════════
+(function () {
+  let _notifOpen = false;
+
+  window.toggleNotifDropdown = function () {
+    const dd = document.getElementById('notifDropdown');
+    if (!dd) return;
+    _notifOpen = !_notifOpen;
+    dd.style.display = _notifOpen ? 'flex' : 'none';
+    if (_notifOpen) _fetchNotifications();
+    document.onclick = _notifOpen ? function (e) {
+      const desktopBtn = document.getElementById('notifBellBtn');
+      const mobileBtn  = document.getElementById('notifBellBtnMobile');
+      const insideBtn  = (desktopBtn && desktopBtn.contains(e.target)) || (mobileBtn && mobileBtn.contains(e.target));
+      if (!insideBtn && !dd.contains(e.target)) {
+        _notifOpen = false; dd.style.display = 'none'; document.onclick = null;
+      }
+    } : null;
+  };
+
+  function _renderNotifList(items) {
+    const el = document.getElementById('notifList');
+    if (!el) return;
+    if (!items.length) {
+      el.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:13px">No notifications yet.</div>';
+      return;
+    }
+    el.innerHTML = items.map(n => {
+      const d = document.createElement('div'); d.textContent = n.title; const title = d.innerHTML;
+      d.textContent = n.body; const body = d.innerHTML;
+      const bg = n.is_read ? 'transparent' : 'rgba(var(--primary-rgb,26,26,46),0.04)';
+      const fw = n.is_read ? '400' : '600';
+      const ts = n.created_at ? new Date(n.created_at.replace(' ', 'T')).toLocaleString() : '';
+      return `<div onclick="markNotifRead(${n.id})" style="padding:12px 16px;border-bottom:1px solid var(--surface-2);cursor:pointer;background:${bg}">
+        <div style="font-size:13px;font-weight:${fw};color:var(--text-primary)">${title}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${body}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${ts}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function _updateNotifBadge(count) {
+    const txt = count > 99 ? '99+' : String(count);
+    const b  = document.getElementById('notifBadge');
+    const bm = document.getElementById('notifBadgeMobile');
+    if (count > 0) {
+      if (b)  { b.textContent  = txt; b.style.display  = 'inline-block'; }
+      if (bm) { bm.textContent = txt; bm.style.display = 'inline-block'; }
+    } else {
+      if (b)  b.style.display  = 'none';
+      if (bm) bm.style.display = 'none';
+    }
+  }
+
+  function _fetchNotifications() {
+    const fd = new FormData();
+    fd.append('action', 'get_notifications');
+    fetch('/notifications-api.php', { method: 'POST', body: fd, credentials: 'include' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          _updateNotifBadge(d.data.unread_count);
+          if (_notifOpen) _renderNotifList(d.data.notifications);
+        }
+      })
+      .catch(() => {});
+  }
+
+  window.markNotifRead = function (id) {
+    const fd = new FormData();
+    fd.append('action', 'mark_read');
+    fd.append('notification_id', id);
+    fetch('/notifications-api.php', { method: 'POST', body: fd, credentials: 'include' })
+      .then(() => _fetchNotifications());
+  };
+
+  window.markAllNotifRead = function () {
+    const fd = new FormData();
+    fd.append('action', 'mark_read');
+    fd.append('notification_id', 'all');
+    fetch('/notifications-api.php', { method: 'POST', body: fd, credentials: 'include' })
+      .then(() => _fetchNotifications());
+  };
+
+  // Initial fetch + poll every 30 s to keep the badge fresh
+  _fetchNotifications();
+  setInterval(_fetchNotifications, 30000);
+
+  // Real-time: subscribe to private-customer-{id} for instant delivery via Pusher
+  const customerId = window.CURRENT_CUSTOMER_ID || 0;
+  if (customerId) {
+    const pusher = initIdibiaPusher();
+    if (pusher) {
+      const ch = pusher.subscribe('private-customer-' + customerId);
+      ch.bind('notification.new', data => {
+        _fetchNotifications();
+        if (data?.title) showToast(data.title + (data.body ? ': ' + data.body : ''));
+      });
+    }
+  }
+})();
