@@ -80,6 +80,8 @@ if (loginForm) {
 const panels={overview:'Platform Overview',kyc:'KYC Review Queue',ops:'Live Operations',trips:'Deliveries',revenue:'Revenue Analytics',reconciliation:'Reconciliation',payouts:'Driver Payouts','wallet-topups':'Wallet Top-Ups',drivers:'Drivers',customers:'Customers',disputes:'Disputes',ratings:'Ratings',settings:'Settings','admin-users':'Admin Users',campaigns:'Driver Campaigns',notifications:'Notifications',system:'System Health'};
 const subs={overview:'Live · '+new Date().toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'}),kyc:'Applications awaiting review',ops:'Real-time trip tracking',trips:'All trips and tracking',revenue:'Platform commission · monthly totals',reconciliation:'Finance payment verification',payouts:'Earnings management','wallet-topups':'Customer bank transfer funding requests — approve to credit wallets',drivers:'Driver records from database',customers:'Customer accounts from database',disputes:'Complaints & escalations',ratings:'All platform ratings — filter, flag, and remove abusive reviews',settings:'Platform configuration','admin-users':'Manage internal staff accounts, roles, and granular permissions',campaigns:'Create and monitor driver incentive challenges',notifications:'Compose broadcasts and view delivery history',system:'Live platform status · gateways · cron · dispatch pipeline'};
 
+let myPermissions = null;
+
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('open');
   document.querySelector('.sidebar-overlay').classList.toggle('open');
@@ -1913,8 +1915,6 @@ const allPermissions = [
     { key: 'edit_admin_users', label: 'Edit Admin Users' },
     { key: 'suspend_delete_admin_users', label: 'Suspend/Delete Admin Users' }
 ];
-
-let myPermissions = null;
 
 async function loadMyPermissions() {
     if (myPermissions) return; // already loaded

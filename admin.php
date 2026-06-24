@@ -478,6 +478,6 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <script>
 let ADMIN_API_URL = "/admin/api.php";
 </script>
-<script src="assets/js/admin.js?v=<?php echo filemtime( __DIR__ . '/assets/js/admin.js' ); ?>"></script>
+<script src="assets/js/admin.js?v=<?php echo filemtime( __DIR__ . '/assets/js/admin.js' ); ?>" defer></script>
 </body>
 </html>
