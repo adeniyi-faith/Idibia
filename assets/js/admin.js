@@ -557,7 +557,7 @@ async function kycDetailAction(action){
 }
 if (document.getElementById('app')) {
   loadMyPermissions().then(() => {
-    if (iHavePermission('view_live_map')) loadDashboard();
+    loadDashboard();
     if (iHavePermission('view_drivers') || iHavePermission('view_kyc') || iHavePermission('approve_reject_kyc')) loadKycQueue('under_review');
     if (iHavePermission('view_trips')) loadTrips();
     if (iHavePermission('execute_payouts') || iHavePermission('view_export_revenue')) loadPayouts();
