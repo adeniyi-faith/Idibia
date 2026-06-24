@@ -50,6 +50,7 @@ $vehicle_plate  = strtoupper( sanitize_text_field( wp_unslash( $_POST['vehicle_p
 $vehicle_model  = sanitize_text_field( wp_unslash( $_POST['vehicle_model'] ?? '' ) );
 $vehicle_year   = sanitize_text_field( wp_unslash( $_POST['vehicle_year'] ?? '' ) );
 $vehicle_color  = sanitize_text_field( wp_unslash( $_POST['vehicle_color'] ?? '' ) );
+$billing_type   = sanitize_text_field( wp_unslash( $_POST['billing_type'] ?? '' ) );
 $bank_name      = sanitize_text_field( wp_unslash( $_POST['bank_name'] ?? '' ) );
 $account_holder = sanitize_text_field( wp_unslash( $_POST['account_holder_name'] ?? '' ) );
 $account_number = preg_replace( '/\D+/', '', sanitize_text_field( wp_unslash( $_POST['account_number'] ?? '' ) ) );
@@ -101,6 +102,7 @@ $data = [
     'nin'                    => idibia_encrypt_sensitive( sanitize_text_field( wp_unslash( $_POST['nin'] ?? '' ) ) ),
     'bvn'                    => idibia_encrypt_sensitive( sanitize_text_field( wp_unslash( $_POST['bvn'] ?? '' ) ) ),
     'id_doc_type'            => sanitize_text_field( wp_unslash( $_POST['id_doc_type'] ?? 'license_nin' ) ),
+    'billing_type'           => $billing_type,
     'vehicle_type'           => $vehicle_type,
     'vehicle_year'           => $vehicle_year,
     'vehicle_plate'          => $vehicle_plate,
@@ -190,6 +192,7 @@ function idibia_ensure_driver_kyc_columns( string $table ): void {
     }
 
     $definitions = [
+        'billing_type'                => "VARCHAR(40) NULL",
         'id_doc_type'                 => "VARCHAR(40) NULL",
         'vehicle_year'                => "VARCHAR(4) NULL",
         'vehicle_color'               => "VARCHAR(40) NULL",

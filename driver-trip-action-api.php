@@ -74,6 +74,16 @@ if ( $action === 'accept_offer' ) {
     wp_send_json_success( [ 'message' => 'Trip accepted.', 'active_trip' => idibia_get_driver_active_trip( $driver_id ) ] );
 }
 
+if ( $action === 'log_event' ) {
+    if ( $trip_id <= 0 ) idibia_driver_action_fail( 'Trip ID is required.' );
+    $trip = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM `{$wpdb->prefix}sd_trips` WHERE id = %d AND driver_id = %d LIMIT 1", $trip_id, $driver_id ), ARRAY_A );
+    if ( ! $trip ) idibia_driver_action_fail( 'Trip not found.', 404 );
+    $event_name = sanitize_key( wp_unslash( $_POST['event_name'] ?? 'contact_customer' ) );
+    idibia_log_event( $trip_id, $event_name, [ 'driver_id' => $driver_id ] );
+    idibia_transaction_commit();
+    wp_send_json_success( [ 'message' => 'Event logged.' ] );
+}
+
 $allowed = [
     'start_to_pickup' => [ 'from' => [ 'accepted' ], 'to' => 'arriving', 'status' => 'accepted', 'event' => 'driver_en_route' ],
     'arrived_pickup'  => [ 'from' => [ 'accepted', 'arriving' ], 'to' => 'arrived_pickup', 'status' => 'accepted', 'event' => 'driver_arrived_pickup' ],
