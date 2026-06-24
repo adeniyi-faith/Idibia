@@ -316,7 +316,7 @@
             <div class="section-head" style="margin-top:28px;margin-bottom:8px">
               <div class="section-head-title"><?php echo esc_html( __t('help_support') ); ?></div>
             </div>
-            <div class="help-category" onclick="showToast('Opening: Payments & Earnings help')">
+            <div class="help-category" onclick="driverSupportRequest(0, 'payments_earnings')">
               <div class="help-cat-icon" style="background:rgba(34,196,122,0.1);color:var(--success)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
               </div>
@@ -326,7 +326,7 @@
               </div>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
             </div>
-            <div class="help-category" onclick="showToast('Opening: Trip issues help')">
+            <div class="help-category" onclick="driverSupportRequest(0, 'trip_delivery')">
               <div class="help-cat-icon" style="background:var(--info-pale);color:var(--info)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M9 20l-5.447-2.724A1 1 0 0 1 3 16.382V5.618a1 1 0 0 1 1.447-.894L9 7M9 20l6-3M9 20V7m6 13l4.553 2.276A1 1 0 0 0 21 21.382V10.618a1 1 0 0 0-.553-.894L15 7m0 13V7M9 7l6-3"/></svg>
               </div>
@@ -336,7 +336,7 @@
               </div>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
             </div>
-            <div class="help-category" onclick="showToast('Opening: Account & documents help')">
+            <div class="help-category" onclick="driverSupportRequest(0, 'account_documents')">
               <div class="help-cat-icon" style="background:var(--gold-pale);color:var(--gold-dark)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               </div>
@@ -346,7 +346,7 @@
               </div>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
             </div>
-            <div class="help-category" onclick="showToast('Opening: Safety & emergency help')">
+            <div class="help-category" onclick="driverSupportRequest(0, 'safety_emergency')">
               <div class="help-cat-icon" style="background:rgba(232,72,74,0.08);color:var(--danger)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               </div>

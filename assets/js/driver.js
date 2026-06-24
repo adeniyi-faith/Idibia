@@ -774,6 +774,7 @@ function renderActiveTrip(trip) {
         <div class="trq-secondary-row">
           <button class="trq-icon-btn" onclick="window.open('${navUrl}', '_blank')">${navIcon}<span>Navigate</span></button>
           <button class="trq-icon-btn" onclick="window.currentActiveTripId = ${trip.trip_id}; callTripCustomer('${encodeURIComponent(trip.customer?.phone || '')}')">${callIcon}<span>Contact</span></button>
+          <button class="trq-icon-btn" onclick="driverSupportRequest(${trip.trip_id}, 'driver_support')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>Support</span></button>
           <button class="trq-icon-btn danger" onclick="driverSafetyReport(${trip.trip_id})">${safetyIcon}<span>Safety</span></button>
         </div>
         ${nextAction ? `<button class="trq-accept trq-primary-full" onclick="driverTripAction('${nextAction[0]}', ${trip.trip_id})">${nextAction[1]}</button>` : ''}
