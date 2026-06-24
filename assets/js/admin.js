@@ -3012,11 +3012,11 @@ function renderLiveAlerts(alerts) {
     } else if (alert.trip_id) {
       actionBtn = `<button class="btn-sm btn-view" onclick="openTripDetailFromOps(${alert.trip_id})">View Trip</button>`;
     } else if (alert.ticket_id) {
-      actionBtn = `<button class="btn-sm btn-view" onclick="showPanel('support')">View Ticket</button>`;
+      actionBtn = `<button class="btn-sm btn-view" onclick="nav('disputes')">View Ticket</button>`;
     } else if (alert.dispute_id) {
-      actionBtn = `<button class="btn-sm btn-view" onclick="showPanel('disputes')">View Dispute</button>`;
+      actionBtn = `<button class="btn-sm btn-view" onclick="nav('disputes')">View Dispute</button>`;
     } else if (alert.payout_id) {
-      actionBtn = `<button class="btn-sm btn-view" onclick="showPanel('payouts')">View Payouts</button>`;
+      actionBtn = `<button class="btn-sm btn-view" onclick="nav('payouts')">View Payouts</button>`;
     }
 
     return `<div style="padding:10px 14px;border-bottom:1px solid var(--surface-2)">
@@ -3332,3 +3332,37 @@ async function reviewWalletTopup(id, action){
     } catch(e) { toast(e.message || 'Could not approve top-up.'); }
   }
 }
+
+// Real-time admin updates via Pusher
+(function initAdminPusher() {
+  const cfg = window.idibiaPusherConfig;
+  if (!cfg || !cfg.enabled || !cfg.key || typeof Pusher === 'undefined') return;
+
+  const pusher = new Pusher(cfg.key, {
+    cluster: cfg.cluster,
+    authEndpoint: cfg.authEndpoint || '/admin/pusher-auth.php',
+  });
+
+  const channel = pusher.subscribe('private-admin');
+
+  channel.bind('admin.data.updated', function(data) {
+    // Always refresh the live alerts feed for any platform event
+    if (typeof loadLiveAlerts === 'function') loadLiveAlerts();
+
+    // Also refresh the currently active panel if it's relevant
+    const activePanel = document.querySelector('.panel.active');
+    const panelId = activePanel ? activePanel.id : '';
+    const eventType = (data && data.event_type) || '';
+
+    if (panelId === 'panel-ops' && typeof loadLiveOps === 'function') {
+      loadLiveOps();
+    } else if (panelId === 'panel-trips' && typeof loadTrips === 'function' &&
+               (eventType.startsWith('trip_') || eventType === 'admin_status_correction')) {
+      loadTrips();
+    }
+  });
+
+  channel.bind('pusher:subscription_error', function() {
+    // Silently ignore — Pusher may not be configured in all environments
+  });
+})();

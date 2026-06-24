@@ -749,6 +749,21 @@ function idibia_pusher_broadcast_trip( int $trip_id, string $event_type, array $
     return idibia_pusher_trigger( [ idibia_pusher_trip_channel( $trip_id ) ], 'trip.updated', $payload );
 }
 
+function idibia_pusher_admin_channel(): string {
+    return 'private-admin';
+}
+
+/**
+ * Broadcasts a generic event to the shared admin channel so the dashboard can refresh in real time.
+ */
+function idibia_pusher_broadcast_admin( string $event_type, array $context = [] ): bool {
+    return idibia_pusher_trigger(
+        [ idibia_pusher_admin_channel() ],
+        'admin.data.updated',
+        array_merge( [ 'event_type' => $event_type, 'sent_at' => gmdate( 'c' ) ], $context )
+    );
+}
+
 /**
  * Broadcasts to drivers when their offer list or active trip may have changed.
  */

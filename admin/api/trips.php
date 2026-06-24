@@ -69,6 +69,9 @@ function idibia_admin_reassign_trip(): void {
     if ( function_exists('idibia_pusher_broadcast_trip') ) {
         idibia_pusher_broadcast_trip( $trip_id, 'trip_reassigned' );
     }
+    if ( function_exists('idibia_pusher_broadcast_admin') ) {
+        idibia_pusher_broadcast_admin( 'trip_reassigned', [ 'trip_id' => $trip_id ] );
+    }
 
     // Add Audit Log
     idibia_admin_audit_log( 'reassign_trip', 'trip', $trip_id, [ 'new_driver_id' => $driver_id ] );
@@ -133,6 +136,9 @@ function idibia_admin_force_cancel_trip(): void {
     // Broadcast trip change
     if ( function_exists('idibia_pusher_broadcast_trip') ) {
         idibia_pusher_broadcast_trip( $trip_id, 'trip_cancelled' );
+    }
+    if ( function_exists('idibia_pusher_broadcast_admin') ) {
+        idibia_pusher_broadcast_admin( 'trip_cancelled', [ 'trip_id' => $trip_id ] );
     }
 
     // Add Audit Log
@@ -257,6 +263,9 @@ function idibia_admin_correct_trip_status(): void {
 
     if ( function_exists( 'idibia_pusher_broadcast_trip' ) ) {
         idibia_pusher_broadcast_trip( $trip_id, 'admin_status_correction', [ 'reason' => $reason ] );
+    }
+    if ( function_exists( 'idibia_pusher_broadcast_admin' ) ) {
+        idibia_pusher_broadcast_admin( 'admin_status_correction', [ 'trip_id' => $trip_id ] );
     }
 
     idibia_transaction_commit();

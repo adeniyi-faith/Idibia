@@ -476,8 +476,12 @@ if ( ob_get_level() > 0 ) ob_end_flush();
 <?php require_once __DIR__ . '/components/admin/modals.php'; ?>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<?php $pusher_cfg = idibia_pusher_public_config(); if ( ! empty( $pusher_cfg['enabled'] ) ) : ?>
+<script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
+<?php endif; ?>
 <script>
 let ADMIN_API_URL = "/admin/api.php";
+window.idibiaPusherConfig = <?php echo wp_json_encode( ! empty( $pusher_cfg['enabled'] ) ? array_merge( $pusher_cfg, [ 'authEndpoint' => '/admin/pusher-auth.php' ] ) : null ); ?>;
 </script>
 <script src="assets/js/admin.js?v=<?php echo filemtime( __DIR__ . '/assets/js/admin.js' ); ?>" defer></script>
 </body>
