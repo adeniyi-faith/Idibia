@@ -108,7 +108,7 @@ function nav(name,btn){
   if(name === 'wallet-topups') loadWalletTopups(1);
   if(name === 'drivers') { driverPanelTab('drivers', document.getElementById('driverTabDrivers')); loadDrivers(); }
   if(name === 'customers') loadCustomers();
-  if(name === 'disputes') loadDisputes();
+  if(name === 'disputes') { loadDisputes(); loadAdminTickets(1); }
   if(name === 'settings') { loadPaymentSettings(); loadManualPayments(); loadKycPolicy(); }
   if(name === 'reconciliation') loadReconciliation();
   if(name === 'revenue') loadRevenue();
@@ -461,7 +461,7 @@ function closeProofModal(){
 }
 
 function updateKycBadge(){
-  document.getElementById('kyc-badge').textContent = kycCount;
+  const el=document.getElementById('kyc-badge'); el.textContent=kycCount; el.style.display=kycCount>0?'':'none';
   document.getElementById('kyc-pending-count').textContent = '(' + kycCount + ')';
 }
 function kycTab(tab,btn){
@@ -581,11 +581,11 @@ async function loadDashboard(){
     document.getElementById('overviewTripsDelta').textContent=(diff>=0?'↑ +':'↓ ')+diff.toLocaleString()+' vs yesterday';
     document.getElementById('overviewRevenueToday').textContent=formatMoney(data.revenue_today);
     document.getElementById('overviewKycPending').textContent=Number(data.kyc_pending||0).toLocaleString();
-    document.getElementById('kyc-badge').textContent=Number(data.kyc_pending||0).toLocaleString();
+    const kycBadgeEl=document.getElementById('kyc-badge'); const kycPending=Number(data.kyc_pending||0); kycBadgeEl.textContent=kycPending.toLocaleString(); kycBadgeEl.style.display=kycPending>0?'':'none';
     document.getElementById('overviewCompletionRate').textContent=Number(data.completion_rate||0).toFixed(1)+'%';
     document.getElementById('overviewAvgPickup').textContent=Number(data.avg_pickup_time||0).toFixed(1)+'m';
     document.getElementById('overviewOpenDisputes').textContent=Number(data.open_disputes||0).toLocaleString();
-    document.getElementById('dispute-badge').textContent=Number(data.open_disputes||0).toLocaleString();
+    const disputeBadgeEl=document.getElementById('dispute-badge'); const disputeTotal=Number(data.open_disputes||0)+Number(data.open_support_tickets||0); disputeBadgeEl.textContent=disputeTotal.toLocaleString(); disputeBadgeEl.style.display=disputeTotal>0?'':'none';
     document.getElementById('overviewEscalatedDisputes').textContent=Number(data.escalated_disputes||0).toLocaleString()+' escalated';
     document.getElementById('overviewSuspended').textContent=Number(data.suspended_drivers||0).toLocaleString();
     const trips=data.recent_trips||[];
@@ -2199,6 +2199,8 @@ async function loadAdminTickets(page) {
     document.getElementById('ticketOpenCount').textContent = Number(data.open_count || 0).toLocaleString();
     const badge = document.getElementById('ticketOpenBadge');
     if (badge) { badge.textContent = data.open_count || 0; badge.style.display = data.open_count > 0 ? '' : 'none'; }
+    const dBadge = document.getElementById('dispute-badge');
+    if (dBadge) { const dTotal = Number(data.open_count || 0) + Number(document.getElementById('disputeOpenCount')?.textContent?.replace(/,/g,'') || 0); dBadge.textContent = dTotal; dBadge.style.display = dTotal > 0 ? '' : 'none'; }
     list.innerHTML = rows.length ? rows.map(renderAdminTicketItem).join('') : '<div class="empty-state">No tickets match your filters.</div>';
     renderPagination('ticketPagination', ticketPageState, data.total, 'loadAdminTickets');
   } catch(e) {
@@ -3273,7 +3275,7 @@ async function loadWalletTopups(page=1){
     setEl('topupWeekAmount',          formatMoney(m.week_amount || 0));
     setEl('topupRejectedCount',       m.rejected_count || 0);
     const badge = document.getElementById('topup-badge');
-    if(badge) badge.textContent = m.pending_count || 0;
+    if(badge) { const cnt=m.pending_count||0; badge.textContent=cnt; badge.style.display=cnt>0?'':'none'; }
     const requests = data.requests || [];
     list.innerHTML = requests.length
       ? requests.map(renderWalletTopupItem).join('')
