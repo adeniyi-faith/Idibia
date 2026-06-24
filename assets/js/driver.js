@@ -547,6 +547,7 @@ function goToDashboard() {
     updateDriver();
     return;
   }
+  stopKycPolling();
   document.getElementById('screen-driver').classList.remove('active');
   document.getElementById('screen-driver-dash').classList.add('active');
   // Re-render from the now-hydrated context. On the SPA login path the dashboard
@@ -561,6 +562,7 @@ function goToDashboard() {
 // ===== DASHBOARD =====
 let isOnline = true;
 let currentTab = 'home';
+let _currentActiveTrip = null;
 
 async function toggleOnline() {
   if (!driverInitialContext.is_approved) {
@@ -593,7 +595,7 @@ async function toggleOnline() {
     toggle.setAttribute('aria-checked', isOnline ? 'true' : 'false');
     document.getElementById('onlineLabel').textContent = isOnline ? "Online" : "Offline";
     showToast(isOnline ? '✓ You are now online' : 'You are now offline');
-    if (isOnline) startLocationWatch(); else stopLocationWatch();
+    if (isOnline) { startLocationWatch(); startDriverStatsPolling(); } else { stopLocationWatch(); stopDriverStatsPolling(); }
     subscribeToDriverRealtime();
     fetchDriverOffers();
   } catch (err) {
@@ -697,6 +699,7 @@ function toggleDispatchSheet() {
 function renderDriverOffers(offers, activeTrip = null) {
   const container = document.getElementById('driverOfferContainer');
   if (!container) return;
+  _currentActiveTrip = activeTrip;
 
   if (activeTrip) {
     setDispatchState('active');
@@ -988,7 +991,14 @@ async function submitDeliveryPin() {
 
 async function driverTripAction(action, tripId) {
   if (action === 'complete') {
-    openDeliveryPinModal(tripId);
+    if (_currentActiveTrip?.delivery_pin_required) {
+      openDeliveryPinModal(tripId);
+    } else {
+      const body = new FormData();
+      body.append('action', 'complete');
+      body.append('trip_id', tripId);
+      await sendDriverTripAction(body);
+    }
     return;
   }
   const body = new FormData();
@@ -1949,6 +1959,7 @@ document.addEventListener('DOMContentLoaded', () => {
 async function doDriverLogout() {
   const btn = document.querySelector('button[onclick="doDriverLogout()"]');
   if (btn) btn.textContent = 'Logging out...';
+  stopDriverStatsPolling();
   try {
     const body = new FormData();
     await fetch("driver-logout-handler.php", { method: "POST", body });
@@ -1998,6 +2009,10 @@ async function fetchDriverStats() {
 function startDriverStatsPolling() {
   if (_driverStatsPollTimer) return;
   _driverStatsPollTimer = setInterval(fetchDriverStats, 30000);
+}
+
+function stopDriverStatsPolling() {
+  if (_driverStatsPollTimer) { clearInterval(_driverStatsPollTimer); _driverStatsPollTimer = null; }
 }
 
 async function saveDriverLanguage() {
