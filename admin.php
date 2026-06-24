@@ -468,6 +468,7 @@ if ( ob_get_level() > 0 ) ob_end_flush();
   <?php require_once __DIR__ . '/components/admin/panel-ratings.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-campaigns.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-notifications.php'; ?>
+  <?php require_once __DIR__ . '/components/admin/panel-audit-log.php'; ?>
   <?php require_once __DIR__ . '/components/admin/panel-system.php'; ?>
 
 </div><!-- /main -->
