@@ -32,6 +32,7 @@ function idibia_admin_dashboard_stats(): void {
         'completion_rate' => $finished_24h > 0 ? round( ( $completed_24h / $finished_24h ) * 100, 1 ) : 0,
         'avg_pickup_time' => round( $avg_pickup, 1 ),
         'open_disputes'   => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_disputes` WHERE status IN ('open','escalated')" ),
+        'open_support_tickets' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_support_tickets` WHERE status IN ('open','in_progress','escalated')" ),
         'escalated_disputes' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_disputes` WHERE status = 'escalated'" ),
         'suspended_drivers' => (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$wpdb->prefix}sd_drivers` WHERE status = 'suspended'" ),
         'recent_trips'    => $recent,
